@@ -2,13 +2,20 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { TouchControlsMode } from '~/game/types'
 
-export type TouchControlKey = 'left' | 'right' | 'jump' | 'dash'
+export type TouchControlKey = 'left' | 'right' | 'jump' | 'dash' | 'pulse' | 'aegis'
 
 const props = defineProps<{
   mode?: TouchControlsMode
   dashReady?: boolean
   dashCharge?: number
   isPaused?: boolean
+  isBossStage?: boolean
+  pulseReady?: boolean
+  pulseCharge?: number
+  aegisReady?: boolean
+  aegisCharge?: number
+  aegisActive?: boolean
+  cometChargeActive?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -44,7 +51,9 @@ const pressedState = ref<Record<TouchControlKey, boolean>>({
   left: false,
   right: false,
   jump: false,
-  dash: false
+  dash: false,
+  pulse: false,
+  aegis: false
 })
 
 function syncControl(control: TouchControlKey) {
@@ -112,7 +121,7 @@ function handleDpadPointerRelease(e: PointerEvent) {
   syncAllDirectional()
 }
 
-function handleActionPointerDown(control: 'jump' | 'dash', e: PointerEvent) {
+function handleActionPointerDown(control: 'jump' | 'dash' | 'pulse' | 'aegis', e: PointerEvent) {
   e.preventDefault()
   const target = e.currentTarget as HTMLElement | null
   if (target && target.setPointerCapture) {
@@ -143,7 +152,7 @@ function handlePausePointerDown(e: PointerEvent) {
 function releaseAll() {
   activePointers.clear()
   dpadPointerIds.clear()
-  for (const key of ['left', 'right', 'jump', 'dash'] as TouchControlKey[]) {
+  for (const key of ['left', 'right', 'jump', 'dash', 'pulse', 'aegis'] as TouchControlKey[]) {
     if (pressedState.value[key]) {
       pressedState.value[key] = false
       emit('input', key, false)
@@ -235,46 +244,104 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Bottom-Right: Dash (⚡) & Jump / Double Jump (▲) -->
-      <div class="touch-group touch-group--action" role="group" aria-label="Tombol Aksi">
-        <button
-          type="button"
-          class="touch-btn touch-btn--dash"
-          :class="{
-            'touch-btn--active': pressedState.dash,
-            'touch-btn--cooldown': dashReady === false
-          }"
-          aria-label="Dash Cepat"
-          @pointerdown="handleActionPointerDown('dash', $event)"
-          @pointerup="handleActionPointerRelease"
-          @pointercancel="handleActionPointerRelease"
-          @lostpointercapture="handleActionPointerRelease"
-          @contextmenu.prevent
-        >
-          <span class="touch-glyph" aria-hidden="true">⚡</span>
-          <span class="touch-label">DASH</span>
-          <span
-            v-if="dashReady === false"
-            class="dash-cd-bar"
-            :style="{ width: `${Math.round((dashCharge ?? 0) * 100)}%` }"
-            aria-hidden="true"
-          />
-        </button>
+      <!-- Bottom-Right: Boss Skills (✦ Pulse & ◈ Aegis in Levels 13–14) + Dash (⚡) & Jump (▲) -->
+      <div
+        class="touch-group touch-group--action"
+        :class="{ 'touch-group--boss-arc': isBossStage }"
+        role="group"
+        aria-label="Tombol Aksi"
+      >
+        <div v-if="isBossStage" class="boss-skill-row">
+          <button
+            type="button"
+            class="touch-btn touch-btn--pulse"
+            :class="{
+              'touch-btn--active': pressedState.pulse,
+              'touch-btn--cooldown': pulseReady === false,
+              'touch-btn--comet': cometChargeActive
+            }"
+            aria-label="Starlight Pulse"
+            @pointerdown="handleActionPointerDown('pulse', $event)"
+            @pointerup="handleActionPointerRelease"
+            @pointercancel="handleActionPointerRelease"
+            @lostpointercapture="handleActionPointerRelease"
+            @contextmenu.prevent
+          >
+            <span class="touch-glyph" aria-hidden="true">✦</span>
+            <span class="touch-label">PULSE</span>
+            <span
+              v-if="pulseReady === false"
+              class="dash-cd-bar"
+              :style="{ width: `${Math.round((pulseCharge ?? 0) * 100)}%` }"
+              aria-hidden="true"
+            />
+          </button>
 
-        <button
-          type="button"
-          class="touch-btn touch-btn--jump"
-          :class="{ 'touch-btn--active': pressedState.jump }"
-          aria-label="Lompat"
-          @pointerdown="handleActionPointerDown('jump', $event)"
-          @pointerup="handleActionPointerRelease"
-          @pointercancel="handleActionPointerRelease"
-          @lostpointercapture="handleActionPointerRelease"
-          @contextmenu.prevent
-        >
-          <span class="touch-glyph" aria-hidden="true">▲</span>
-          <span class="touch-label">LOMPAT</span>
-        </button>
+          <button
+            type="button"
+            class="touch-btn touch-btn--aegis"
+            :class="{
+              'touch-btn--active': pressedState.aegis || aegisActive,
+              'touch-btn--cooldown': aegisReady === false && !aegisActive
+            }"
+            aria-label="Astral Aegis"
+            @pointerdown="handleActionPointerDown('aegis', $event)"
+            @pointerup="handleActionPointerRelease"
+            @pointercancel="handleActionPointerRelease"
+            @lostpointercapture="handleActionPointerRelease"
+            @contextmenu.prevent
+          >
+            <span class="touch-glyph" aria-hidden="true">◈</span>
+            <span class="touch-label">AEGIS</span>
+            <span
+              v-if="aegisReady === false && !aegisActive"
+              class="dash-cd-bar"
+              :style="{ width: `${Math.round((aegisCharge ?? 0) * 100)}%` }"
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+
+        <div class="core-action-row">
+          <button
+            type="button"
+            class="touch-btn touch-btn--dash"
+            :class="{
+              'touch-btn--active': pressedState.dash,
+              'touch-btn--cooldown': dashReady === false
+            }"
+            aria-label="Dash Cepat"
+            @pointerdown="handleActionPointerDown('dash', $event)"
+            @pointerup="handleActionPointerRelease"
+            @pointercancel="handleActionPointerRelease"
+            @lostpointercapture="handleActionPointerRelease"
+            @contextmenu.prevent
+          >
+            <span class="touch-glyph" aria-hidden="true">⚡</span>
+            <span class="touch-label">DASH</span>
+            <span
+              v-if="dashReady === false"
+              class="dash-cd-bar"
+              :style="{ width: `${Math.round((dashCharge ?? 0) * 100)}%` }"
+              aria-hidden="true"
+            />
+          </button>
+
+          <button
+            type="button"
+            class="touch-btn touch-btn--jump"
+            :class="{ 'touch-btn--active': pressedState.jump }"
+            aria-label="Lompat"
+            @pointerdown="handleActionPointerDown('jump', $event)"
+            @pointerup="handleActionPointerRelease"
+            @pointercancel="handleActionPointerRelease"
+            @lostpointercapture="handleActionPointerRelease"
+            @contextmenu.prevent
+          >
+            <span class="touch-glyph" aria-hidden="true">▲</span>
+            <span class="touch-label">LOMPAT</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -394,6 +461,47 @@ onBeforeUnmount(() => {
   color: #ffe98a;
   background: rgba(94, 42, 108, 0.56);
   border-color: rgba(255, 179, 216, 0.85);
+}
+
+.touch-group--action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.boss-skill-row,
+.core-action-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.touch-btn--pulse {
+  min-width: 52px;
+  min-height: 52px;
+  width: 54px;
+  height: 54px;
+  color: #a8f4ff;
+  background: rgba(28, 62, 108, 0.68);
+  border-color: rgba(132, 232, 255, 0.9);
+}
+
+.touch-btn--comet {
+  border-color: #ffe466;
+  box-shadow:
+    0 0 0 2px rgba(18, 7, 32, 0.8),
+    0 0 14px rgba(255, 224, 102, 0.7);
+}
+
+.touch-btn--aegis {
+  min-width: 52px;
+  min-height: 52px;
+  width: 54px;
+  height: 54px;
+  color: #ffe894;
+  background: rgba(74, 34, 104, 0.68);
+  border-color: rgba(255, 214, 112, 0.88);
 }
 
 .touch-btn--cooldown {

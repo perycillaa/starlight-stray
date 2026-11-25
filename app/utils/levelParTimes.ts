@@ -18,18 +18,24 @@ export interface RankRewardGrant {
 }
 
 /**
- * Target speedrun par times per level in milliseconds.
+ * Target speedrun par times per level in milliseconds (calibrated for extended 1.5x stages + 2 endgame bosses).
  * Clearing slower than B still completes the level as Rank C.
  */
 export const LEVEL_PAR_TIMES: Record<number, LevelParTime> = {
-  1: { S: 38000, A: 48000, B: 62000 },
-  2: { S: 45000, A: 58000, B: 75000 },
-  3: { S: 52000, A: 66000, B: 85000 },
-  4: { S: 58000, A: 74000, B: 95000 },
-  5: { S: 65000, A: 82000, B: 105000 },
-  6: { S: 72000, A: 90000, B: 115000 },
-  7: { S: 78000, A: 98000, B: 125000 },
-  8: { S: 88000, A: 110000, B: 140000 }
+  1: { S: 65000, A: 85000, B: 110000 },
+  2: { S: 70000, A: 92000, B: 118000 },
+  3: { S: 75000, A: 98000, B: 126000 },
+  4: { S: 80000, A: 104000, B: 134000 },
+  5: { S: 84000, A: 108000, B: 140000 },
+  6: { S: 88000, A: 114000, B: 146000 },
+  7: { S: 92000, A: 118000, B: 150000 },
+  8: { S: 98000, A: 125000, B: 158000 },
+  9: { S: 102000, A: 128000, B: 162000 },
+  10: { S: 106000, A: 132000, B: 166000 },
+  11: { S: 110000, A: 136000, B: 170000 },
+  12: { S: 115000, A: 140000, B: 175000 },
+  13: { S: 95000, A: 125000, B: 160000 },
+  14: { S: 110000, A: 145000, B: 185000 }
 }
 
 /** One-time fish coin bonus per rank tier per level */

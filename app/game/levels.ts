@@ -1,4 +1,6 @@
+import { extendBaseLevel } from './levelExtensions'
 import type { LevelDefinition } from './types'
+import { EXPANSION_LEVELS } from './worldExpansion'
 
 const SKY_ROOFTOPS: [string, string, string, string, string] = [
   '#120a24',
@@ -39,7 +41,7 @@ const SKY_HARBOR: [string, string, string, string, string] = [
  *  - Level 5–6: Negeri Awan Pastel (Mini Storm Clouds, Swooping Crows, Moving Clouds, Secret Cloud Alcoves)
  *  - Level 7–8: Dermaga Lampion (Agile Pier Crabs, Lantern Wisps, Floating Wooden Boats, Secret Sails)
  */
-export const LEVELS: LevelDefinition[] = [
+const BASE_LEVELS: LevelDefinition[] = [
   // ==========================================================================
   // BIOME 1 — LEVEL 1: ATAP TENANG (2460 px • 3 Acts • 2 Checkpoints • 2 Secrets)
   // ==========================================================================
@@ -1072,4 +1074,15 @@ export const LEVELS: LevelDefinition[] = [
       { x: 3118, y: 114, mount: 'post' }
     ]
   }
+]
+
+/**
+ * Complete 14-Level World Roster:
+ * - Levels 1–8: Extended (~1.5x) across Biomes 1–4 (Rooftops, Sakura, Cloudland, Harbor)
+ * - Levels 9–12: New Biomes 5–6 (Crystal Mushroom Cavern & Clockwork Observatory)
+ * - Levels 13–14: Unlockable Secret Finale Boss Stages (Eclipse Sanctum & Astral Core Citadel)
+ */
+export const LEVELS: LevelDefinition[] = [
+  ...BASE_LEVELS.map(extendBaseLevel),
+  ...EXPANSION_LEVELS
 ]

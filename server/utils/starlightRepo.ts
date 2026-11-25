@@ -103,8 +103,8 @@ export async function upsertFullPlayerState(params: {
   const fishCoins = Math.max(0, Math.floor(Number(save.fishBank ?? save.fishCoins) || 0))
   const totalFishEarned = Math.max(fishCoins, Math.floor(Number(save.totalFishEarned) || 0))
   const highScore = Math.max(0, Math.floor(Number(save.highScore) || 0))
-  const unlockedLevel = Math.max(1, Math.min(8, Math.floor(Number(save.unlockedLevel) || 1)))
-  const lastPlayedLevel = Math.max(1, Math.min(8, Math.floor(Number(save.lastPlayedLevel) || 1)))
+  const unlockedLevel = Math.max(1, Math.min(14, Math.floor(Number(save.unlockedLevel) || 1)))
+  const lastPlayedLevel = Math.max(1, Math.min(14, Math.floor(Number(save.lastPlayedLevel) || 1)))
   const graphicsStyle = save.graphicsStyle === 'classic' ? 'classic' : 'modern'
   const homeBackdropMode = String(save.homeBackdropMode || 'auto').slice(0, 16)
   const reduceMotion = save.reduceMotion === false ? 0 : 1
@@ -197,7 +197,7 @@ export async function upsertFullPlayerState(params: {
     const timeTrials = (save.timeTrials ?? {}) as Record<string, Record<string, unknown>>
 
     let totalShardsCount = 0
-    for (let lvl = 1; lvl <= 8; lvl++) {
+    for (let lvl = 1; lvl <= 14; lvl++) {
       const key = String(lvl)
       const rec = levelRecords[key] ?? {}
       const bestScore = Math.max(
@@ -290,6 +290,8 @@ export async function upsertFullPlayerState(params: {
     addItems('scarf', save.ownedScarves, selectedScarf, 'pink')
     addItems('hat', save.ownedHats, selectedHat, 'none')
     addItems('cape', save.ownedCapes, selectedCape, 'none')
+    addItems('head_acc', save.ownedHeadAccs, String(save.selectedHeadAcc || 'none'), 'none')
+    addItems('face', save.ownedFaceAccs, String(save.selectedFaceAcc || 'none'), 'none')
 
     await conn.execute(`DELETE FROM \`${db}\`.player_inventory WHERE player_id = ?`, [
       params.playerId

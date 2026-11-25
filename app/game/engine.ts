@@ -1,15 +1,20 @@
 import { BIOMES } from './achievements'
 import { RetroAudioEngine } from './audio'
+import { BossEncounterController } from './bosses'
 import {
   BIOME_SHARD_REWARDS,
   CHARACTERS,
   getCapeById,
   getCharacterById,
   getCharacterMissionProgress,
+  getFaceAccById,
   getHatById,
+  getHeadAccById,
   getScarfById
 } from './characters'
 import {
+  ALL_DAILY_BONUS_FISH,
+  createDailyMissionsForToday,
   createDailyQuestForToday,
   evaluateTimeTrialMedal,
   getDailyQuestDef,
@@ -17,7 +22,11 @@ import {
   getTimeTrialTargets,
   rankMedal
 } from './dailyQuest'
-import { countBiomeCollectedShards, evaluateStampAchievements } from '~/composables/useAchievements'
+import {
+  countBiomeCollectedShards,
+  countRankSLevels,
+  evaluateStampAchievements
+} from '~/composables/useAchievements'
 import { calculateSpeedrunRank, claimSpeedrunRankRewards, rankOrder } from '~/utils/levelParTimes'
 import { LEVELS } from './levels'
 import { drawPixelText, measurePixelText } from './pixelFont'
@@ -28,6 +37,7 @@ import {
   type SpriteBank
 } from './sprites'
 import {
+  MAIN_LEVEL_COUNT,
   clearStoredGameData,
   createDefaultSave,
   exportProgressCode,
@@ -40,6 +50,7 @@ import {
 import type {
   AchievementId,
   AmbientCritter,
+  ArenaBattleItemKind,
   AudioSettings,
   BiomeCosmeticJumpKind,
   BiomeId,
@@ -53,27 +64,34 @@ import type {
   CrowState,
   DailyQuestId,
   DashAfterimage,
+  FaceAccId,
   FallingEventStar,
   FloatingBoatState,
   FloatingText,
   FragileBranchState,
   GameScreen,
+  GearPlatformState,
+  GlowMushroomState,
   GraphicsStyle,
   HatId,
+  HeadAccId,
   HedgehogState,
   HomeBackdropMode,
   HudSnapshot,
   InputState,
   LanternState,
   LevelDefinition,
+  MainBiomeId,
   MovingPlatformState,
   NightEventKind,
   Particle,
+  PhasingCloudState,
   PhotoModePose,
   PlatformStyle,
   PlayerState,
   PowerUpState,
   PowerWireState,
+  ProximityCrystalState,
   RankRewardBreakdownItem,
   SaveProgress,
   ScarfColorId,
@@ -84,6 +102,7 @@ import type {
   StarRingStar,
   SteamVentState,
   StormCloudState,
+  SwingingPerchState,
   SwoopCrowState,
   TimeTrialMedal,
   ToastNotice,
@@ -240,6 +259,15 @@ export class MoonpawGameEngine {
   private fragileBranches: FragileBranchState[] = []
   private floatingBoats: FloatingBoatState[] = []
   private standingBoatIdx = -1
+  private phasingClouds: PhasingCloudState[] = []
+  private swingingPerches: SwingingPerchState[] = []
+  private standingPerchIdx = -1
+  private glowMushrooms: GlowMushroomState[] = []
+  private proximityCrystals: ProximityCrystalState[] = []
+  private gearPlatforms: GearPlatformState[] = []
+  private standingGearIdx = -1
+  private bossController: BossEncounterController | null = null
+  private bossWindPushX = 0
   private secretAlcoves: SecretAlcoveState[] = []
   private starComboCount = 0
   private starComboTimer = 0
@@ -286,19 +314,27 @@ export class MoonpawGameEngine {
   private keyRight = false
   private keyJump = false
   private keyDash = false
+  private keyPulse = false
+  private keyAegis = false
   private touchLeft = false
   private touchRight = false
   private touchJump = false
   private touchDash = false
+  private touchPulse = false
+  private touchAegis = false
   private prevJumpHeld = false
   private prevDashHeld = false
+  private prevPulseHeld = false
+  private prevAegisHeld = false
   private input: InputState = {
     left: false,
     right: false,
     jumpHeld: false,
     jumpJustPressed: false,
     dashHeld: false,
-    dashJustPressed: false
+    dashJustPressed: false,
+    pulseJustPressed: false,
+    aegisJustPressed: false
   }
 
   private autoSavePulse = 0
@@ -560,7 +596,9 @@ export class MoonpawGameEngine {
       this.progress.selectedScarf,
       this.progress.selectedHat,
       this.progress.selectedCape,
-      this.progress.graphicsStyle
+      this.progress.graphicsStyle,
+      this.progress.selectedHeadAcc,
+      this.progress.selectedFaceAcc
     )
     this.prepareCampFriends()
     if (this.screen === 'victory') {
@@ -624,30 +662,83 @@ export class MoonpawGameEngine {
     ]
   }
 
+  private triggerBespokeCampParticles(charId: CharacterId, cx: number, cy: number): 'hop' | 'love' | 'nap' {
+    this.audio.playCampCharacterVoice(charId)
+    const calm = this.progress.reduceMotion
+    const count = calm ? 4 : 9
+
+    if (charId === 'bear-sun') {
+      // Golden honey droplets + tiny hearts
+      this.spawnCollectBurst(cx, cy - 10, '#ffbf3b', count)
+      this.spawnCollectBurst(cx, cy - 14, '#ff9ec4', Math.max(2, Math.floor(count / 2)))
+      this.floatingTexts.push({ x: cx - 6, y: cy - 22, vy: -11, text: '♥ MADU!', color: '#ffd966', life: 1.15, maxLife: 1.15 })
+      return 'love'
+    }
+    if (charId === 'bear-polar') {
+      // Sleepy yawn + floating zZz & ice-blue snowflakes
+      this.spawnCollectBurst(cx, cy - 12, '#9ee8ff', count)
+      this.spawnCollectBurst(cx, cy - 16, '#ffffff', Math.max(2, Math.floor(count / 2)))
+      this.floatingTexts.push({ x: cx - 4, y: cy - 22, vy: -8, text: 'zZz ❄', color: '#c4f2ff', life: 1.5, maxLife: 1.5 })
+      return 'nap'
+    }
+    if (charId === 'bear-black') {
+      // Confident nod + gold star sparkles highlighting cream crescent chest mark
+      this.spawnCollectBurst(cx, cy - 6, '#ffe475', count)
+      this.spawnCollectBurst(cx, cy - 10, '#ffefc2', Math.max(2, Math.floor(count / 2)))
+      this.floatingTexts.push({ x: cx - 4, y: cy - 22, vy: -12, text: '★ ✦', color: '#ffe885', life: 1.05, maxLife: 1.05 })
+      return 'love'
+    }
+    if (charId === 'fox-brown') {
+      // Playful quick hop + tail wag + floating music-note & leaf particles
+      this.spawnCollectBurst(cx, cy - 10, '#8ce696', count)
+      this.spawnCollectBurst(cx, cy - 14, '#ffe475', Math.max(2, Math.floor(count / 2)))
+      this.floatingTexts.push({ x: cx - 6, y: cy - 24, vy: -13, text: '♪ YIP!', color: '#b0ffba', life: 1.0, maxLife: 1.0 })
+      return 'hop'
+    }
+    if (charId === 'fox-kitsune') {
+      // Calm closed-eye smile + 3 floating blue-gold pixel kitsunebi wisps
+      this.spawnCollectBurst(cx - 6, cy - 14, '#7eeeff', Math.max(3, Math.floor(count / 2)))
+      this.spawnCollectBurst(cx + 6, cy - 16, '#ffe475', Math.max(3, Math.floor(count / 2)))
+      this.floatingTexts.push({ x: cx - 6, y: cy - 24, vy: -10, text: '✦ ✦ ✦', color: '#9ef2ff', life: 1.3, maxLife: 1.3 })
+      return 'nap'
+    }
+    if (charId === 'bunny-starlight') {
+      // Energetic wiggle hop + sparkling starlight & clover particles
+      this.spawnCollectBurst(cx, cy - 10, '#ffe475', count)
+      this.spawnCollectBurst(cx, cy - 14, '#9ef5b8', Math.max(2, Math.floor(count / 2)))
+      this.floatingTexts.push({ x: cx - 6, y: cy - 24, vy: -14, text: '★ HOP!', color: '#c4ffe0', life: 0.95, maxLife: 0.95 })
+      return 'hop'
+    }
+    if (charId === 'dog-samoyed') {
+      // Playful play-bow bounce + floating bone & heart particles
+      this.spawnCollectBurst(cx, cy - 10, '#fff5e0', count)
+      this.spawnCollectBurst(cx, cy - 14, '#ff9ec4', Math.max(2, Math.floor(count / 2)))
+      this.floatingTexts.push({ x: cx - 8, y: cy - 24, vy: -13, text: '♥ WOOF!', color: '#ffe6f2', life: 1.0, maxLife: 1.0 })
+      return 'hop'
+    }
+    if (charId === 'dog-shiba') {
+      // Proud happy spin/hop + golden starlight sparkles
+      this.spawnCollectBurst(cx, cy - 10, '#ffe475', count)
+      this.spawnCollectBurst(cx, cy - 14, '#ffb86b', Math.max(2, Math.floor(count / 2)))
+      this.floatingTexts.push({ x: cx - 6, y: cy - 24, vy: -13, text: '★ ARU!', color: '#ffe885', life: 1.0, maxLife: 1.0 })
+      return 'hop'
+    }
+    // White Cat / Mochi & Cat variants: stretch + purr-meow + pink hearts & musical notes
+    this.spawnCollectBurst(cx, cy - 12, '#ff9ec4', count)
+    this.spawnCollectBurst(cx, cy - 16, '#ffe475', Math.max(2, Math.floor(count / 2)))
+    this.floatingTexts.push({ x: cx - 6, y: cy - 22, vy: -11, text: '♥ ♪ MEOW', color: '#ffb8dc', life: 1.1, maxLife: 1.1 })
+    return 'love'
+  }
+
   private triggerCampFriendReaction(idx: number, x: number, y: number): void {
     const fr = this.campFriends[idx]
     if (!fr) return
     this.audio.unlock()
-    const species = getCharacterById(fr.id).species
-    const modes: Array<'hop' | 'love' | 'nap'> = ['hop', 'love', 'nap']
-    const next = modes[fr.cycleIdx % modes.length]!
     fr.cycleIdx += 1
-    fr.reaction = next
-    fr.reactionTimer = next === 'nap' ? 2.4 : 1.1
+    const mode = this.triggerBespokeCampParticles(fr.id, x, y - 6)
+    fr.reaction = mode
+    fr.reactionTimer = mode === 'nap' ? 2.2 : 1.25
     fr.hopOffset = 0
-
-    if (next === 'hop') {
-      this.audio.playSpeciesVoice(species)
-      this.spawnCollectBurst(x, y - 16, '#ffe478', 7)
-      this.floatingTexts.push({ x, y: y - 28, vy: -12, text: '★', color: '#ffe885', life: 0.85, maxLife: 0.85 })
-    } else if (next === 'love') {
-      this.audio.playSpeciesVoice(species)
-      this.spawnCollectBurst(x, y - 18, '#ff9ec4', 7)
-      this.floatingTexts.push({ x, y: y - 28, vy: -11, text: '♥ ♪', color: '#ffb5d8', life: 1.0, maxLife: 1.0 })
-    } else {
-      this.audio.playUiClick()
-      this.floatingTexts.push({ x, y: y - 26, vy: -8, text: 'zZz', color: '#c9e8ff', life: 1.35, maxLife: 1.35 })
-    }
   }
 
   private prepareEpilogueFriends(): void {
@@ -705,11 +796,21 @@ export class MoonpawGameEngine {
     if (this.progress.homeBackdropMode !== 'auto') {
       return this.progress.homeBackdropMode
     }
-    return this.getBiomeForLevelId(this.progress.lastPlayedLevel)
+    const raw = this.getBiomeForLevelId(this.progress.lastPlayedLevel)
+    if (raw === 'eclipse' || raw === 'citadel') return 'observatory'
+    return raw
   }
 
   public cycleHomeBackdropMode(): void {
-    const order: HomeBackdropMode[] = ['auto', 'rooftops', 'sakura', 'cloudland', 'harbor']
+    const order: HomeBackdropMode[] = [
+      'auto',
+      'rooftops',
+      'sakura',
+      'cloudland',
+      'harbor',
+      'cavern',
+      'observatory'
+    ]
     const idx = order.indexOf(this.progress.homeBackdropMode)
     const next = order[(idx + 1) % order.length]!
     this.audio.unlock()
@@ -728,56 +829,16 @@ export class MoonpawGameEngine {
     this.emitHud()
   }
 
-  /** Interactive Title Screen / Camp Hub playful character reaction */
+  /** Interactive Title Screen / Camp Hub bespoke character reaction, particles & Web Audio SFX */
   public triggerCampReaction(): void {
     this.audio.unlock()
-    const species = getCharacterById(this.progress.selectedCharacter).species
-    const modes: Array<'hop' | 'love' | 'nap'> = ['hop', 'love', 'nap']
-    const next = modes[this.campCycleIdx % modes.length]!
     this.campCycleIdx += 1
-    this.campReaction = next
-    this.campReactionTimer = next === 'nap' ? 2.6 : 1.15
-    this.campHopOffset = 0
-
     const cx = this.player.x + this.player.w / 2
-    const cy = this.player.y
-
-    if (next === 'hop') {
-      this.audio.playSpeciesVoice(species)
-      this.spawnCollectBurst(cx, cy + 4, '#ffe478', 8)
-      this.floatingTexts.push({
-        x: cx,
-        y: cy - 6,
-        vy: -14,
-        text: '★ HOP!',
-        color: '#ffe885',
-        life: 0.9,
-        maxLife: 0.9
-      })
-    } else if (next === 'love') {
-      this.audio.playSpeciesVoice(species)
-      this.spawnCollectBurst(cx, cy, '#ff9ec4', 9)
-      this.floatingTexts.push({
-        x: cx - 4,
-        y: cy - 6,
-        vy: -12,
-        text: '♥ ♪',
-        color: '#ffb5d8',
-        life: 1.1,
-        maxLife: 1.1
-      })
-    } else {
-      this.audio.playUiClick()
-      this.floatingTexts.push({
-        x: cx + 4,
-        y: cy - 6,
-        vy: -8,
-        text: 'zZz',
-        color: '#c9e8ff',
-        life: 1.5,
-        maxLife: 1.5
-      })
-    }
+    const cy = this.player.y + this.player.h - 14
+    const mode = this.triggerBespokeCampParticles(this.progress.selectedCharacter, cx, cy)
+    this.campReaction = mode
+    this.campReactionTimer = mode === 'nap' ? 2.3 : 1.25
+    this.campHopOffset = 0
   }
 
   /** Pause-Menu Photo Mode & Crisp 4x Postcard Exporter */
@@ -855,6 +916,8 @@ export class MoonpawGameEngine {
       ownedScarves: [...this.progress.ownedScarves],
       ownedHats: [...this.progress.ownedHats],
       ownedCapes: [...this.progress.ownedCapes],
+      ownedHeadAccs: [...this.progress.ownedHeadAccs],
+      ownedFaceAccs: [...this.progress.ownedFaceAccs],
       unlockedAchievements: [...this.progress.unlockedAchievements],
       visitedBiomes: [...this.progress.visitedBiomes],
       bestLevelScores: { ...this.progress.bestLevelScores },
@@ -865,54 +928,102 @@ export class MoonpawGameEngine {
       claimedRankRewards: { ...this.progress.claimedRankRewards },
       timeTrials: { ...this.progress.timeTrials },
       dailyQuest: { ...this.progress.dailyQuest },
+      dailyMissions: {
+        dateKey: this.progress.dailyMissions.dateKey,
+        bonusClaimed: this.progress.dailyMissions.bonusClaimed,
+        missions: [
+          { ...this.progress.dailyMissions.missions[0] },
+          { ...this.progress.dailyMissions.missions[1] },
+          { ...this.progress.dailyMissions.missions[2] }
+        ]
+      },
       audio: { ...this.progress.audio }
+    }
+  }
+
+  private syncLegacyDailyQuestMirror(): void {
+    const first = this.progress.dailyMissions.missions[0]
+    this.progress.dailyQuest = {
+      dateKey: this.progress.dailyMissions.dateKey,
+      questId: first.questId,
+      progress: first.progress,
+      claimed: first.claimed
     }
   }
 
   private ensureDailyQuestFresh(): void {
     const todayKey = getLocalDateKey()
-    if (this.progress.dailyQuest.dateKey !== todayKey) {
-      this.progress.dailyQuest = createDailyQuestForToday(todayKey)
+    if (this.progress.dailyMissions.dateKey !== todayKey) {
+      this.progress.dailyMissions = createDailyMissionsForToday(todayKey)
+      this.syncLegacyDailyQuestMirror()
       this.persistSave(false)
     }
   }
 
   private incrementDailyQuest(id: DailyQuestId, amount = 1): void {
     this.ensureDailyQuestFresh()
-    const dq = this.progress.dailyQuest
-    if (dq.questId !== id || dq.claimed) return
-    const def = getDailyQuestDef(dq.questId)
-    if (dq.progress >= def.target) return
-    dq.progress = Math.min(def.target, dq.progress + amount)
-    const justDone = dq.progress >= def.target
-    this.persistSave(justDone)
-    if (justDone) {
-      this.showToast({
-        icon: '📜',
-        label: 'MISI HARI INI SELESAI!',
-        title: `Klaim +${def.rewardFish} Ikan Emas di Menu Utama`
-      })
+    let anyChanged = false
+    for (const slot of this.progress.dailyMissions.missions) {
+      if (slot.questId !== id || slot.claimed) continue
+      const def = getDailyQuestDef(slot.questId)
+      if (slot.progress >= def.target) continue
+      slot.progress = Math.min(def.target, slot.progress + amount)
+      anyChanged = true
+      if (slot.progress >= def.target) {
+        this.showToast({
+          icon: def.icon,
+          label: 'MISI HARI INI SELESAI!',
+          title: `Klaim +${def.rewardFish} Ikan Emas di Menu Utama`
+        })
+      }
+    }
+    if (anyChanged) {
+      this.syncLegacyDailyQuestMirror()
+      this.persistSave(true)
     }
   }
 
-  public claimDailyQuestReward(): boolean {
+  public claimDailyQuestReward(slotIndex = 0): boolean {
     this.ensureDailyQuestFresh()
-    const dq = this.progress.dailyQuest
-    if (dq.claimed) return false
-    const def = getDailyQuestDef(dq.questId)
-    if (dq.progress < def.target) return false
+    const slot = this.progress.dailyMissions.missions[slotIndex]
+    if (!slot || slot.claimed) return false
+    const def = getDailyQuestDef(slot.questId)
+    if (slot.progress < def.target) return false
+
     this.audio.unlock()
-    dq.claimed = true
+    slot.claimed = true
     this.progress.fishBank += def.rewardFish
     this.progress.totalFishEarned += def.rewardFish
+    this.progress.totalDailyMissionsCompleted += 1
+
+    // Check if all 3 daily missions for today are now claimed -> award +25 Fish All-Clear Bonus!
+    const allThreeClaimed = this.progress.dailyMissions.missions.every((m) => m.claimed)
+    let grantedAllClearBonus = false
+    if (allThreeClaimed && !this.progress.dailyMissions.bonusClaimed) {
+      this.progress.dailyMissions.bonusClaimed = true
+      this.progress.fishBank += ALL_DAILY_BONUS_FISH
+      this.progress.totalFishEarned += ALL_DAILY_BONUS_FISH
+      grantedAllClearBonus = true
+    }
+
+    this.syncLegacyDailyQuestMirror()
     this.persistSave(true)
     this.audio.playUnlock()
+    this.checkSpecialCharacterMissions(true)
     this.checkAchievements()
-    this.showToast({
-      icon: '🎁',
-      label: 'HADIAH MISI HARIAN!',
-      title: `+${def.rewardFish} Ikan Emas diterima!`
-    })
+    this.showToast(
+      grantedAllClearBonus
+        ? {
+            icon: '🏆',
+            label: 'BONUS 3/3 MISI HARIAN!',
+            title: `+${def.rewardFish + ALL_DAILY_BONUS_FISH} Ikan Emas (termasuk +${ALL_DAILY_BONUS_FISH} Bonus!)`
+          }
+        : {
+            icon: '🎁',
+            label: 'HADIAH MISI HARIAN!',
+            title: `+${def.rewardFish} Ikan Emas • Total ${this.progress.totalDailyMissionsCompleted} Misi`
+          }
+    )
     this.emitHud()
     return true
   }
@@ -1144,8 +1255,7 @@ export class MoonpawGameEngine {
     this.progress.selectedCharacter = id
     this.refreshPlayerSprites()
     this.persistSave(true)
-    const species = getCharacterById(id).species
-    this.audio.playSpeciesVoice(species)
+    this.audio.playCampCharacterVoice(id)
     this.emitHud()
   }
 
@@ -1233,12 +1343,59 @@ export class MoonpawGameEngine {
       return true
     }
     const def = getCapeById(id)
-    // Biome-exclusive shard capes cannot be purchased with fish; unlocked via Starlight Shards!
-    if (def.shardUnlockBiome) return false
+    // Biome-exclusive shard capes & boss reward capes cannot be purchased with fish!
+    if (def.shardUnlockBiome || def.bossUnlockLevelId) return false
     if (this.progress.fishBank < def.cost) return false
     this.progress.fishBank -= def.cost
     this.progress.ownedCapes.push(id)
     this.progress.selectedCape = id
+    this.refreshPlayerSprites()
+    this.persistSave(true)
+    this.audio.playUnlock()
+    this.checkAchievements()
+    this.emitHud()
+    return true
+  }
+
+  public buyOrEquipHeadAcc(id: HeadAccId): boolean {
+    this.audio.unlock()
+    if (this.progress.ownedHeadAccs.includes(id)) {
+      this.progress.selectedHeadAcc = id
+      this.refreshPlayerSprites()
+      this.persistSave(true)
+      this.audio.playUiClick()
+      this.emitHud()
+      return true
+    }
+    const def = getHeadAccById(id)
+    if (def.bossUnlockLevelId) return false
+    if (this.progress.fishBank < def.cost) return false
+    this.progress.fishBank -= def.cost
+    this.progress.ownedHeadAccs.push(id)
+    this.progress.selectedHeadAcc = id
+    this.refreshPlayerSprites()
+    this.persistSave(true)
+    this.audio.playUnlock()
+    this.checkAchievements()
+    this.emitHud()
+    return true
+  }
+
+  public buyOrEquipFaceAcc(id: FaceAccId): boolean {
+    this.audio.unlock()
+    if (this.progress.ownedFaceAccs.includes(id)) {
+      this.progress.selectedFaceAcc = id
+      this.refreshPlayerSprites()
+      this.persistSave(true)
+      this.audio.playUiClick()
+      this.emitHud()
+      return true
+    }
+    const def = getFaceAccById(id)
+    if (this.progress.fishBank < def.cost) return false
+    this.progress.fishBank -= def.cost
+    this.progress.ownedFaceAccs.push(id)
+    this.progress.selectedFaceAcc = id
     this.refreshPlayerSprites()
     this.persistSave(true)
     this.audio.playUnlock()
@@ -1269,7 +1426,12 @@ export class MoonpawGameEngine {
   public startLevel(levelId: number): void {
     const idx = LEVELS.findIndex((l) => l.id === levelId)
     if (idx < 0) return
-    if (levelId > this.progress.unlockedLevel) return
+    const targetLvl = LEVELS[idx]!
+    if (targetLvl.isSecretFinale) {
+      if (countRankSLevels(this.progress) < 3) return
+    } else if (levelId > this.progress.unlockedLevel) {
+      return
+    }
     this.audio.unlock()
     this.audio.playUiClick()
     this.audio.setBgmMode('normal')
@@ -1287,12 +1449,18 @@ export class MoonpawGameEngine {
   public nextLevel(): void {
     this.audio.unlock()
     this.audio.playUiClick()
-    if (this.currentLevelIdx + 1 < LEVELS.length) {
+    const curLvl = LEVELS[this.currentLevelIdx]
+    const nextIdx = this.currentLevelIdx + 1
+    const nextLvl = LEVELS[nextIdx]
+    if (curLvl && curLvl.id === MAIN_LEVEL_COUNT) {
+      this.openEndingCutscene()
+      return
+    }
+    if (nextLvl && (!nextLvl.isSecretFinale || countRankSLevels(this.progress) >= 3)) {
       this.audio.setBgmMode('normal')
-      const nextLvl = LEVELS[this.currentLevelIdx + 1]!
       this.progress.lastPlayedLevel = nextLvl.id
       this.persistSave(false)
-      this.loadLevel(this.currentLevelIdx + 1, true)
+      this.loadLevel(nextIdx, true)
       this.screen = 'playing'
       this.audio.setBiomeAmbience(this.level.biome)
       this.emitHud()
@@ -1342,12 +1510,17 @@ export class MoonpawGameEngine {
     }
   }
 
-  public setTouchInput(control: 'left' | 'right' | 'jump' | 'dash', pressed: boolean): void {
+  public setTouchInput(
+    control: 'left' | 'right' | 'jump' | 'dash' | 'pulse' | 'aegis',
+    pressed: boolean
+  ): void {
     this.audio.unlock()
     if (control === 'left') this.touchLeft = pressed
     if (control === 'right') this.touchRight = pressed
     if (control === 'jump') this.touchJump = pressed
     if (control === 'dash') this.touchDash = pressed
+    if (control === 'pulse') this.touchPulse = pressed
+    if (control === 'aegis') this.touchAegis = pressed
   }
 
   // ============================================================================
@@ -1441,11 +1614,17 @@ export class MoonpawGameEngine {
       featherTimer: 0,
       magnetTimer: 0,
       hasBubbleShield: false,
+      hasFrostShield: this.progress.selectedCharacter === 'bear-polar',
       mooncakeTimer: 0,
       yarnTimer: 0,
       mochiTimer: 0,
       candyTimer: 0,
       pearlTimer: 0,
+      cometChargeTimer: 0,
+      moonlightFeatherTimer: 0,
+      starlightPulseCooldown: 0,
+      astralAegisTimer: 0,
+      astralAegisCooldown: 0,
       idleDuration: 0,
       hearts: 3,
       maxHearts: 3,
@@ -1543,6 +1722,53 @@ export class MoonpawGameEngine {
     }))
     this.activeCheckpointIdx = -1
     this.standingBoatIdx = -1
+    this.standingPerchIdx = -1
+    this.standingGearIdx = -1
+    this.bossWindPushX = 0
+    this.phasingClouds = (this.level.phasingClouds ?? []).map((pc) => ({
+      ...pc,
+      timer: pc.offset ?? 0,
+      phase: 'solid'
+    }))
+    this.swingingPerches = (this.level.swingingPerches ?? []).map((sp) => {
+      const a = Math.sin(sp.phase ?? 0) * sp.ampAngle
+      const cx = sp.anchorX + Math.sin(a) * sp.ropeLen - sp.w / 2
+      const cy = sp.anchorY + Math.cos(a) * sp.ropeLen
+      return {
+        ...sp,
+        curX: cx,
+        curY: cy,
+        prevX: cx,
+        prevY: cy,
+        angle: a,
+        time: sp.phase ?? 0
+      }
+    })
+    this.glowMushrooms = (this.level.glowMushrooms ?? []).map((gm) => ({
+      ...gm,
+      squishTimer: 0,
+      glowPulse: 0
+    }))
+    this.proximityCrystals = (this.level.proximityCrystals ?? []).map((pc) => ({
+      ...pc,
+      glow: 0.12
+    }))
+    this.gearPlatforms = (this.level.gearPlatforms ?? []).map((gp) => {
+      const ang = gp.phase ?? 0
+      const cx = gp.centerX + Math.cos(ang) * gp.orbitRadius - gp.w / 2
+      const cy = gp.centerY + Math.sin(ang) * gp.orbitRadius
+      return {
+        ...gp,
+        curX: cx,
+        curY: cy,
+        prevX: cx,
+        prevY: cy,
+        angle: ang
+      }
+    })
+    this.bossController = this.level.bossConfig
+      ? new BossEncounterController(this.level.bossConfig, this.level.arenaBattleItems)
+      : null
     this.starComboCount = 0
     this.starComboTimer = 0
     this.starRingState = 'ready'
@@ -1952,8 +2178,14 @@ export class MoonpawGameEngine {
     if (code === 'KeyW' || code === 'ArrowUp' || code === 'Space' || code === 'KeyZ') {
       this.keyJump = true
     }
-    if (code === 'ShiftLeft' || code === 'ShiftRight' || code === 'KeyX' || code === 'KeyK') {
+    if (code === 'ShiftLeft' || code === 'ShiftRight' || code === 'KeyX' || (!this.bossController && code === 'KeyK')) {
       this.keyDash = true
+    }
+    if (code === 'KeyC' || code === 'KeyJ') {
+      this.keyPulse = true
+    }
+    if (code === 'KeyV' || (this.bossController && code === 'KeyK')) {
+      this.keyAegis = true
     }
 
     if (code === 'KeyP' || code === 'Escape') {
@@ -1994,6 +2226,12 @@ export class MoonpawGameEngine {
     if (code === 'ShiftLeft' || code === 'ShiftRight' || code === 'KeyX' || code === 'KeyK') {
       this.keyDash = false
     }
+    if (code === 'KeyC' || code === 'KeyJ') {
+      this.keyPulse = false
+    }
+    if (code === 'KeyV' || code === 'KeyK') {
+      this.keyAegis = false
+    }
   }
 
   private clearAllInputs(): void {
@@ -2001,27 +2239,39 @@ export class MoonpawGameEngine {
     this.keyRight = false
     this.keyJump = false
     this.keyDash = false
+    this.keyPulse = false
+    this.keyAegis = false
     this.touchLeft = false
     this.touchRight = false
     this.touchJump = false
     this.touchDash = false
+    this.touchPulse = false
+    this.touchAegis = false
     this.prevJumpHeld = false
     this.prevDashHeld = false
+    this.prevPulseHeld = false
+    this.prevAegisHeld = false
   }
 
   private sampleInputs(): void {
     const jumpHeld = this.keyJump || this.touchJump
     const dashHeld = this.keyDash || this.touchDash
+    const pulseHeld = this.keyPulse || this.touchPulse
+    const aegisHeld = this.keyAegis || this.touchAegis
     this.input = {
       left: this.keyLeft || this.touchLeft,
       right: this.keyRight || this.touchRight,
       jumpHeld,
       jumpJustPressed: jumpHeld && !this.prevJumpHeld,
       dashHeld,
-      dashJustPressed: dashHeld && !this.prevDashHeld
+      dashJustPressed: dashHeld && !this.prevDashHeld,
+      pulseJustPressed: pulseHeld && !this.prevPulseHeld,
+      aegisJustPressed: aegisHeld && !this.prevAegisHeld
     }
     this.prevJumpHeld = jumpHeld
     this.prevDashHeld = dashHeld
+    this.prevPulseHeld = pulseHeld
+    this.prevAegisHeld = aegisHeld
   }
 
   // ============================================================================
@@ -2129,6 +2379,7 @@ export class MoonpawGameEngine {
     this.updateCrows(dt)
     this.updateBiomeHazards(dt)
     this.updatePlayer(dt)
+    this.updateBossEncounter(dt)
     this.updateInteractiveProps(dt)
     this.updateSecretAlcoves(dt)
     this.updateStarRingChallenge(dt)
@@ -2162,7 +2413,13 @@ export class MoonpawGameEngine {
       this.player.yarnTimer > 0 ||
       this.player.mochiTimer > 0 ||
       this.player.candyTimer > 0 ||
-      this.player.pearlTimer > 0
+      this.player.pearlTimer > 0 ||
+      this.player.cometChargeTimer > 0 ||
+      this.player.moonlightFeatherTimer > 0 ||
+      this.player.starlightPulseCooldown > 0 ||
+      this.player.astralAegisTimer > 0 ||
+      this.player.astralAegisCooldown > 0 ||
+      Boolean(this.bossController)
 
     this.hudSyncTimer += dt
     if (
@@ -2337,7 +2594,7 @@ export class MoonpawGameEngine {
         fb.timer -= dt
         if (fb.timer <= 0 || fb.curY > VIEW_H + 24) {
           fb.state = 'gone'
-          fb.timer = 3.2
+          fb.timer = 2.5
         }
       } else if (fb.state === 'gone') {
         fb.timer -= dt
@@ -2356,6 +2613,52 @@ export class MoonpawGameEngine {
       const t = (Math.sin(bo.time) + 1) * 0.5
       bo.curX = bo.x + bo.dx * t
       bo.curY = bo.y + Math.sin(this.worldTime * 2.1 + (bo.phase ?? 0)) * 1.5
+    }
+
+    // 4. Cloudland Phasing Star Clouds (rhythmic solid -> warn -> phased beat!)
+    for (const pc of this.phasingClouds) {
+      pc.timer = (pc.timer + dt) % pc.period
+      const solidEnd = pc.period * 0.52
+      const warnEnd = pc.period * 0.72
+      if (pc.timer < solidEnd) {
+        pc.phase = 'solid'
+      } else if (pc.timer < warnEnd) {
+        pc.phase = 'warn'
+      } else {
+        pc.phase = 'phased'
+      }
+    }
+
+    // 5. Harbor Swinging Lantern Perches (smooth horizontal pendulum!)
+    for (const sp of this.swingingPerches) {
+      sp.prevX = sp.curX
+      sp.prevY = sp.curY
+      sp.time += dt * sp.speed
+      sp.angle = Math.sin(sp.time) * sp.ampAngle
+      sp.curX = sp.anchorX + Math.sin(sp.angle) * sp.ropeLen - sp.w / 2
+      sp.curY = sp.anchorY + Math.cos(sp.angle) * sp.ropeLen
+    }
+
+    // 6. Cavern Elastic Glow-Mushrooms & Proximity Crystals
+    for (const gm of this.glowMushrooms) {
+      if (gm.squishTimer > 0) gm.squishTimer = Math.max(0, gm.squishTimer - dt)
+      gm.glowPulse = 0.5 + 0.5 * Math.sin(this.worldTime * 2.6 + gm.x * 0.04)
+    }
+    const pCx = this.player.x + this.player.w / 2
+    const pCy = this.player.y + this.player.h / 2
+    for (const cr of this.proximityCrystals) {
+      const dist = Math.hypot(pCx - cr.x, pCy - cr.y)
+      const targetGlow = dist < cr.radius ? Math.max(0.25, 1 - dist / cr.radius) : 0.14
+      cr.glow += (targetGlow - cr.glow) * Math.min(1, dt * 4.5)
+    }
+
+    // 7. Observatory Rotating Gear Platforms (smooth circular rim carriage!)
+    for (const gp of this.gearPlatforms) {
+      gp.prevX = gp.curX
+      gp.prevY = gp.curY
+      gp.angle += dt * gp.speed
+      gp.curX = gp.centerX + Math.cos(gp.angle) * gp.orbitRadius - gp.w / 2
+      gp.curY = gp.centerY + Math.sin(gp.angle) * gp.orbitRadius
     }
   }
 
@@ -2760,22 +3063,37 @@ export class MoonpawGameEngine {
     if (p.mochiTimer > 0) p.mochiTimer = Math.max(0, p.mochiTimer - dt)
     if (p.candyTimer > 0) p.candyTimer = Math.max(0, p.candyTimer - dt)
     if (p.pearlTimer > 0) p.pearlTimer = Math.max(0, p.pearlTimer - dt)
+    if (p.cometChargeTimer > 0) p.cometChargeTimer = Math.max(0, p.cometChargeTimer - dt)
+    if (p.moonlightFeatherTimer > 0) p.moonlightFeatherTimer = Math.max(0, p.moonlightFeatherTimer - dt)
+    if (p.starlightPulseCooldown > 0) p.starlightPulseCooldown = Math.max(0, p.starlightPulseCooldown - dt)
+    if (p.astralAegisTimer > 0) p.astralAegisTimer = Math.max(0, p.astralAegisTimer - dt)
+    if (p.astralAegisCooldown > 0) p.astralAegisCooldown = Math.max(0, p.astralAegisCooldown - dt)
     if (this.knockbackTimer > 0) this.knockbackTimer = Math.max(0, this.knockbackTimer - dt)
     if (this.landingTimer > 0) this.landingTimer = Math.max(0, this.landingTimer - dt)
     this.wasOnGround = p.onGround
 
-    // Signature Animal Perks (balanced & responsive per species!)
-    const activeSpecies = getCharacterById(this.progress.selectedCharacter).species
+    // Signature Animal Perks (Original 4 + 5 Balanced New Bear & Fox Passive Traits!)
+    const selectedCharId = this.progress.selectedCharacter
+    const activeSpecies = getCharacterById(selectedCharId).species
     const isCat = activeSpecies === 'cat'
     const isBunny = activeSpecies === 'bunny'
     const isDog = activeSpecies === 'shiba' || activeSpecies === 'samoyed'
+    const isBlackBear = selectedCharId === 'bear-black'
+    const isBrownFox = selectedCharId === 'fox-brown'
+    const isKitsune = selectedCharId === 'fox-kitsune'
 
-    // Yarn Ball unlocks Triple Jump + subtle agility boost; Cats have nimbler air control (+12% air speed)!
-    p.maxJumps = p.yarnTimer > 0 ? 3 : 2
-    const baseMoveSpeed = p.yarnTimer > 0 ? Math.round(MOVE_SPEED * 1.18) : MOVE_SPEED
-    const effectiveMoveSpeed = isCat && !p.onGround ? Math.round(baseMoveSpeed * 1.12) : baseMoveSpeed
-    const effectiveJumpVy = isBunny ? Math.round(JUMP_VY * 1.05) : JUMP_VY // +10% jump height for Bunny!
-    const effectiveDashDuration = isDog ? DASH_DURATION * 1.18 : DASH_DURATION // Longer Dash distance for Dogs!
+    // Yarn Ball OR Moonlight Feather unlocks Triple Jump!
+    p.maxJumps = p.yarnTimer > 0 || p.moonlightFeatherTimer > 0 ? 3 : 2
+    const yarnSpeed = p.yarnTimer > 0 ? MOVE_SPEED * 1.18 : MOVE_SPEED
+    const foxSpeed = isBrownFox ? yarnSpeed * 1.06 : yarnSpeed // Brown Fox: +6% base movement speed!
+    const effectiveMoveSpeed = isCat && !p.onGround ? Math.round(foxSpeed * 1.12) : Math.round(foxSpeed)
+    const effectiveJumpVy = isBunny ? Math.round(JUMP_VY * 1.05) : JUMP_VY
+    const effectiveDashDuration = isDog
+      ? DASH_DURATION * 1.18
+      : isBlackBear
+        ? DASH_DURATION * 1.1 // Black Bear: +10% dash distance!
+        : DASH_DURATION
+    const effectiveDashCooldown = isBrownFox ? DASH_COOLDOWN * 0.9 : DASH_COOLDOWN // Brown Fox: 10% faster dash recovery!
 
     if (p.onGround && p.standingMovingPlatformIdx >= 0 && p.dashTimer <= 0) {
       const mp = this.movingPlatforms[p.standingMovingPlatformIdx]
@@ -2793,12 +3111,49 @@ export class MoonpawGameEngine {
       }
     }
 
-    // Sakura Petal Wind Vortex gentle push (Dogs are steadfast & immune to wind push!)
-    let windPushX = 0
+    if (p.onGround && this.standingPerchIdx >= 0 && p.dashTimer <= 0) {
+      const sp = this.swingingPerches[this.standingPerchIdx]
+      if (sp) {
+        p.x += sp.curX - sp.prevX
+        p.y += sp.curY - sp.prevY
+      }
+    }
+
+    if (p.onGround && this.standingGearIdx >= 0 && p.dashTimer <= 0) {
+      const gp = this.gearPlatforms[this.standingGearIdx]
+      if (gp) {
+        p.x += gp.curX - gp.prevX
+        p.y += gp.curY - gp.prevY
+      }
+    }
+
+    // Sakura Petal Wind Vortex + Umbra Owl Boss Wind Gust
+    let windPushX = p.dashTimer <= 0 ? this.bossWindPushX : 0
     if (p.dashTimer <= 0 && !isDog && this.level.windVortices) {
       for (const wv of this.level.windVortices) {
         if (this.aabbOverlap(p.x, p.y, p.w, p.h, wv.x, wv.y, wv.w, wv.h)) {
           windPushX += wv.pushX
+        }
+      }
+    }
+
+    // Rooftops Updraft Chimney Vents (smooth upward lift!)
+    let insideUpdraftLift: number | null = null
+    if (this.level.updrafts && p.dashTimer <= 0) {
+      for (const ud of this.level.updrafts) {
+        if (this.aabbOverlap(p.x, p.y, p.w, p.h, ud.x, ud.y, ud.w, ud.h)) {
+          insideUpdraftLift = ud.liftVy ?? -162
+          break
+        }
+      }
+    }
+
+    // Observatory Astral Low-Gravity Zones
+    let zoneGravityScale = 1
+    if (this.level.lowGravityZones) {
+      for (const lg of this.level.lowGravityZones) {
+        if (this.aabbOverlap(p.x, p.y, p.w, p.h, lg.x, lg.y, lg.w, lg.h)) {
+          zoneGravityScale = Math.min(zoneGravityScale, lg.gravityScale ?? 0.5)
         }
       }
     }
@@ -2818,7 +3173,7 @@ export class MoonpawGameEngine {
     // Trigger DASH ability!
     if (this.input.dashJustPressed && this.isDashReady()) {
       p.dashTimer = effectiveDashDuration
-      p.dashCooldownTimer = p.candyTimer > 0 ? 0 : DASH_COOLDOWN
+      p.dashCooldownTimer = p.candyTimer > 0 ? 0 : effectiveDashCooldown
       p.coyoteTimer = 0
       this.knockbackTimer = 0
       p.idleDuration = 0
@@ -2911,10 +3266,15 @@ export class MoonpawGameEngine {
         p.vy *= Math.pow(JUMP_CUT_MULT, dt * 16)
       }
 
-      // Gravity + Starlight Feather OR Sakura Mochi Soft Glide!
+      // Gravity + Kitsune Grace (-15% apex/downward float) + Observatory Low-G + Rooftops Updrafts!
       const isGliding = (p.featherTimer > 0 || p.mochiTimer > 0) && !p.onGround && p.vy > 0 && this.input.jumpHeld
-      if (isGliding) {
-        p.vy = Math.min(FEATHER_GLIDE_MAX_FALL, p.vy + GRAVITY * 0.35 * dt)
+      const kitsuneScale = isKitsune && !p.onGround && p.vy > -85 ? 0.85 : 1
+      const effGravity = GRAVITY * zoneGravityScale * kitsuneScale
+      if (insideUpdraftLift !== null) {
+        p.vy = Math.max(insideUpdraftLift, p.vy - 520 * dt)
+        p.onGround = false
+      } else if (isGliding) {
+        p.vy = Math.min(FEATHER_GLIDE_MAX_FALL, p.vy + effGravity * 0.35 * dt)
         if (Math.random() < 0.25) {
           this.particles.push({
             x: p.x + p.w / 2 + (Math.random() - 0.5) * 10,
@@ -2929,7 +3289,8 @@ export class MoonpawGameEngine {
           })
         }
       } else {
-        p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt)
+        const fallCap = zoneGravityScale < 0.9 ? MAX_FALL_SPEED * 0.72 : MAX_FALL_SPEED
+        p.vy = Math.min(fallCap, p.vy + effGravity * dt)
       }
     }
 
@@ -2940,14 +3301,20 @@ export class MoonpawGameEngine {
       p.idleDuration = 0
     }
 
-    // Move & resolve X axis (with calm petal wind push if inside a Sakura wind vortex)
+    // Move & resolve X axis (with calm petal wind push + boss arena bounds when active)
     p.x += (p.vx + windPushX) * dt
-    if (p.x < 2) {
-      p.x = 2
+    const minBoundX =
+      this.bossController && this.bossController.active ? this.bossController.config.arenaMinX : 2
+    const maxBoundX =
+      this.bossController && this.bossController.active
+        ? this.bossController.config.arenaMaxX
+        : this.level.width - 2
+    if (p.x < minBoundX) {
+      p.x = minBoundX
       p.vx = 0
       p.dashTimer = 0
-    } else if (p.x + p.w > this.level.width - 2) {
-      p.x = this.level.width - 2 - p.w
+    } else if (p.x + p.w > maxBoundX) {
+      p.x = maxBoundX - p.w
       p.vx = 0
       p.dashTimer = 0
     }
@@ -2972,6 +3339,8 @@ export class MoonpawGameEngine {
     p.onGround = false
     p.standingMovingPlatformIdx = -1
     this.standingBoatIdx = -1
+    this.standingPerchIdx = -1
+    this.standingGearIdx = -1
 
     for (const bc of this.bounceClouds) {
       if (
@@ -3094,6 +3463,84 @@ export class MoonpawGameEngine {
       }
     }
 
+    // Cloudland Phasing Star Clouds (solid & warn phases support landing!)
+    for (const pc of this.phasingClouds) {
+      if (pc.phase === 'phased') continue
+      if (
+        p.vy >= 0 &&
+        p.x + p.w > pc.x + 2 &&
+        p.x < pc.x + pc.w - 2 &&
+        prevBottom <= pc.y + 7 &&
+        p.y + p.h >= pc.y
+      ) {
+        p.y = pc.y - p.h
+        p.vy = 0
+        p.onGround = true
+        p.airDashUsed = false
+        this.standingSurface = 'cloud'
+      }
+    }
+
+    // Harbor Swinging Lantern Perches
+    for (let i = 0; i < this.swingingPerches.length; i++) {
+      const sp = this.swingingPerches[i]!
+      if (
+        p.vy >= 0 &&
+        p.x + p.w > sp.curX + 2 &&
+        p.x < sp.curX + sp.w - 2 &&
+        prevBottom <= sp.curY + 7 &&
+        p.y + p.h >= sp.curY
+      ) {
+        p.y = sp.curY - p.h
+        p.vy = 0
+        p.onGround = true
+        p.airDashUsed = false
+        this.standingSurface = 'harbor'
+        this.standingPerchIdx = i
+      }
+    }
+
+    // Cavern Elastic Glow-Mushrooms (high bouncy bioluminescent caps!)
+    for (const gm of this.glowMushrooms) {
+      if (
+        p.vy >= 0 &&
+        p.x + p.w > gm.x + 2 &&
+        p.x < gm.x + gm.w - 2 &&
+        prevBottom <= gm.y + 8 &&
+        p.y + p.h >= gm.y + 1
+      ) {
+        p.y = gm.y + 1 - p.h
+        p.vy = gm.bounceVy ?? -296
+        p.onGround = false
+        p.coyoteTimer = 0
+        p.jumpsUsed = 0
+        p.airDashUsed = false
+        gm.squishTimer = 0.26
+        this.audio.playBounce()
+        this.spawnCollectBurst(gm.x + gm.w / 2, gm.y + 4, gm.tint === 'violet' ? '#cfa6ff' : '#76f7eb', 10)
+        break
+      }
+    }
+
+    // Observatory Rotating Gear Platforms
+    for (let i = 0; i < this.gearPlatforms.length; i++) {
+      const gp = this.gearPlatforms[i]!
+      if (
+        p.vy >= 0 &&
+        p.x + p.w > gp.curX + 2 &&
+        p.x < gp.curX + gp.w - 2 &&
+        prevBottom <= gp.curY + 7 &&
+        p.y + p.h >= gp.curY
+      ) {
+        p.y = gp.curY - p.h
+        p.vy = 0
+        p.onGround = true
+        p.airDashUsed = false
+        this.standingSurface = 'observatory'
+        this.standingGearIdx = i
+      }
+    }
+
     p.animTimer += dt
     p.blinkTimer -= dt
     if (p.blinkTimer <= -0.14) {
@@ -3120,6 +3567,141 @@ export class MoonpawGameEngine {
     if (p.y > this.level.height + 28) {
       this.handlePitFall()
     }
+  }
+
+  private updateBossEncounter(dt: number): void {
+    const boss = this.bossController
+    if (!boss) {
+      this.bossWindPushX = 0
+      return
+    }
+    const p = this.player
+
+    // Combat Skill 1: Starlight Pulse (C / J or ✦ button, 1.2s cooldown; 0s & 3-way spread during Comet Charge!)
+    if (this.input.pulseJustPressed) {
+      const hasComet = p.cometChargeTimer > 0
+      if (hasComet || p.starlightPulseCooldown <= 0) {
+        const px = p.x + p.w / 2 + p.facing * 8
+        const py = p.y + p.h / 2
+        boss.firePlayerPulse(px, py, p.facing, hasComet)
+        p.starlightPulseCooldown = hasComet ? 0.14 : 1.2
+        this.audio.playStarlightPulse(hasComet)
+        this.spawnCollectBurst(px, py, hasComet ? '#ff9ed2' : '#8ef0ff', 4)
+        this.emitHud()
+      }
+    }
+
+    // Combat Skill 2: Astral Aegis (V / K or ◈ button, 5.0s cooldown, 1.2s barrier!)
+    if (this.input.aegisJustPressed && p.astralAegisCooldown <= 0) {
+      p.astralAegisTimer = 1.2
+      p.astralAegisCooldown = 5.0
+      this.audio.playAstralAegis(false)
+      this.spawnCollectBurst(p.x + p.w / 2, p.y + p.h / 2, '#b8e8ff', 8)
+      this.floatingTexts.push({
+        x: p.x + p.w / 2,
+        y: p.y - 6,
+        vy: -16,
+        text: '◈ AEGIS!',
+        color: '#b8f0ff',
+        life: 0.85,
+        maxLife: 0.85
+      })
+      this.emitHud()
+    }
+
+    const res = boss.update(dt, p, this.progress.reduceMotion, {
+      onDamagePlayer: (kvx, kvy) => {
+        this.touchedEnemyThisLevel = true
+        this.damagePlayer(kvx, kvy)
+      },
+      onAegisBlock: (bx, by) => {
+        // Successful block restores Starlight Pulse cooldown immediately!
+        p.starlightPulseCooldown = 0
+        this.audio.playAstralAegis(true)
+        this.spawnCollectBurst(bx, by, '#9ef0ff', 10)
+        this.floatingTexts.push({
+          x: bx,
+          y: by - 8,
+          vy: -18,
+          text: 'TANGKIS! ✦ SIAP!',
+          color: '#9ef0ff',
+          life: 0.9,
+          maxLife: 0.9
+        })
+        this.emitHud()
+      },
+      onBossHit: (hx, hy, dmg, critical, deflected) => {
+        this.spawnCollectBurst(hx, hy, critical ? '#ffe466' : '#a8efff', critical ? 12 : 7)
+        this.floatingTexts.push({
+          x: hx,
+          y: hy - 6,
+          vy: -20,
+          text: deflected ? `-${dmg} STUN! ★` : critical ? `-${dmg} CRIT!` : `-${dmg}`,
+          color: critical ? '#ffe466' : '#fff5d6',
+          life: 0.85,
+          maxLife: 0.85
+        })
+        this.emitHud()
+      },
+      onBossPhaseChange: () => {
+        this.emitHud()
+      },
+      onBossDefeated: (dx, dy) => {
+        this.spawnCollectBurst(dx, dy, '#ffe466', 24)
+        this.spawnCollectBurst(dx, dy, '#ff8cb8', 18)
+        this.floatingTexts.push({
+          x: dx,
+          y: dy - 10,
+          vy: -14,
+          text: 'BOSS DIKALAHKAN! GERBANG TERBUKA!',
+          color: '#ffe475',
+          life: 2.4,
+          maxLife: 2.4
+        })
+        this.emitHud()
+      },
+      onPlayBossSfx: (kind) => this.audio.playBossSfx(kind),
+      onSpawnParticle: (sx, sy, color, count) => this.spawnCollectBurst(sx, sy, color, count),
+      onFloatingText: (tx, ty, text, color) => {
+        this.floatingTexts.push({ x: tx, y: ty, vy: -16, text, color, life: 1.2, maxLife: 1.2 })
+      }
+    })
+
+    this.bossWindPushX = res.windPushX
+
+    // Apply collected Arena Battle Item effect!
+    if (res.collectedItem) {
+      this.applyArenaBattleItem(res.collectedItem)
+    }
+  }
+
+  private applyArenaBattleItem(kind: ArenaBattleItemKind): void {
+    const p = this.player
+    const cx = p.x + p.w / 2
+    const cy = p.y
+    if (kind === 'starBerry') {
+      this.audio.playMilk()
+      if (p.hearts < p.maxHearts) {
+        p.hearts += 1
+      } else {
+        this.levelScore += 150
+        this.totalRunScore += 150
+      }
+      this.spawnCollectBurst(cx, cy, '#ff7aa8', 12)
+      this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '🍓 +1 ♥ STAR BERRY!', color: '#ffb5d4', life: 1.1, maxLife: 1.1 })
+    } else if (kind === 'cometCharge') {
+      p.cometChargeTimer = 6.0
+      p.starlightPulseCooldown = 0
+      this.audio.playCandy()
+      this.spawnCollectBurst(cx, cy, '#ffe466', 14)
+      this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '☄️ COMET CHARGE 6s!', color: '#ffe466', life: 1.2, maxLife: 1.2 })
+    } else if (kind === 'moonlightFeather') {
+      p.moonlightFeatherTimer = 10.0
+      this.audio.playFeather()
+      this.spawnCollectBurst(cx, cy, '#9ef0ff', 14)
+      this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '🌙 TRIPLE JUMP 10s!', color: '#b8f3ff', life: 1.2, maxLife: 1.2 })
+    }
+    this.emitHud()
   }
 
   private checkCheckpoint(): void {
@@ -3307,16 +3889,23 @@ export class MoonpawGameEngine {
     for (const item of this.collectibles) {
       if (item.collected) continue
 
-      // Golden Bell pulls Stars & Fish; Moonlit Pearl pulls Golden Fish!
+      // Golden Bell pulls Stars & Fish; Moonlit Pearl pulls Golden Fish; Sun Bear has built-in +25% magnet radius!
+      const isSunBear = this.progress.selectedCharacter === 'bear-sun'
       const shouldPull =
-        p.magnetTimer > 0 || (p.pearlTimer > 0 && item.kind === 'fish')
+        p.magnetTimer > 0 || (p.pearlTimer > 0 && item.kind === 'fish') || isSunBear
       if (shouldPull) {
-        const radius = p.magnetTimer > 0 ? MAGNET_RADIUS : PEARL_FISH_RADIUS
+        const baseRadius =
+          p.magnetTimer > 0
+            ? MAGNET_RADIUS
+            : p.pearlTimer > 0 && item.kind === 'fish'
+              ? PEARL_FISH_RADIUS
+              : 26
+        const radius = isSunBear ? Math.round(baseRadius * 1.25) : baseRadius
         const dx = px - (item.curX + 6)
         const dy = py - (item.curY + 6)
         const dist = Math.hypot(dx, dy)
         if (dist > 1 && dist <= radius) {
-          const pull = 175 * dt
+          const pull = (p.magnetTimer > 0 || p.pearlTimer > 0 ? 175 : 108) * dt
           item.curX += (dx / dist) * pull
           item.curY += (dy / dist) * pull
         }
@@ -3370,6 +3959,8 @@ export class MoonpawGameEngine {
           this.incrementDailyQuest('stars-any-20', 2)
           if (this.level.biome === 'sakura') {
             this.incrementDailyQuest('stars-sakura', 2)
+          } else if (this.level.biome === 'rooftops') {
+            this.incrementDailyQuest('stars-rooftops', 2)
           }
           this.spawnCollectBurst(item.curX + iw / 2, bobY + ih / 2, '#ffe46b', 16)
           this.floatingTexts.push({
@@ -3400,6 +3991,8 @@ export class MoonpawGameEngine {
           this.incrementDailyQuest('stars-any-20', 1)
           if (this.level.biome === 'sakura') {
             this.incrementDailyQuest('stars-sakura', 1)
+          } else if (this.level.biome === 'rooftops') {
+            this.incrementDailyQuest('stars-rooftops', 1)
           }
           this.spawnCollectBurst(item.curX + iw / 2, bobY + ih / 2, isStarDouble ? '#ffb5d8' : '#fff5a8', 7)
           this.floatingTexts.push({
@@ -3457,6 +4050,7 @@ export class MoonpawGameEngine {
         )
       ) {
         sh.collected = true
+        this.incrementDailyQuest('collect-shard-1', 1)
         const pts = sh.previouslyCollected ? 30 : 60
         this.levelScore += pts
         this.totalRunScore += pts
@@ -3636,6 +4230,37 @@ export class MoonpawGameEngine {
   private damagePlayer(knockVx: number, knockVy: number): void {
     const p = this.player
 
+    // Astral Aegis barrier negates hits completely during Boss Fights!
+    if (p.astralAegisTimer > 0) {
+      p.starlightPulseCooldown = 0
+      this.audio.playAstralAegis(true)
+      this.spawnCollectBurst(p.x + p.w / 2, p.y + p.h / 2, '#9ef0ff', 10)
+      this.emitHud()
+      return
+    }
+
+    // Polar Bear Passive — Arctic Resilience: 1 free Frost Shield per level (does NOT break Pacifist Run!)
+    if (p.hasFrostShield) {
+      p.hasFrostShield = false
+      p.invincibleTimer = INVINCIBLE_DURATION
+      p.vx = knockVx * 0.55
+      p.vy = knockVy * 0.7
+      this.knockbackTimer = 0.1
+      this.audio.playFrostShieldBreak()
+      this.spawnCollectBurst(p.x + p.w / 2, p.y + p.h / 2, '#a8f2ff', 14)
+      this.floatingTexts.push({
+        x: p.x + p.w / 2,
+        y: p.y - 6,
+        vy: -18,
+        text: '❄️ FROST SHIELD!',
+        color: '#b8f7ff',
+        life: 1.05,
+        maxLife: 1.05
+      })
+      this.emitHud()
+      return
+    }
+
     // Moon Bubble Shield absorbs 1 hazard collision cleanly!
     if (p.hasBubbleShield) {
       p.hasBubbleShield = false
@@ -3658,14 +4283,17 @@ export class MoonpawGameEngine {
       return
     }
 
+    // Black Bear Passive — Sturdy Paws: reduced knockback on taking damage!
+    const knockScale = this.progress.selectedCharacter === 'bear-black' ? 0.62 : 1.0
+
     p.hearts = Math.max(0, p.hearts - 1)
     this.tookDamageThisLevel = true
     p.invincibleTimer = INVINCIBLE_DURATION
     p.dashTimer = 0
     p.coyoteTimer = 0
-    p.vx = knockVx
-    p.vy = knockVy
-    this.knockbackTimer = 0.16
+    p.vx = knockVx * knockScale
+    p.vy = knockVy * (knockScale < 1 ? 0.82 : 1)
+    this.knockbackTimer = knockScale < 1 ? 0.1 : 0.16
     p.onGround = false
     p.standingMovingPlatformIdx = -1
     this.hurtPulseCount += 1
@@ -3728,7 +4356,12 @@ export class MoonpawGameEngine {
   private checkPortal(): void {
     const p = this.player
     const portal = this.level.portal
+    // Boss Stages lock the Moon Portal until the Boss is defeated!
+    if (this.bossController && !this.bossController.defeated) {
+      return
+    }
     if (this.aabbOverlap(p.x, p.y, p.w, p.h, portal.x + 6, portal.y + 8, 20, 30)) {
+      const prevRankSCount = countRankSLevels(this.progress)
       const species = getCharacterById(this.progress.selectedCharacter).species
       this.audio.playSpeciesVoice(species)
       this.audio.playLevelClear()
@@ -3746,16 +4379,20 @@ export class MoonpawGameEngine {
 
       const starRatio = totalStars > 0 ? starsCollected / totalStars : 1
       const rating: 1 | 2 | 3 =
-        starRatio >= 0.8 && fishCollected >= Math.min(2, totalFish)
+        this.bossController?.defeated
           ? 3
-          : starRatio >= 0.5 || fishCollected >= 1
-            ? 2
-            : 1
+          : starRatio >= 0.8 && fishCollected >= Math.min(2, totalFish)
+            ? 3
+            : starRatio >= 0.5 || fishCollected >= 1
+              ? 2
+              : 1
       this.lastStageRating = rating
 
-      const nextUnlock = Math.min(LEVELS.length, this.level.id + 1)
-      if (nextUnlock > this.progress.unlockedLevel) {
-        this.progress.unlockedLevel = nextUnlock
+      if (!this.level.isSecretFinale) {
+        const nextUnlock = Math.min(MAIN_LEVEL_COUNT, this.level.id + 1)
+        if (nextUnlock > this.progress.unlockedLevel) {
+          this.progress.unlockedLevel = nextUnlock
+        }
       }
       this.progress.lastPlayedLevel = this.level.id
 
@@ -3765,12 +4402,48 @@ export class MoonpawGameEngine {
       }
 
       const prevRec = this.progress.levelRecords[this.level.id]
+      const alreadyClearedBefore = (prevRec?.rating ?? 0) >= 1
       const alreadyClaimedBonus = Boolean(prevRec?.threeStarBonusClaimed)
       const earnThreeStarBonus = rating === 3 && !alreadyClaimedBonus
       this.justEarnedThreeStarBonus = earnThreeStarBonus
+      let extraStageCoins = 0
       if (earnThreeStarBonus) {
-        this.progress.fishBank += 1
-        this.progress.totalFishEarned += 1
+        extraStageCoins += 1
+      }
+
+      // Boss Stage Completion Rewards (+250/+500 coins + Exclusive Boss Cosmetic!)
+      if (this.level.bossConfig) {
+        const bCfg = this.level.bossConfig
+        if (!alreadyClearedBefore) {
+          extraStageCoins += bCfg.rewardCoins
+        }
+        let unlockedBossCosmetic = false
+        if (bCfg.cosmeticSlot === 'head_acc' && !this.progress.ownedHeadAccs.includes(bCfg.cosmeticId as HeadAccId)) {
+          this.progress.ownedHeadAccs.push(bCfg.cosmeticId as HeadAccId)
+          unlockedBossCosmetic = true
+        } else if (bCfg.cosmeticSlot === 'cape' && !this.progress.ownedCapes.includes(bCfg.cosmeticId as CapeId)) {
+          this.progress.ownedCapes.push(bCfg.cosmeticId as CapeId)
+          unlockedBossCosmetic = true
+        }
+        if (unlockedBossCosmetic) {
+          this.showToast({
+            icon: '👑',
+            label: `HADIAH BOSS (+${bCfg.rewardCoins} 🐟)!`,
+            title: bCfg.cosmeticName
+          })
+        }
+      }
+
+      // Sun Bear Passive — Sweet Forager: +10% bonus fish coins on level completion!
+      if (this.progress.selectedCharacter === 'bear-sun') {
+        const earnedBase = fishCollected + extraStageCoins
+        const sunBonus = Math.max(1, Math.ceil(earnedBase * 0.1))
+        extraStageCoins += sunBonus
+      }
+
+      if (extraStageCoins > 0) {
+        this.progress.fishBank += extraStageCoins
+        this.progress.totalFishEarned += extraStageCoins
       }
 
       this.progress.levelRecords[this.level.id] = {
@@ -3792,8 +4465,12 @@ export class MoonpawGameEngine {
       ]
       this.progress.collectedShards[this.level.id] = mergedShards
 
-      if (countBiomeCollectedShards(this.level.biome, this.progress) >= 6) {
-        const reward = BIOME_SHARD_REWARDS[this.level.biome]
+      if (
+        this.level.biome !== 'eclipse' &&
+        this.level.biome !== 'citadel' &&
+        countBiomeCollectedShards(this.level.biome, this.progress) >= 6
+      ) {
+        const reward = BIOME_SHARD_REWARDS[this.level.biome as MainBiomeId]
         let unlockedNow = false
         if (reward.slot === 'hat' && !this.progress.ownedHats.includes(reward.id as HatId)) {
           this.progress.ownedHats.push(reward.id as HatId)
@@ -3814,7 +4491,8 @@ export class MoonpawGameEngine {
         }
       }
 
-      // Daily Quest: No-Hit Level Clear & Stamp Book Pacifist Run
+      // Daily Quest: Clear 2 Levels + No-Hit Level Clear & Stamp Book Pacifist Run
+      this.incrementDailyQuest('clear-2-levels', 1)
       if (!this.tookDamageThisLevel) {
         this.incrementDailyQuest('no-hit-clear', 1)
         if (!this.touchedEnemyThisLevel) {
@@ -3835,6 +4513,16 @@ export class MoonpawGameEngine {
       const prevRank = this.progress.levelRanks[this.level.id]
       if (rankOrder(runRank) > rankOrder(prevRank)) {
         this.progress.levelRanks[this.level.id] = runRank
+      }
+
+      // Celebrate unlocking ★ SECRET FINALE when reaching Rank S >= 3!
+      const nextRankSCount = countRankSLevels(this.progress)
+      if (prevRankSCount < 3 && nextRankSCount >= 3) {
+        this.showToast({
+          icon: '★',
+          label: 'SECRET FINALE TERBUKA! (3 RANK S)',
+          title: 'Level 13 & 14 Boss Stages!'
+        })
       }
 
       const rankRewardRes = claimSpeedrunRankRewards(
@@ -4394,13 +5082,16 @@ export class MoonpawGameEngine {
     this.renderFragileBranches(ctx, camX)
     this.renderFloatingBoats(ctx, camX)
     this.renderMovingPlatforms(ctx)
+    this.renderNewBiomeMechanics(ctx, camX)
     this.renderBounceClouds(ctx)
     this.renderLanterns(ctx, camX)
     this.renderCheckpoint(ctx)
     this.renderPuddles(ctx)
     this.renderWindVortices(ctx, camX)
     this.renderSteamVents(ctx, camX)
-    this.renderPortal(ctx)
+    if (!this.bossController || this.bossController.defeated) {
+      this.renderPortal(ctx)
+    }
     this.renderNpc(ctx)
     this.renderPowerUps(ctx)
     this.renderCollectibles(ctx)
@@ -4410,6 +5101,9 @@ export class MoonpawGameEngine {
     this.renderSecretAlcoves(ctx, camX)
     this.renderCrows(ctx)
     this.renderBiomeEnemies(ctx, camX)
+    if (this.bossController) {
+      this.bossController.render(ctx, this.progress.reduceMotion)
+    }
     this.renderDashAfterimages(ctx)
     if (this.screen === 'title') {
       this.renderTitleCampProps(ctx)
@@ -4455,7 +5149,11 @@ export class MoonpawGameEngine {
       rooftops: ['#0d0720', '#191038', '#2a1a54', '#402672'],
       sakura: ['#140d33', '#23164d', '#3b2366', '#5e3475'],
       cloudland: ['#2c2566', '#463f94', '#6962bd', '#9b95de'],
-      harbor: ['#051524', '#0a253a', '#123b54', '#1d556e']
+      harbor: ['#051524', '#0a253a', '#123b54', '#1d556e'],
+      cavern: ['#06101f', '#0d2038', '#153457', '#214b73'],
+      observatory: ['#0a0c26', '#161b47', '#262b66', '#3e3d82'],
+      eclipse: ['#170514', '#2e0b24', '#4a1436', '#6b1d4a'],
+      citadel: ['#08051f', '#150f42', '#261c6b', '#3c2b91']
     }
     const [c0, c1, c2, c3] = palettes[biome]
     if (!isModern) {
@@ -4870,7 +5568,7 @@ export class MoonpawGameEngine {
         ctx.fillStyle = i % 2 === 0 ? '#fff5b8' : '#b8f0ff'
         ctx.fillRect(sx, sy, 2, 2)
       }
-    } else {
+    } else if (biome === 'harbor') {
       // BIOME 4: LANTERN HARBOR
       // Sky Parallax: thin horizon cloud wisps
       for (let i = 0; i < 3; i++) {
@@ -4978,6 +5676,48 @@ export class MoonpawGameEngine {
           this.drawCircularGlow(ctx, lx + 2, ly + 4, 19, 'rgba(255, 206, 118, 0.24)', 'rgba(255, 112, 92, 0.08)', 'rgba(0,0,0,0)')
         }
       }
+    } else if (biome === 'cavern') {
+      // Crystal Mushroom Cavern Camp Hub!
+      ctx.fillStyle = '#0c1c36'
+      ctx.fillRect(184, 164, 200, 52)
+      ctx.fillStyle = '#3ba3a8'
+      ctx.fillRect(184, 164, 200, 4)
+      ctx.fillStyle = '#76f5e8'
+      ctx.fillRect(184, 164, 200, 2)
+      // Glowing camp mushrooms & crystals
+      ctx.fillStyle = '#254463'
+      ctx.fillRect(212, 146, 5, 18)
+      ctx.fillStyle = '#5ef2e6'
+      ctx.fillRect(202, 139, 24, 8)
+      ctx.fillStyle = '#33285e'
+      ctx.fillRect(344, 148, 5, 16)
+      ctx.fillStyle = '#c48cff'
+      ctx.fillRect(336, 142, 20, 7)
+      for (let i = 0; i < 7; i++) {
+        const sx = 196 + ((i * 27 + Math.round(Math.sin(t + i) * 6)) % 176)
+        const sy = 152 - ((Math.floor(t * 7) + i * 18) % 86)
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(116, 250, 238, 0.72)' : 'rgba(202, 152, 255, 0.65)'
+        ctx.fillRect(sx, sy, 2, 2)
+      }
+    } else if (biome === 'observatory' || biome === 'eclipse' || biome === 'citadel') {
+      // Clockwork Observatory Camp Hub!
+      const rot = t * 0.45
+      ctx.strokeStyle = 'rgba(224, 174, 72, 0.34)'
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.arc(286, 98, 28, 0, Math.PI * 2)
+      ctx.stroke()
+      for (let s = 0; s < 6; s++) {
+        const a = rot + (s * Math.PI) / 3
+        ctx.fillStyle = '#ffe68c'
+        ctx.fillRect(Math.round(286 + Math.cos(a) * 30) - 2, Math.round(98 + Math.sin(a) * 30) - 2, 4, 4)
+      }
+      ctx.fillStyle = '#262754'
+      ctx.fillRect(184, 164, 200, 52)
+      ctx.fillStyle = '#d9a441'
+      ctx.fillRect(184, 164, 200, 4)
+      ctx.fillStyle = '#fff0a6'
+      ctx.fillRect(184, 164, 200, 1)
     }
 
     // =========================================================================
@@ -4986,6 +5726,14 @@ export class MoonpawGameEngine {
     this.renderHomeCampFriends(ctx, biome)
     this.renderTitleCampProps(ctx)
     this.renderPlayer(ctx)
+    this.renderBespokeCampAccent(
+      ctx,
+      this.progress.selectedCharacter,
+      this.player.x + this.player.w / 2,
+      this.player.y + this.player.h,
+      this.campReactionTimer > 0,
+      true
+    )
     this.renderCosmeticTrailParticles(ctx)
     this.renderParticles(ctx)
     this.renderFloatingTexts(ctx)
@@ -4999,28 +5747,205 @@ export class MoonpawGameEngine {
     }
   }
 
+  /**
+   * Renders bespoke pixel props, idle animations & click visual accents for all 9 Camp Hub character personas.
+   * Preserves crisp pixel edges (`imageSmoothingEnabled = false`) and respects `reduceMotion`.
+   */
+  private renderBespokeCampAccent(
+    ctx: CanvasRenderingContext2D,
+    charId: CharacterId,
+    cx: number,
+    footY: number,
+    isReacting: boolean,
+    isHero: boolean
+  ): void {
+    const calm = this.progress.reduceMotion
+    const t = this.worldTime
+    const s = isHero ? 1 : 0.85
+
+    if (charId === 'bear-sun') {
+      // Tiny golden pixel honey pot held in front; raises happily on click!
+      const lift = isReacting ? -5 : calm ? 0 : Math.round(Math.sin(t * 2.2) * 1)
+      const hx = Math.round(cx + (isHero ? 7 : 5))
+      const hy = Math.round(footY - Math.round(12 * s) + lift)
+      ctx.fillStyle = '#24101c'
+      ctx.fillRect(hx - 1, hy - 1, 9, 9)
+      ctx.fillStyle = '#d98a2b'
+      ctx.fillRect(hx, hy + 1, 7, 6)
+      ctx.fillStyle = '#ffcf4d'
+      ctx.fillRect(hx + 1, hy, 5, 2)
+      ctx.fillStyle = '#fff5b8'
+      ctx.fillRect(hx + 1, hy + 2, 2, 2)
+      if (isReacting) {
+        // Golden honey droplets floating upward
+        ctx.fillStyle = '#ffd84d'
+        ctx.fillRect(hx + 2, hy - 4, 2, 2)
+        ctx.fillRect(hx + 6, hy - 7, 2, 2)
+      }
+      return
+    }
+
+    if (charId === 'bear-polar') {
+      // Soft ice-blue frost mist beneath belly-lounging Polar Bear + snowflakes on click
+      ctx.fillStyle = 'rgba(182, 232, 255, 0.28)'
+      ctx.fillRect(Math.round(cx - 11), Math.round(footY - 2), 22, 3)
+      if (isReacting) {
+        const drift = calm ? 0 : Math.round(Math.sin(t * 5) * 2)
+        ctx.fillStyle = '#d6f7ff'
+        ctx.fillRect(Math.round(cx - 10 + drift), Math.round(footY - 22), 2, 2)
+        ctx.fillRect(Math.round(cx + 8 - drift), Math.round(footY - 26), 2, 2)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(Math.round(cx + 2), Math.round(footY - 29), 1, 3)
+        ctx.fillRect(Math.round(cx + 1), Math.round(footY - 28), 3, 1)
+      }
+      return
+    }
+
+    if (charId === 'bear-black') {
+      // Highlights signature warm-cream crescent chest mark with gold sparkles on click
+      if (isReacting) {
+        const px = Math.round(cx)
+        const py = Math.round(footY - Math.round(14 * s))
+        ctx.fillStyle = '#fff5c2'
+        ctx.fillRect(px - 2, py, 5, 2)
+        ctx.fillStyle = '#ffe475'
+        ctx.fillRect(px - 8, py - 8, 1, 3)
+        ctx.fillRect(px - 9, py - 7, 3, 1)
+        ctx.fillRect(px + 8, py - 10, 1, 3)
+        ctx.fillRect(px + 7, py - 9, 3, 1)
+      }
+      return
+    }
+
+    if (charId === 'fox-brown') {
+      // Periodic ear-twitch pixel spark & floating leaf/note when hopping on click
+      if (!calm && Math.floor(t * 1.8) % 5 === 0) {
+        ctx.fillStyle = '#fff4e3'
+        ctx.fillRect(Math.round(cx + 5), Math.round(footY - Math.round(32 * s)), 2, 1)
+      }
+      if (isReacting) {
+        ctx.fillStyle = '#8ce696'
+        ctx.fillRect(Math.round(cx - 11), Math.round(footY - 24), 3, 2)
+        ctx.fillStyle = '#ffe875'
+        ctx.fillRect(Math.round(cx + 9), Math.round(footY - 28), 2, 4)
+        ctx.fillRect(Math.round(cx + 11), Math.round(footY - 28), 2, 1)
+      }
+      return
+    }
+
+    if (charId === 'fox-kitsune') {
+      // Summons 3 floating blue-gold pixel kitsunebi wisps drifting upward on click (1 gentle orb on idle)
+      const orbCount = isReacting ? 3 : 1
+      for (let i = 0; i < orbCount; i++) {
+        const ang = (calm ? 0.8 : t * 2.4) + i * 2.1
+        const ox = Math.round(cx + Math.cos(ang) * (isReacting ? 14 : 11))
+        const oy = Math.round(
+          footY - Math.round(20 * s) + Math.sin(ang * 1.3) * 4 - (isReacting ? i * 4 : 0)
+        )
+        ctx.fillStyle = '#7eeeff'
+        ctx.fillRect(ox - 1, oy - 1, 3, 3)
+        ctx.fillStyle = '#ffe875'
+        ctx.fillRect(ox, oy, 1, 1)
+      }
+      return
+    }
+
+    if (charId === 'dog-samoyed') {
+      // Cute pink panting tongue pixel + floating bone on click
+      const pant = calm ? 0 : Math.floor(t * 4) % 2
+      ctx.fillStyle = '#ff7ca8'
+      ctx.fillRect(Math.round(cx + 2), Math.round(footY - Math.round(18 * s) + pant), 2, 2)
+      if (isReacting) {
+        const bx = Math.round(cx + 9)
+        const by = Math.round(footY - 26)
+        ctx.fillStyle = '#fff5e0'
+        ctx.fillRect(bx, by, 5, 2)
+        ctx.fillRect(bx - 1, by - 1, 2, 4)
+        ctx.fillRect(bx + 4, by - 1, 2, 4)
+      }
+      return
+    }
+
+    if (charId === 'bunny-starlight') {
+      // Nose/ear wiggle + clover sparkle on click
+      if (isReacting) {
+        ctx.fillStyle = '#9ef5b8'
+        ctx.fillRect(Math.round(cx - 10), Math.round(footY - 25), 3, 3)
+        ctx.fillStyle = '#ffe875'
+        ctx.fillRect(Math.round(cx + 9), Math.round(footY - 28), 2, 2)
+      }
+      return
+    }
+
+    if (charId === 'dog-shiba') {
+      // Proud lookout starlight glints on click
+      if (isReacting) {
+        ctx.fillStyle = '#ffe475'
+        ctx.fillRect(Math.round(cx - 9), Math.round(footY - 28), 1, 3)
+        ctx.fillRect(Math.round(cx - 10), Math.round(footY - 27), 3, 1)
+        ctx.fillRect(Math.round(cx + 9), Math.round(footY - 26), 2, 2)
+      }
+      return
+    }
+
+    // Cats: cozy cushion under camp friends too + pink heart sparkle on click
+    if (!isHero) {
+      ctx.fillStyle = '#75335c'
+      ctx.fillRect(Math.round(cx - 9), Math.round(footY - 2), 18, 2)
+      ctx.fillStyle = '#ff9ec4'
+      ctx.fillRect(Math.round(cx - 7), Math.round(footY - 2), 14, 1)
+    }
+    if (isReacting) {
+      ctx.fillStyle = '#ff8cb8'
+      ctx.fillRect(Math.round(cx + 8), Math.round(footY - 26), 3, 2)
+      ctx.fillRect(Math.round(cx + 9), Math.round(footY - 24), 1, 1)
+    }
+  }
+
   private renderHomeCampFriends(ctx: CanvasRenderingContext2D, biome: BiomeId): void {
     const slots = this.getCampFriendSlots(biome)
+    const calm = this.progress.reduceMotion
     for (let i = 0; i < Math.min(this.campFriends.length, slots.length); i++) {
       const fr = this.campFriends[i]!
       const slot = slots[i]!
       const dir = slot.facing === 1 ? fr.sprites.right : fr.sprites.left
       const blinkCycle = (this.worldTime + fr.blinkOffset) % 3.6
+      const isReacting = fr.reactionTimer > 0
       let sprite = dir.sit0
-      if (fr.reaction === 'hop') {
+      if (fr.reaction === 'hop' && isReacting) {
         sprite = dir.jumpUp
-      } else if (fr.reaction === 'nap' || slot.pose === 'nap') {
-        sprite = blinkCycle < 2.6 ? dir.sitBlink : dir.sit0
+      } else if (fr.reaction === 'nap' && isReacting) {
+        sprite = dir.sitBlink
+      } else if (fr.id === 'bear-polar') {
+        // Polar Bear lounges cozily on belly with sleepy breathing
+        sprite = blinkCycle < 1.8 ? dir.sitBlink : dir.sit0
+      } else if (fr.id === 'fox-kitsune' && isReacting) {
+        sprite = dir.sitBlink
+      } else if (!calm && (fr.id === 'dog-samoyed' || fr.id === 'fox-brown') && Math.floor(this.worldTime * 2.5 + i) % 3 === 0) {
+        sprite = dir.idleSpecial
       } else {
-        sprite = blinkCycle < 0.16 ? dir.sitBlink : dir.sit0
+        sprite = blinkCycle < 0.18 ? dir.sitBlink : dir.sit0
       }
-      // Subtle 1.33x scale (32x32 px) so background friends look cozy & proportional behind the 40x40 hero!
+
       const size = 32
+      const idleBob =
+        calm || isReacting
+          ? 0
+          : fr.id === 'bear-sun' || fr.id === 'bunny-starlight'
+            ? Math.round(Math.sin(this.worldTime * 2.8 + i) * 1)
+            : 0
       const dx = Math.round(slot.x - size / 2)
-      const dy = Math.round(slot.y - size + 3 - fr.hopOffset)
+      const dy = Math.round(slot.y - size + 3 - fr.hopOffset + idleBob)
       ctx.fillStyle = 'rgba(12, 6, 28, 0.34)'
       ctx.fillRect(Math.round(slot.x - 8), Math.round(slot.y - 1), 16, 2)
-      ctx.drawImage(sprite, dx, dy, size, size)
+
+      // Polar Bear belly-lounging pose: slightly wider/lower cozy horizontal rest
+      if (fr.id === 'bear-polar' && !isReacting) {
+        ctx.drawImage(sprite, 0, 0, 24, 24, dx - 2, dy + 4, size + 4, size - 4)
+      } else {
+        ctx.drawImage(sprite, dx, dy, size, size)
+      }
+      this.renderBespokeCampAccent(ctx, fr.id, slot.x, slot.y, isReacting, false)
     }
   }
 
@@ -5531,6 +6456,230 @@ export class MoonpawGameEngine {
       this.renderCloudlandBackdrop(ctx, camX)
     } else if (biome === 'harbor') {
       this.renderHarborBackdrop(ctx, camX)
+    } else if (biome === 'cavern') {
+      this.renderCavernBackdrop(ctx, camX)
+    } else if (biome === 'observatory') {
+      this.renderObservatoryBackdrop(ctx, camX)
+    } else if (biome === 'eclipse') {
+      this.renderEclipseBackdrop(ctx, camX)
+    } else if (biome === 'citadel') {
+      this.renderCitadelBackdrop(ctx, camX)
+    }
+  }
+
+  private renderCavernBackdrop(ctx: CanvasRenderingContext2D, camX: number): void {
+    const o1 = Math.round(camX * 0.08)
+    const wrap = Math.max(520, this.viewW + 160)
+    const count = Math.ceil(wrap / 74) + 1
+    // Stalactites & glowing crystal pillars
+    for (let i = 0; i < count; i++) {
+      const cx = Math.round((((i * 74 - o1) % wrap) + wrap) % wrap - 40)
+      ctx.fillStyle = '#0e1d36'
+      ctx.fillRect(cx, 0, 14, 24 + (i % 3) * 10)
+      ctx.fillRect(cx + 3, 24 + (i % 3) * 10, 8, 12)
+      ctx.fillStyle = i % 2 === 0 ? '#244b6e' : '#322966'
+      ctx.fillRect(cx + 22, 134, 10, 82)
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(110, 245, 232, 0.45)' : 'rgba(190, 140, 255, 0.45)'
+      ctx.fillRect(cx + 24, 136, 4, 20)
+    }
+    if (!this.progress.reduceMotion) {
+      for (let i = 0; i < 12; i++) {
+        const sx = (i * 53 + Math.round(Math.sin(this.worldTime * 0.8 + i) * 10)) % this.viewW
+        const sy = 40 + ((i * 29 - Math.round(this.worldTime * 6)) % 140 + 140) % 140
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(120, 250, 238, 0.65)' : 'rgba(202, 152, 255, 0.6)'
+        ctx.fillRect(sx, sy, 2, 2)
+      }
+    }
+  }
+
+  private renderObservatoryBackdrop(ctx: CanvasRenderingContext2D, camX: number): void {
+    const o1 = Math.round(camX * 0.06)
+    const wrap = Math.max(540, this.viewW + 180)
+    const count = Math.ceil(wrap / 110) + 1
+    const rot = this.progress.reduceMotion ? 0 : this.worldTime * 0.35
+    for (let i = 0; i < count; i++) {
+      const gx = Math.round((((i * 110 - o1) % wrap) + wrap) % wrap - 30)
+      const gy = 98 + (i % 2) * 28
+      const r = i % 2 === 0 ? 26 : 18
+      ctx.strokeStyle = 'rgba(224, 174, 72, 0.28)'
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.arc(gx, gy, r, 0, Math.PI * 2)
+      ctx.stroke()
+      // Gear spokes
+      for (let s = 0; s < 4; s++) {
+        const a = rot * (i % 2 === 0 ? 1 : -1.3) + (s * Math.PI) / 2
+        ctx.fillStyle = 'rgba(255, 224, 132, 0.32)'
+        ctx.fillRect(Math.round(gx + Math.cos(a) * (r + 2)) - 2, Math.round(gy + Math.sin(a) * (r + 2)) - 2, 4, 4)
+      }
+    }
+    // Starlight stained-glass beams
+    ctx.fillStyle = 'rgba(148, 220, 255, 0.07)'
+    ctx.fillRect(60, 0, 36, VIEW_H)
+    ctx.fillRect(Math.round(this.viewW * 0.62), 0, 44, VIEW_H)
+  }
+
+  private renderEclipseBackdrop(ctx: CanvasRenderingContext2D, _camX: number): void {
+    // Crimson-violet solar/lunar eclipse corona!
+    const ex = Math.round(this.viewW * 0.56)
+    const ey = 52
+    ctx.fillStyle = 'rgba(255, 86, 128, 0.25)'
+    ctx.beginPath()
+    ctx.arc(ex, ey, 34, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#ff6e91'
+    ctx.beginPath()
+    ctx.arc(ex, ey, 22, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#1a0616'
+    ctx.beginPath()
+    ctx.arc(ex, ey, 19, 0, Math.PI * 2)
+    ctx.fill()
+    // Distant temple columns
+    ctx.fillStyle = '#290d26'
+    for (let x = 24; x < this.viewW; x += 72) {
+      ctx.fillRect(x, 122, 12, 94)
+      ctx.fillRect(x - 3, 120, 18, 4)
+    }
+  }
+
+  private renderCitadelBackdrop(ctx: CanvasRenderingContext2D, _camX: number): void {
+    // Cosmic rotating star-rings & nebula glow!
+    const cx = Math.round(this.viewW * 0.54)
+    const cy = 78
+    ctx.strokeStyle = 'rgba(156, 140, 255, 0.34)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(cx, cy, 46, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(255, 226, 117, 0.3)'
+    ctx.beginPath()
+    ctx.arc(cx, cy, 30, 0, Math.PI * 2)
+    ctx.stroke()
+    if (!this.progress.reduceMotion) {
+      for (let i = 0; i < 6; i++) {
+        const a = this.worldTime * 0.6 + (i * Math.PI) / 3
+        ctx.fillStyle = i % 2 === 0 ? '#ffe680' : '#9ef0ff'
+        ctx.fillRect(Math.round(cx + Math.cos(a) * 46) - 2, Math.round(cy + Math.sin(a) * 46) - 2, 4, 4)
+      }
+    }
+  }
+
+  private renderNewBiomeMechanics(ctx: CanvasRenderingContext2D, camX: number): void {
+    const t = this.progress.reduceMotion ? 0 : this.worldTime
+
+    // 1. Rooftops Updraft Chimney Vents
+    if (this.level.updrafts) {
+      for (const ud of this.level.updrafts) {
+        if (ud.x + ud.w < camX - 24 || ud.x > camX + this.viewW + 24) continue
+        ctx.fillStyle = 'rgba(168, 228, 255, 0.12)'
+        ctx.fillRect(Math.round(ud.x), Math.round(ud.y), Math.round(ud.w), Math.round(ud.h))
+        for (let i = 0; i < 4; i++) {
+          const sx = Math.round(ud.x + 5 + ((i * 8) % Math.max(8, ud.w - 8)))
+          const sy = Math.round(ud.y + ud.h - (((t * 78 + i * 26) % ud.h) + ud.h) % ud.h)
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 246, 186, 0.68)' : 'rgba(182, 236, 255, 0.68)'
+          ctx.fillRect(sx, sy, 2, 10)
+        }
+      }
+    }
+
+    // 2. Cloudland Phasing Star Clouds
+    for (const pc of this.phasingClouds) {
+      if (pc.x + pc.w < camX - 16 || pc.x > camX + this.viewW + 16) continue
+      const alpha = pc.phase === 'solid' ? 0.95 : pc.phase === 'warn' ? (Math.floor(this.worldTime * 14) % 2 === 0 ? 0.8 : 0.35) : 0.16
+      ctx.globalAlpha = alpha
+      ctx.fillStyle = pc.phase === 'warn' ? '#ffe6a8' : '#e8d9ff'
+      ctx.fillRect(Math.round(pc.x), Math.round(pc.y), Math.round(pc.w), 9)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(Math.round(pc.x + 3), Math.round(pc.y + 1), Math.round(pc.w - 6), 3)
+      ctx.globalAlpha = 1
+    }
+
+    // 3. Harbor Swinging Lantern Perches
+    for (const sp of this.swingingPerches) {
+      if (sp.curX + sp.w < camX - 48 || sp.curX > camX + this.viewW + 48) continue
+      ctx.strokeStyle = '#c49652'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(Math.round(sp.anchorX), Math.round(sp.anchorY))
+      ctx.lineTo(Math.round(sp.curX + sp.w / 2), Math.round(sp.curY))
+      ctx.stroke()
+      ctx.fillStyle = '#261224'
+      ctx.fillRect(Math.round(sp.curX) - 1, Math.round(sp.curY) - 1, Math.round(sp.w) + 2, 10)
+      ctx.fillStyle = '#8c5338'
+      ctx.fillRect(Math.round(sp.curX), Math.round(sp.curY), Math.round(sp.w), 8)
+      ctx.fillStyle = '#ffe275'
+      ctx.fillRect(Math.round(sp.curX + sp.w / 2 - 3), Math.round(sp.curY + 2), 6, 4)
+    }
+
+    // 4. Cavern Proximity Crystals & Elastic Glow-Mushrooms
+    for (const cr of this.proximityCrystals) {
+      if (cr.x < camX - cr.radius || cr.x > camX + this.viewW + cr.radius) continue
+      const col = cr.tint === 'violet' ? '194, 138, 255' : cr.tint === 'gold' ? '255, 224, 118' : '108, 245, 236'
+      this.drawCircularGlow(
+        ctx,
+        cr.x,
+        cr.y,
+        Math.round(cr.radius * (0.45 + cr.glow * 0.55)),
+        `rgba(${col}, ${(0.12 + cr.glow * 0.34).toFixed(2)})`,
+        `rgba(${col}, ${(0.05 + cr.glow * 0.14).toFixed(2)})`,
+        `rgba(${col}, 0)`
+      )
+      ctx.fillStyle = cr.tint === 'violet' ? '#cf9eff' : cr.tint === 'gold' ? '#ffe680' : '#7ef7ec'
+      ctx.fillRect(Math.round(cr.x - 3), Math.round(cr.y - 7), 6, 12)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(Math.round(cr.x - 1), Math.round(cr.y - 5), 2, 5)
+    }
+
+    for (const gm of this.glowMushrooms) {
+      if (gm.x + gm.w < camX - 16 || gm.x > camX + this.viewW + 16) continue
+      const squish = gm.squishTimer > 0 ? 3 : 0
+      const mx = Math.round(gm.x)
+      const my = Math.round(gm.y + squish)
+      ctx.fillStyle = '#223854'
+      ctx.fillRect(mx + Math.round(gm.w / 2) - 4, my + 7, 8, 12 - squish)
+      ctx.fillStyle = gm.tint === 'violet' ? '#b87dff' : '#5ef2e6'
+      ctx.fillRect(mx, my, Math.round(gm.w), 8)
+      ctx.fillStyle = '#ebffff'
+      ctx.fillRect(mx + 4, my + 2, 5, 2)
+      ctx.fillRect(mx + Math.round(gm.w) - 10, my + 3, 4, 2)
+    }
+
+    // 5. Observatory Astral Low-Gravity Zones & Rotating Gear Platforms
+    if (this.level.lowGravityZones) {
+      for (const lg of this.level.lowGravityZones) {
+        if (lg.x + lg.w < camX - 24 || lg.x > camX + this.viewW + 24) continue
+        ctx.fillStyle = 'rgba(130, 178, 255, 0.11)'
+        ctx.fillRect(Math.round(lg.x), Math.round(lg.y), Math.round(lg.w), Math.round(lg.h))
+        ctx.strokeStyle = 'rgba(168, 224, 255, 0.36)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(Math.round(lg.x) + 0.5, Math.round(lg.y) + 0.5, Math.round(lg.w) - 1, Math.round(lg.h) - 1)
+        for (let i = 0; i < 4; i++) {
+          const sx = Math.round(lg.x + 12 + ((i * 44) % Math.max(16, lg.w - 20)))
+          const sy = Math.round(lg.y + lg.h - (((t * 24 + i * 31) % lg.h) + lg.h) % lg.h)
+          ctx.fillStyle = 'rgba(218, 240, 255, 0.72)'
+          ctx.fillRect(sx, sy, 2, 2)
+        }
+      }
+    }
+
+    for (const gp of this.gearPlatforms) {
+      if (gp.centerX + gp.orbitRadius + gp.w < camX - 24 || gp.centerX - gp.orbitRadius > camX + this.viewW + 24) continue
+      // Brass orbit ring & center hub
+      ctx.strokeStyle = 'rgba(217, 164, 65, 0.42)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.arc(Math.round(gp.centerX), Math.round(gp.centerY), gp.orbitRadius, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.fillStyle = '#d9a441'
+      ctx.fillRect(Math.round(gp.centerX - 4), Math.round(gp.centerY - 4), 8, 8)
+      // Rim carriage platform
+      ctx.fillStyle = '#181838'
+      ctx.fillRect(Math.round(gp.curX) - 1, Math.round(gp.curY) - 1, Math.round(gp.w) + 2, 10)
+      ctx.fillStyle = '#d9a441'
+      ctx.fillRect(Math.round(gp.curX), Math.round(gp.curY), Math.round(gp.w), 8)
+      ctx.fillStyle = '#fff0a6'
+      ctx.fillRect(Math.round(gp.curX + 2), Math.round(gp.curY + 1), Math.round(gp.w - 4), 2)
     }
   }
 
@@ -5769,6 +6918,14 @@ export class MoonpawGameEngine {
         return [t.cloudTop, t.cloudBody]
       case 'harbor':
         return [t.harborTop, t.harborBody]
+      case 'cavern':
+        return [t.cavernTop, t.cavernBody]
+      case 'observatory':
+        return [t.observatoryTop, t.observatoryBody]
+      case 'eclipse':
+        return [t.eclipseTop, t.eclipseBody]
+      case 'citadel':
+        return [t.citadelTop, t.citadelBody]
       case 'brick':
       default:
         return [t.brickTop, t.brickBody]
@@ -6633,7 +7790,10 @@ export class MoonpawGameEngine {
 
   private getActiveBiomeJumpLayer(): BiomeCosmeticJumpKind | null {
     // Anti-clutter priority: Hat > Cape > Scarf
+    if (this.progress.selectedHat === 'hat-astral-clockwork') return 'hat-astral-clockwork'
     if (this.progress.selectedHat === 'beret-starlight') return 'beret-starlight'
+    if (this.progress.selectedCape === 'cape-nebula-sovereign') return 'cape-nebula-sovereign'
+    if (this.progress.selectedCape === 'cape-crystal-glow') return 'cape-crystal-glow'
     if (this.progress.selectedCape === 'cape-sakura-petal') return 'cape-sakura-petal'
     if (this.progress.selectedCape === 'wings-cloud-pastel') return 'wings-cloud-pastel'
     if (this.progress.selectedScarf === 'lantern-gold') return 'lantern-gold'
@@ -6692,29 +7852,75 @@ export class MoonpawGameEngine {
     const isMoving = Math.abs(p.vx) > 10 || !p.onGround
     const liftY = this.screen === 'title' ? this.campHopOffset : 0
 
-    // 1. Starlight Beret: gold & white 1x1 / 3x3 cross sparkles around hat every ~350ms
-    if (this.progress.selectedHat === 'beret-starlight') {
+    // 1. Starlight Beret OR Astral Clockwork Hat sparkles!
+    if (
+      this.progress.selectedHat === 'beret-starlight' ||
+      this.progress.selectedHat === 'hat-astral-clockwork'
+    ) {
+      const isClock = this.progress.selectedHat === 'hat-astral-clockwork'
       this.cosmeticHatTimer -= dt
       if (this.cosmeticHatTimer <= 0) {
-        this.cosmeticHatTimer = 0.35
+        this.cosmeticHatTimer = 0.34
         this.pushCosmeticParticle({
-          kind: 'starlightGlint',
+          kind: isClock ? 'clockworkSpark' : 'starlightGlint',
           x: p.x + 2 + Math.random() * 8,
           y: p.y - 4 - liftY + Math.random() * 3,
-          vx: (Math.random() - 0.5) * 5,
+          vx: (Math.random() - 0.5) * 6,
           vy: -8 - Math.random() * 5,
           life: 0.65,
           maxLife: 0.65,
-          size: 1,
-          color: Math.random() > 0.4 ? '#ffe475' : '#ffffff',
+          size: isClock ? 2 : 1,
+          color: isClock
+            ? Math.random() > 0.4
+              ? '#ffd452'
+              : '#fff5c2'
+            : Math.random() > 0.4
+              ? '#ffe475'
+              : '#ffffff',
           phase: Math.random() * Math.PI * 2,
           cross: Math.random() > 0.45
         })
       }
     }
 
-    // 2. Sakura Petal Cape: soft pink 2x3 petals trailing behind cape with sine-wave sway
-    if (this.progress.selectedCape === 'cape-sakura-petal') {
+    // 2. Biome & Boss Reward Capes (Sakura Petal / Cloud Wings / Crystal Glow / Nebula Sovereign)
+    if (this.progress.selectedCape === 'cape-crystal-glow') {
+      this.cosmeticCapeTimer -= dt
+      if (this.cosmeticCapeTimer <= 0) {
+        this.cosmeticCapeTimer = isMoving ? 0.16 : 0.46
+        this.pushCosmeticParticle({
+          kind: 'crystalShard',
+          x: p.x + p.w / 2 - p.facing * 5 + (Math.random() - 0.5) * 4,
+          y: p.y + 6 - liftY + Math.random() * 5,
+          vx: -p.facing * (8 + Math.random() * 8),
+          vy: -4 + Math.random() * 10,
+          life: 0.6,
+          maxLife: 0.6,
+          size: 2,
+          color: Math.random() > 0.45 ? '#76f7eb' : '#c294ff',
+          phase: Math.random() * Math.PI * 2,
+          cross: true
+        })
+      }
+    } else if (this.progress.selectedCape === 'cape-nebula-sovereign') {
+      this.cosmeticCapeTimer -= dt
+      if (this.cosmeticCapeTimer <= 0) {
+        this.cosmeticCapeTimer = isMoving ? 0.15 : 0.42
+        this.pushCosmeticParticle({
+          kind: 'nebulaSwirl',
+          x: p.x + p.w / 2 - p.facing * 6 + (Math.random() - 0.5) * 6,
+          y: p.y + 5 - liftY + Math.random() * 6,
+          vx: -p.facing * (6 + Math.random() * 10),
+          vy: -8 + Math.random() * 10,
+          life: 0.72,
+          maxLife: 0.72,
+          size: 2,
+          color: Math.random() > 0.5 ? '#ffe275' : '#a875ff',
+          phase: Math.random() * Math.PI * 2,
+          cross: Math.random() > 0.5
+        })
+      }
+    } else if (this.progress.selectedCape === 'cape-sakura-petal') {
       this.cosmeticCapeTimer -= dt
       const interval = isMoving ? 0.16 : 0.48
       if (this.cosmeticCapeTimer <= 0) {
@@ -7139,6 +8345,33 @@ export class MoonpawGameEngine {
       ctx.fillRect(centerX - 6, centerY - 8, 3, 2)
       ctx.fillRect(centerX - 8, centerY - 6, 2, 2)
     }
+
+    // Polar Bear Passive: Frost Shield crystalline aura!
+    if (p.hasFrostShield && this.screen === 'playing') {
+      const r = isGiant ? 18 : 14
+      ctx.strokeStyle = 'rgba(130, 245, 255, 0.85)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.arc(centerX, centerY, r, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.fillStyle = '#e0ffff'
+      ctx.fillRect(centerX - 1, centerY - r - 2, 2, 4)
+      ctx.fillRect(centerX - 1, centerY + r - 2, 2, 4)
+    }
+
+    // Boss Combat Skill: Astral Aegis protective barrier!
+    if (p.astralAegisTimer > 0 && this.screen === 'playing') {
+      const r = isGiant ? 20 : 16
+      ctx.fillStyle = 'rgba(138, 224, 255, 0.24)'
+      ctx.beginPath()
+      ctx.arc(centerX, centerY, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#ffe875'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(centerX, centerY, r, 0, Math.PI * 2)
+      ctx.stroke()
+    }
   }
 
   private renderParticles(ctx: CanvasRenderingContext2D): void {
@@ -7241,6 +8474,8 @@ export class MoonpawGameEngine {
       selectedScarf: this.progress.selectedScarf,
       selectedHat: this.progress.selectedHat,
       selectedCape: this.progress.selectedCape,
+      selectedHeadAcc: this.progress.selectedHeadAcc,
+      selectedFaceAcc: this.progress.selectedFaceAcc,
       graphicsStyle: this.progress.graphicsStyle,
       touchControlsMode: this.progress.touchControlsMode,
       checkpointReached: this.activeCheckpointIdx >= 0,
@@ -7271,6 +8506,7 @@ export class MoonpawGameEngine {
       magnetTimer: this.player.magnetTimer,
       magnetMax: MAGNET_DURATION,
       hasBubbleShield: this.player.hasBubbleShield,
+      hasFrostShield: this.player.hasFrostShield,
       mooncakeTimer: this.player.mooncakeTimer,
       mooncakeMax: MOONCAKE_DURATION,
       yarnTimer: this.player.yarnTimer,
@@ -7281,6 +8517,27 @@ export class MoonpawGameEngine {
       candyMax: CANDY_DURATION,
       pearlTimer: this.player.pearlTimer,
       pearlMax: PEARL_DURATION,
+      cometChargeTimer: this.player.cometChargeTimer,
+      cometChargeMax: 6.0,
+      moonlightFeatherTimer: this.player.moonlightFeatherTimer,
+      moonlightFeatherMax: 10.0,
+      isBossStage: Boolean(this.bossController),
+      bossActive: Boolean(this.bossController?.active),
+      bossDefeated: Boolean(this.bossController?.defeated),
+      bossName: this.bossController?.config.name ?? '',
+      bossSubtitle: this.bossController?.config.subtitle ?? '',
+      bossHp: this.bossController?.hp ?? 0,
+      bossMaxHp: this.bossController?.maxHp ?? 1,
+      bossPhase: this.bossController?.phase ?? 1,
+      bossCoreExposed: Boolean(this.bossController?.coreExposed),
+      pulseReady: this.player.cometChargeTimer > 0 || this.player.starlightPulseCooldown <= 0,
+      pulseCharge:
+        this.player.cometChargeTimer > 0
+          ? 1
+          : Math.max(0, Math.min(1, 1 - this.player.starlightPulseCooldown / 1.2)),
+      aegisReady: this.player.astralAegisCooldown <= 0,
+      aegisCharge: Math.max(0, Math.min(1, 1 - this.player.astralAegisCooldown / 5.0)),
+      aegisActive: this.player.astralAegisTimer > 0,
       hurtPulseCount: this.hurtPulseCount,
       recentToast: this.recentToast,
       autoSavePulse: this.autoSavePulse

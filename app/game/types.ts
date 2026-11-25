@@ -49,11 +49,14 @@ export interface ShardState extends ShardDef {
 
 export type DailyQuestId =
   | 'stars-sakura'
+  | 'stars-rooftops'
+  | 'clear-2-levels'
   | 'no-hit-clear'
   | 'dash-10'
   | 'collect-fish-4'
   | 'stars-any-20'
   | 'powerup-3'
+  | 'collect-shard-1'
 
 export interface DailyQuestDef {
   id: DailyQuestId
@@ -70,6 +73,18 @@ export interface DailyQuestState {
   claimed: boolean
 }
 
+export interface DailyMissionSlot {
+  questId: DailyQuestId
+  progress: number
+  claimed: boolean
+}
+
+export interface DailyMissionsState {
+  dateKey: string
+  missions: [DailyMissionSlot, DailyMissionSlot, DailyMissionSlot]
+  bonusClaimed: boolean
+}
+
 export type TimeTrialMedal = 'none' | 'bronze' | 'silver' | 'gold'
 
 export interface TimeTrialRecord {
@@ -77,9 +92,19 @@ export interface TimeTrialRecord {
   medal: TimeTrialMedal
 }
 
-export type BiomeId = 'rooftops' | 'sakura' | 'cloudland' | 'harbor'
+export type BiomeId =
+  | 'rooftops'
+  | 'sakura'
+  | 'cloudland'
+  | 'harbor'
+  | 'cavern'
+  | 'observatory'
+  | 'eclipse'
+  | 'citadel'
 
-export type HomeBackdropMode = 'auto' | BiomeId
+export type MainBiomeId = 'rooftops' | 'sakura' | 'cloudland' | 'harbor' | 'cavern' | 'observatory'
+
+export type HomeBackdropMode = 'auto' | MainBiomeId
 
 export type GraphicsStyle = 'classic' | 'modern'
 
@@ -103,12 +128,17 @@ export type CharacterId =
   | 'bunny-starlight'
   | 'dog-samoyed'
   | 'dog-shiba'
+  | 'bear-black'
+  | 'bear-sun'
+  | 'bear-polar'
+  | 'fox-brown'
+  | 'fox-kitsune'
 
-export type AnimalSpecies = 'cat' | 'bunny' | 'samoyed' | 'shiba'
+export type AnimalSpecies = 'cat' | 'bunny' | 'samoyed' | 'shiba' | 'bear' | 'fox'
 
 export type ScarfColorId = 'pink' | 'sky' | 'gold' | 'purple' | 'mint' | 'ruby' | 'lightning' | 'lantern-gold'
 
-export type HatModel = 'none' | 'beret' | 'witch' | 'clip' | 'crown'
+export type HatModel = 'none' | 'beret' | 'witch' | 'clip' | 'crown' | 'clockwork'
 
 export type HatId =
   | 'none'
@@ -123,8 +153,9 @@ export type HatId =
   | 'clip-sakura'
   | 'crown-gold'
   | 'crown-silver'
+  | 'hat-astral-clockwork'
 
-export type CapeModel = 'none' | 'cloak' | 'royal' | 'wings'
+export type CapeModel = 'none' | 'cloak' | 'royal' | 'wings' | 'crystal' | 'nebula'
 
 export type CapeId =
   | 'none'
@@ -137,15 +168,54 @@ export type CapeId =
   | 'wings-crystal'
   | 'cape-sakura-petal'
   | 'wings-cloud-pastel'
+  | 'cape-crystal-glow'
+  | 'cape-nebula-sovereign'
+
+export type HeadAccModel = 'none' | 'sprout' | 'sakura' | 'antlers' | 'headphones' | 'starlightCrown' | 'halo'
+
+export type HeadAccId =
+  | 'none'
+  | 'sprout-green'
+  | 'sprout-gold'
+  | 'sakura-pink'
+  | 'sakura-white'
+  | 'antlers-warm'
+  | 'antlers-frost'
+  | 'headphones-lofi'
+  | 'headphones-mint'
+  | 'crown-starlight'
+  | 'crown-moon'
+  | 'halo-eclipse'
+
+export type FaceAccModel = 'none' | 'eyepatch' | 'glasses' | 'bandage'
+
+export type FaceAccId =
+  | 'none'
+  | 'eyepatch-gold'
+  | 'eyepatch-crimson'
+  | 'glasses-round'
+  | 'glasses-gold'
+  | 'bandage-star'
+  | 'bandage-pink'
 
 export type BiomeCosmeticJumpKind =
   | 'beret-starlight'
   | 'cape-sakura-petal'
   | 'wings-cloud-pastel'
   | 'lantern-gold'
+  | 'cape-crystal-glow'
+  | 'hat-astral-clockwork'
+  | 'cape-nebula-sovereign'
 
 export interface CosmeticTrailParticle {
-  kind: 'starlightGlint' | 'sakuraPetal' | 'cloudPuff' | 'lanternEmber'
+  kind:
+    | 'starlightGlint'
+    | 'sakuraPetal'
+    | 'cloudPuff'
+    | 'lanternEmber'
+    | 'crystalShard'
+    | 'clockworkSpark'
+    | 'nebulaSwirl'
   x: number
   y: number
   vx: number
@@ -164,7 +234,7 @@ export interface CharacterDef {
   id: CharacterId
   name: string
   species: AnimalSpecies
-  category: 'Kucing' | 'Kelinci' | 'Anjing'
+  category: 'Kucing' | 'Kelinci' | 'Anjing' | 'Beruang' | 'Rubah'
   description: string
   perkTitle: string
   perkDesc: string
@@ -250,8 +320,40 @@ export interface CapeDef {
   accent: string
   outline: string
   swatch: string
-  /** If set, unlocked automatically upon collecting 3 Starlight Shards in a level of this biome */
-  shardUnlockBiome?: BiomeId
+  /** If set, unlocked automatically upon collecting 6 Starlight Shards in this biome */
+  shardUnlockBiome?: MainBiomeId
+  /** If set, unlocked automatically upon defeating this Boss Level (e.g. 14) */
+  bossUnlockLevelId?: number
+}
+
+export interface HeadAccDef {
+  id: HeadAccId
+  model: HeadAccModel
+  groupName: string
+  colorName: string
+  name: string
+  cost: number
+  primary: string
+  secondary: string
+  accent: string
+  outline: string
+  swatch: string
+  /** If set, unlocked automatically upon defeating this Boss Level (e.g. 13) */
+  bossUnlockLevelId?: number
+}
+
+export interface FaceAccDef {
+  id: FaceAccId
+  model: FaceAccModel
+  groupName: string
+  colorName: string
+  name: string
+  cost: number
+  primary: string
+  secondary: string
+  accent: string
+  outline: string
+  swatch: string
 }
 
 export type AchievementId =
@@ -266,6 +368,8 @@ export type AchievementId =
   | 'swift-paws'
   | 'starlight-speedster'
   | 'lightning-stray'
+  | 'eclipse-conqueror'
+  | 'starlight-legend'
   | 'fish-collector'
   | 'dash-master'
   | 'all-friends'
@@ -289,7 +393,16 @@ export interface ToastNotice {
   title: string
 }
 
-export type PlatformStyle = 'brick' | 'wood' | 'sakura' | 'cloud' | 'harbor'
+export type PlatformStyle =
+  | 'brick'
+  | 'wood'
+  | 'sakura'
+  | 'cloud'
+  | 'harbor'
+  | 'cavern'
+  | 'observatory'
+  | 'eclipse'
+  | 'citadel'
 
 export interface StaticPlatform {
   x: number
@@ -360,7 +473,7 @@ export interface SecretAlcoveDef {
   y: number
   w: number
   h: number
-  kind: 'chimney' | 'canopy' | 'cloud' | 'sail'
+  kind: 'chimney' | 'canopy' | 'cloud' | 'sail' | 'crystal' | 'gear'
 }
 
 export interface SecretAlcoveState extends SecretAlcoveDef {
@@ -499,6 +612,138 @@ export interface FloatingBoatState extends FloatingBoatDef {
   time: number
 }
 
+// ============================================================================
+// BIOME-SPECIFIC ENVIRONMENTAL MECHANICS (Biomes 1–6)
+// ============================================================================
+
+export interface UpdraftVentDef {
+  x: number
+  y: number
+  w: number
+  h: number
+  liftVy?: number
+}
+
+export interface PhasingCloudDef {
+  x: number
+  y: number
+  w: number
+  period: number
+  offset?: number
+}
+
+export interface PhasingCloudState extends PhasingCloudDef {
+  timer: number
+  phase: 'solid' | 'warn' | 'phased'
+}
+
+export interface SwingingPerchDef {
+  anchorX: number
+  anchorY: number
+  ropeLen: number
+  w: number
+  ampAngle: number
+  speed: number
+  phase?: number
+}
+
+export interface SwingingPerchState extends SwingingPerchDef {
+  curX: number
+  curY: number
+  prevX: number
+  prevY: number
+  angle: number
+  time: number
+}
+
+export interface GlowMushroomDef {
+  x: number
+  y: number
+  w: number
+  bounceVy?: number
+  tint?: 'teal' | 'violet'
+}
+
+export interface GlowMushroomState extends GlowMushroomDef {
+  squishTimer: number
+  glowPulse: number
+}
+
+export interface ProximityCrystalDef {
+  x: number
+  y: number
+  radius: number
+  tint?: 'cyan' | 'violet' | 'gold'
+}
+
+export interface ProximityCrystalState extends ProximityCrystalDef {
+  glow: number
+}
+
+export interface GearPlatformDef {
+  centerX: number
+  centerY: number
+  orbitRadius: number
+  w: number
+  speed: number
+  phase?: number
+}
+
+export interface GearPlatformState extends GearPlatformDef {
+  curX: number
+  curY: number
+  prevX: number
+  prevY: number
+  angle: number
+}
+
+export interface LowGravityZoneDef {
+  x: number
+  y: number
+  w: number
+  h: number
+  gravityScale?: number
+}
+
+// ============================================================================
+// ENDGAME BOSS STAGES (Levels 13 & 14) & COMBAT ITEMS
+// ============================================================================
+
+export type BossKind = 'umbra-owl' | 'chronos-leviathan'
+
+export type ArenaBattleItemKind = 'starBerry' | 'cometCharge' | 'moonlightFeather'
+
+export interface ArenaBattleItemDef {
+  x: number
+  y: number
+  kind: ArenaBattleItemKind
+}
+
+export interface ArenaBattleItemState extends ArenaBattleItemDef {
+  id: number
+  collected: boolean
+  respawnTimer: number
+  phase: number
+}
+
+export interface BossConfig {
+  kind: BossKind
+  name: string
+  subtitle: string
+  maxHp: number
+  arenaMinX: number
+  arenaMaxX: number
+  triggerX: number
+  spawnX: number
+  spawnY: number
+  rewardCoins: number
+  achievementId: AchievementId
+  cosmeticSlot: 'head_acc' | 'cape'
+  cosmeticId: string
+  cosmeticName: string
+  arenaItemSpots: { x: number; y: number }[]
+}
+
 export interface CollectibleDef {
   x: number
   y: number
@@ -619,6 +864,16 @@ export interface LevelDefinition {
   powerWires?: PowerWireDef[]
   fragileBranches?: FragileBranchDef[]
   floatingBoats?: FloatingBoatDef[]
+  updrafts?: UpdraftVentDef[]
+  phasingClouds?: PhasingCloudDef[]
+  swingingPerches?: SwingingPerchDef[]
+  glowMushrooms?: GlowMushroomDef[]
+  proximityCrystals?: ProximityCrystalDef[]
+  gearPlatforms?: GearPlatformDef[]
+  lowGravityZones?: LowGravityZoneDef[]
+  bossConfig?: BossConfig
+  arenaBattleItems?: ArenaBattleItemDef[]
+  isSecretFinale?: boolean
   npc: NpcDef
   tutorialSigns?: TutorialSignDef[]
   collectibles: CollectibleDef[]
@@ -684,11 +939,17 @@ export interface PlayerState {
   featherTimer: number
   magnetTimer: number
   hasBubbleShield: boolean
+  hasFrostShield: boolean
   mooncakeTimer: number
   yarnTimer: number
   mochiTimer: number
   candyTimer: number
   pearlTimer: number
+  cometChargeTimer: number
+  moonlightFeatherTimer: number
+  starlightPulseCooldown: number
+  astralAegisTimer: number
+  astralAegisCooldown: number
   idleDuration: number
   hearts: number
   maxHearts: number
@@ -707,6 +968,8 @@ export interface InputState {
   jumpJustPressed: boolean
   dashHeld: boolean
   dashJustPressed: boolean
+  pulseJustPressed: boolean
+  aegisJustPressed: boolean
 }
 
 export interface LevelRecord {
@@ -767,6 +1030,8 @@ export interface HudSnapshot {
   selectedScarf: ScarfColorId
   selectedHat: HatId
   selectedCape: CapeId
+  selectedHeadAcc: HeadAccId
+  selectedFaceAcc: FaceAccId
   graphicsStyle: GraphicsStyle
   touchControlsMode: TouchControlsMode
   checkpointReached: boolean
@@ -790,6 +1055,7 @@ export interface HudSnapshot {
   magnetTimer: number
   magnetMax: number
   hasBubbleShield: boolean
+  hasFrostShield: boolean
   mooncakeTimer: number
   mooncakeMax: number
   yarnTimer: number
@@ -800,6 +1066,24 @@ export interface HudSnapshot {
   candyMax: number
   pearlTimer: number
   pearlMax: number
+  cometChargeTimer: number
+  cometChargeMax: number
+  moonlightFeatherTimer: number
+  moonlightFeatherMax: number
+  isBossStage: boolean
+  bossActive: boolean
+  bossDefeated: boolean
+  bossName: string
+  bossSubtitle: string
+  bossHp: number
+  bossMaxHp: number
+  bossPhase: 1 | 2 | 3
+  bossCoreExposed: boolean
+  pulseReady: boolean
+  pulseCharge: number
+  aegisReady: boolean
+  aegisCharge: number
+  aegisActive: boolean
   hurtPulseCount: number
   recentToast: ToastNotice | null
   autoSavePulse: number
@@ -819,10 +1103,14 @@ export interface SaveProgress {
   selectedScarf: ScarfColorId
   selectedHat: HatId
   selectedCape: CapeId
+  selectedHeadAcc: HeadAccId
+  selectedFaceAcc: FaceAccId
   unlockedCharacters: CharacterId[]
   ownedScarves: ScarfColorId[]
   ownedHats: HatId[]
   ownedCapes: CapeId[]
+  ownedHeadAccs: HeadAccId[]
+  ownedFaceAccs: FaceAccId[]
   unlockedAchievements: AchievementId[]
   bestLevelScores: Record<number, number>
   levelRecords: Record<number, LevelRecord>
@@ -834,6 +1122,8 @@ export interface SaveProgress {
   pacifistClears: number
   timeTrials: Record<number, TimeTrialRecord>
   dailyQuest: DailyQuestState
+  dailyMissions: DailyMissionsState
+  totalDailyMissionsCompleted: number
   muted: boolean
   reduceMotion: boolean
   showSpeedrunTimer: boolean
@@ -846,6 +1136,8 @@ export interface EquippedCosmetics {
   scarf: ScarfColorId
   hat: HatId
   cape: CapeId
+  head_acc: HeadAccId
+  face: FaceAccId
 }
 
 export interface GameSaveSettings {

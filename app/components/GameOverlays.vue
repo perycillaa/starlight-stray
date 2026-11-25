@@ -4,21 +4,31 @@ import { ACHIEVEMENTS, BIOMES } from '~/game/achievements'
 import {
   CAPES,
   CHARACTERS,
+  FACE_ACCS,
   HATS,
+  HEAD_ACCS,
   SCARF_COLORS,
   getCapeById,
   getCharacterById,
   getCharacterMissionProgress,
+  getFaceAccById,
   getHatById,
+  getHeadAccById,
   getScarfById
 } from '~/game/characters'
-import { formatSpeedrunTime, formatTimeTrial, getDailyQuestDef } from '~/game/dailyQuest'
-import { countBiomeCollectedShards, countTotalCollectedShards } from '~/composables/useAchievements'
+import { ALL_DAILY_BONUS_FISH, formatSpeedrunTime, formatTimeTrial, getDailyQuestDef } from '~/game/dailyQuest'
+import {
+  countBiomeCollectedShards,
+  countRankSLevels,
+  countTotalCollectedShards
+} from '~/composables/useAchievements'
 import { exportPostcardHdDataUrl, renderPostcardPreview } from '~/game/photoStudio'
 import {
   getCapeIconDataUrl,
   getCharacterPreviewDataUrl,
+  getFaceAccIconDataUrl,
   getHatIconDataUrl,
+  getHeadAccIconDataUrl,
   getPowerUpIconDataUrl,
   getScarfIconDataUrl
 } from '~/game/sprites'
@@ -29,8 +39,10 @@ import type {
   BiomeId,
   CapeId,
   CharacterId,
+  FaceAccId,
   GraphicsStyle,
   HatId,
+  HeadAccId,
   HudSnapshot,
   LevelDefinition,
   PostcardPoseId,
@@ -66,13 +78,15 @@ const emit = defineEmits<{
   (e: 'openEnding'): void
   (e: 'selectLevel', id: number): void
   (e: 'startTimeTrial', id: number): void
-  (e: 'claimDailyQuest'): void
+  (e: 'claimDailyQuest', slotIndex?: number): void
   (e: 'continueCheckpoint'): void
   (e: 'selectCharacter', id: CharacterId): void
   (e: 'unlockCharacter', id: CharacterId): void
   (e: 'buyOrEquipScarf', id: ScarfColorId): void
   (e: 'buyOrEquipHat', id: HatId): void
   (e: 'buyOrEquipCape', id: CapeId): void
+  (e: 'buyOrEquipHeadAcc', id: HeadAccId): void
+  (e: 'buyOrEquipFaceAcc', id: FaceAccId): void
   (e: 'updateAudio', partial: Partial<AudioSettings>): void
   (e: 'setGraphicsStyle', style: GraphicsStyle): void
   (e: 'setTouchControlsMode', mode: TouchControlsMode): void
@@ -95,7 +109,7 @@ const emit = defineEmits<{
   (e: 'toggleMute'): void
 }>()
 
-type ShopTab = 'scarf' | 'hat' | 'cape'
+type ShopTab = 'scarf' | 'hat' | 'cape' | 'head_acc' | 'face'
 const activeShopTab = ref<ShopTab>('scarf')
 const activeGuideTab = ref<'items' | 'worlds'>('items')
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -199,10 +213,31 @@ function getLevelShardTuple(lvlId: number): [boolean, boolean, boolean] {
 
 const totalShardsCollected = computed(() => countTotalCollectedShards(props.progress))
 
-const dailyQuestFilledSegments = computed(() => {
-  const ratio = Math.min(1, props.progress.dailyQuest.progress / Math.max(1, dailyQuestDef.value.target))
-  return Math.round(ratio * 10)
-})
+const dailyMissionCards = computed(() =>
+  props.progress.dailyMissions.missions.map((slot, index) => {
+    const def = getDailyQuestDef(slot.questId)
+    const clamped = Math.min(slot.progress, def.target)
+    const pct = Math.min(100, Math.round((clamped / Math.max(1, def.target)) * 100))
+    return {
+      index,
+      slot,
+      def,
+      clamped,
+      pct,
+      filledSegs: Math.round((clamped / Math.max(1, def.target)) * 10),
+      completed: slot.progress >= def.target
+    }
+  })
+)
+
+const dailyClaimedCount = computed(
+  () => props.progress.dailyMissions.missions.filter((m) => m.claimed).length
+)
+
+const mainLevels = computed(() => props.levels.filter((l) => !l.isSecretFinale))
+const secretFinaleLevels = computed(() => props.levels.filter((l) => l.isSecretFinale))
+const rankSCount = computed(() => countRankSLevels(props.progress))
+const secretFinaleUnlocked = computed(() => rankSCount.value >= 3)
 
 const homeBackdropBadgeLabel = computed(() => {
   const mode = props.hud.homeBackdropMode
@@ -210,7 +245,9 @@ const homeBackdropBadgeLabel = computed(() => {
   if (mode === 'rooftops') return 'BG: ATAP'
   if (mode === 'sakura') return 'BG: SAKURA'
   if (mode === 'cloudland') return 'BG: AWAN'
-  return 'BG: DERMAGA'
+  if (mode === 'harbor') return 'BG: DERMAGA'
+  if (mode === 'cavern') return 'BG: GUA'
+  return 'BG: OBSERV'
 })
 
 const GUIDE_ITEMS: { kind: PowerUpKind; name: string; tag: string; desc: string }[] = [
@@ -250,9 +287,30 @@ const GUIDE_WORLDS = [
   {
     icon: '⚓',
     name: 'Dermaga Lampion (Lvl 7–8)',
-    platform: 'Perahu Kayu Mengapung bergoyang tenang di atas air',
+    platform: 'Lentera Berayun & Perahu Kayu Mengapung di atas ombak',
     hazards: 'Kepiting Dermaga Gesit & Api Lentera Melayang (sinus)',
     secret: 'Balik layar perahu dermaga'
+  },
+  {
+    icon: '🍄',
+    name: 'Gua Jamur Kristal (Lvl 9–10)',
+    platform: 'Jamur Bioluminesen Elastis & Kristal Gua berpendar saat didekati',
+    hazards: 'Api Spora Gua, Gagak Gua & Landak Kristal',
+    secret: 'Ruang gua kristal tersembunyi (6/6 Shard -> Crystal Glow Cape)'
+  },
+  {
+    icon: '⚙️',
+    name: 'Observatorium Roda Jam (Lvl 11–12)',
+    platform: 'Roda Gigi Berputar & Zona Gravitasi Ringan Astral',
+    hazards: 'Gagak Astronomi & Api Bintang (6/6 Shard -> Astral Clockwork Hat)',
+    secret: 'Ruang roda kuningan rahasia'
+  },
+  {
+    icon: '🌘',
+    name: '★ SECRET FINALE (Lvl 13–14 • 3 Rank S)',
+    platform: 'Arena Boss Umbra Owl & Chronos Leviathan (3 Fase + Item Arena)',
+    hazards: 'Gunakan Starlight Pulse [C/J atau ✦] & Astral Aegis [V/K atau ◈]!',
+    secret: 'Hadiah +250/+500 🐟, Eclipse Halo & Nebula Sovereign Cape!'
   }
 ]
 
@@ -304,7 +362,9 @@ function redrawPostcard() {
     characterId: props.progress.selectedCharacter,
     scarfId: props.progress.selectedScarf,
     hatId: props.progress.selectedHat,
-    capeId: props.progress.selectedCape
+    capeId: props.progress.selectedCape,
+    headAccId: props.progress.selectedHeadAcc,
+    faceAccId: props.progress.selectedFaceAcc
   })
 }
 
@@ -316,7 +376,9 @@ function handleDownloadPostcardHd() {
     characterId: props.progress.selectedCharacter,
     scarfId: props.progress.selectedScarf,
     hatId: props.progress.selectedHat,
-    capeId: props.progress.selectedCape
+    capeId: props.progress.selectedCape,
+    headAccId: props.progress.selectedHeadAcc,
+    faceAccId: props.progress.selectedFaceAcc
   })
   const a = document.createElement('a')
   a.href = dataUrl
@@ -347,6 +409,8 @@ function medalIcon(medal?: TimeTrialMedal): string {
 const previewScarf = ref<ScarfColorId | null>(null)
 const previewHat = ref<HatId | null>(null)
 const previewCape = ref<CapeId | null>(null)
+const previewHeadAcc = ref<HeadAccId | null>(null)
+const previewFaceAcc = ref<FaceAccId | null>(null)
 const shopPreviewFacing = ref<'right' | 'left'>('right')
 
 const previewChar = ref<CharacterId | null>(null)
@@ -375,6 +439,8 @@ function resetShopPreview() {
   previewScarf.value = null
   previewHat.value = null
   previewCape.value = null
+  previewHeadAcc.value = null
+  previewFaceAcc.value = null
   shopPreviewFacing.value = 'right'
 }
 
@@ -398,7 +464,7 @@ watch(
   }
 )
 
-watch([photoBiome, photoPose, photoStyle, () => props.progress.selectedCharacter, () => props.progress.selectedScarf, () => props.progress.selectedHat, () => props.progress.selectedCape], () => {
+watch([photoBiome, photoPose, photoStyle, () => props.progress.selectedCharacter, () => props.progress.selectedScarf, () => props.progress.selectedHat, () => props.progress.selectedCape, () => props.progress.selectedHeadAcc, () => props.progress.selectedFaceAcc], () => {
   photoSavedNotice.value = ''
   nextTick(() => redrawPostcard())
 })
@@ -412,23 +478,31 @@ const activeCharacter = computed(() => getCharacterById(props.progress.selectedC
 const effectiveShopScarfId = computed(() => previewScarf.value ?? props.progress.selectedScarf)
 const effectiveShopHatId = computed(() => previewHat.value ?? props.progress.selectedHat)
 const effectiveShopCapeId = computed(() => previewCape.value ?? props.progress.selectedCape)
+const effectiveShopHeadAccId = computed(() => previewHeadAcc.value ?? props.progress.selectedHeadAcc)
+const effectiveShopFaceAccId = computed(() => previewFaceAcc.value ?? props.progress.selectedFaceAcc)
 
 const effectiveShopScarf = computed(() => getScarfById(effectiveShopScarfId.value))
 const effectiveShopHat = computed(() => getHatById(effectiveShopHatId.value))
 const effectiveShopCape = computed(() => getCapeById(effectiveShopCapeId.value))
+const effectiveShopHeadAcc = computed(() => getHeadAccById(effectiveShopHeadAccId.value))
+const effectiveShopFaceAcc = computed(() => getFaceAccById(effectiveShopFaceAccId.value))
 
 const hasShopPreviewChanges = computed(
   () =>
     effectiveShopScarfId.value !== props.progress.selectedScarf ||
     effectiveShopHatId.value !== props.progress.selectedHat ||
-    effectiveShopCapeId.value !== props.progress.selectedCape
+    effectiveShopCapeId.value !== props.progress.selectedCape ||
+    effectiveShopHeadAccId.value !== props.progress.selectedHeadAcc ||
+    effectiveShopFaceAccId.value !== props.progress.selectedFaceAcc
 )
 
 const hasUnownedShopPreview = computed(
   () =>
     !props.progress.ownedScarves.includes(effectiveShopScarfId.value) ||
     !props.progress.ownedHats.includes(effectiveShopHatId.value) ||
-    !props.progress.ownedCapes.includes(effectiveShopCapeId.value)
+    !props.progress.ownedCapes.includes(effectiveShopCapeId.value) ||
+    !props.progress.ownedHeadAccs.includes(effectiveShopHeadAccId.value) ||
+    !props.progress.ownedFaceAccs.includes(effectiveShopFaceAccId.value)
 )
 
 // Effective values shown in Character Select Live Preview
@@ -446,7 +520,9 @@ const titleHeroPreview = computed(() =>
     props.progress.selectedCape,
     'right',
     0,
-    props.hud.graphicsStyle
+    props.hud.graphicsStyle,
+    props.progress.selectedHeadAcc,
+    props.progress.selectedFaceAcc
   )
 )
 
@@ -458,7 +534,9 @@ const shopLivePreviewUrl = computed(() =>
     effectiveShopCapeId.value,
     shopPreviewFacing.value,
     previewIdleFrame.value,
-    props.hud.graphicsStyle
+    props.hud.graphicsStyle,
+    effectiveShopHeadAccId.value,
+    effectiveShopFaceAccId.value
   )
 )
 
@@ -470,7 +548,9 @@ const charLivePreviewUrl = computed(() =>
     props.progress.selectedCape,
     charPreviewFacing.value,
     previewIdleFrame.value,
-    props.hud.graphicsStyle
+    props.hud.graphicsStyle,
+    props.progress.selectedHeadAcc,
+    props.progress.selectedFaceAcc
   )
 )
 
@@ -484,6 +564,14 @@ function tryOnHat(id: HatId) {
 
 function tryOnCape(id: CapeId) {
   previewCape.value = id === props.progress.selectedCape ? null : id
+}
+
+function tryOnHeadAcc(id: HeadAccId) {
+  previewHeadAcc.value = id === props.progress.selectedHeadAcc ? null : id
+}
+
+function tryOnFaceAcc(id: FaceAccId) {
+  previewFaceAcc.value = id === props.progress.selectedFaceAcc ? null : id
 }
 
 function tryOnCharacter(id: CharacterId) {
@@ -505,6 +593,16 @@ function handleActionCape(id: CapeId) {
   if (previewCape.value === id) previewCape.value = null
 }
 
+function handleActionHeadAcc(id: HeadAccId) {
+  emit('buyOrEquipHeadAcc', id)
+  if (previewHeadAcc.value === id) previewHeadAcc.value = null
+}
+
+function handleActionFaceAcc(id: FaceAccId) {
+  emit('buyOrEquipFaceAcc', id)
+  if (previewFaceAcc.value === id) previewFaceAcc.value = null
+}
+
 function handleActionSelectChar(id: CharacterId) {
   emit('selectCharacter', id)
   if (previewChar.value === id) previewChar.value = null
@@ -520,10 +618,12 @@ const characterPreviews = computed<Record<string, string>>(() => {
   const scarf = props.progress.selectedScarf
   const hat = props.progress.selectedHat
   const cape = props.progress.selectedCape
+  const headAcc = props.progress.selectedHeadAcc
+  const faceAcc = props.progress.selectedFaceAcc
   const style = props.hud.graphicsStyle
   const map: Record<string, string> = {}
   for (const ch of CHARACTERS) {
-    map[ch.id] = getCharacterPreviewDataUrl(ch.id, scarf, hat, cape, 'right', 0, style)
+    map[ch.id] = getCharacterPreviewDataUrl(ch.id, scarf, hat, cape, 'right', 0, style, headAcc, faceAcc)
   }
   return map
 })
@@ -543,6 +643,18 @@ const hatIcons = computed<Record<string, string>>(() => {
 const capeIcons = computed<Record<string, string>>(() => {
   const map: Record<string, string> = {}
   for (const c of CAPES) map[c.id] = getCapeIconDataUrl(c.id)
+  return map
+})
+
+const headAccIcons = computed<Record<string, string>>(() => {
+  const map: Record<string, string> = {}
+  for (const h of HEAD_ACCS) map[h.id] = getHeadAccIconDataUrl(h.id)
+  return map
+})
+
+const faceAccIcons = computed<Record<string, string>>(() => {
+  const map: Record<string, string> = {}
+  for (const f of FACE_ACCS) map[f.id] = getFaceAccIconDataUrl(f.id)
   return map
 })
 
@@ -871,40 +983,59 @@ function handleFileChange(e: Event) {
           </button>
         </nav>
 
-        <!-- 5. Protruding Notched Quest Scroll Banner (MISI HARI INI) -->
-        <div class="home-quest-scroll" aria-label="Misi Hari Ini">
+        <!-- 5. Protruding Notched Quest Scroll Banner (3 Simultaneous Daily Missions + 3/3 Bonus!) -->
+        <div class="home-quest-scroll" aria-label="3 Misi Hari Ini">
           <div class="quest-scroll-notch quest-scroll-notch--left" aria-hidden="true" />
           <div class="quest-scroll-notch quest-scroll-notch--right" aria-hidden="true" />
 
           <div class="home-daily-top">
-            <span class="daily-quest-tag">📜 MISI HARI INI</span>
-            <span class="daily-quest-count">
-              {{ Math.min(progress.dailyQuest.progress, dailyQuestDef.target) }}/{{ dailyQuestDef.target }}
+            <span class="daily-quest-tag">📜 MISI HARI INI ({{ dailyClaimedCount }}/3)</span>
+            <span
+              class="daily-bonus-pill"
+              :class="{ 'daily-bonus-pill--done': progress.dailyMissions.bonusClaimed }"
+              :title="`Total Misi Harian selesai: ${progress.totalDailyMissionsCompleted}`"
+            >
+              {{
+                progress.dailyMissions.bonusClaimed
+                  ? `✓ Bonus +${ALL_DAILY_BONUS_FISH}🐟`
+                  : `3/3 Bonus (+${ALL_DAILY_BONUS_FISH}🐟)`
+              }}
             </span>
           </div>
-          <div class="home-daily-row">
-            <div class="home-daily-left">
-              <div class="home-daily-title">{{ dailyQuestDef.icon }} {{ dailyQuestDef.title }}</div>
-              <!-- Chunky 10-Segment Pixel Progress Bar -->
-              <div class="quest-seg-bar" role="progressbar" :aria-valuenow="dailyQuestPct" aria-valuemin="0" aria-valuemax="100">
-                <span
-                  v-for="seg in 10"
-                  :key="seg"
-                  class="quest-seg-block"
-                  :class="{ 'quest-seg-block--filled': seg <= dailyQuestFilledSegments }"
-                />
+
+          <div class="home-daily-list">
+            <div v-for="m in dailyMissionCards" :key="m.slot.questId" class="home-daily-row">
+              <div class="home-daily-left">
+                <div class="home-daily-title-row">
+                  <span class="home-daily-title">{{ m.def.icon }} {{ m.def.title }}</span>
+                  <span class="daily-quest-count">{{ m.clamped }}/{{ m.def.target }}</span>
+                </div>
+                <div
+                  class="quest-seg-bar"
+                  role="progressbar"
+                  :aria-valuenow="m.pct"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                >
+                  <span
+                    v-for="seg in 10"
+                    :key="seg"
+                    class="quest-seg-block"
+                    :class="{ 'quest-seg-block--filled': seg <= m.filledSegs }"
+                  />
+                </div>
               </div>
+              <button
+                v-if="m.completed && !m.slot.claimed"
+                type="button"
+                class="pixel-btn daily-claim-btn"
+                @click="$emit('claimDailyQuest', m.index)"
+              >
+                🎁 +{{ m.def.rewardFish }}🐟
+              </button>
+              <span v-else-if="m.slot.claimed" class="daily-claimed-chip">✓</span>
+              <span v-else class="daily-reward-chip">+{{ m.def.rewardFish }}🐟</span>
             </div>
-            <button
-              v-if="dailyQuestCompleted && !progress.dailyQuest.claimed"
-              type="button"
-              class="pixel-btn daily-claim-btn"
-              @click="$emit('claimDailyQuest')"
-            >
-              🎁 +{{ dailyQuestDef.rewardFish }}🐟
-            </button>
-            <span v-else-if="progress.dailyQuest.claimed" class="daily-claimed-chip">✓</span>
-            <span v-else class="daily-reward-chip">+{{ dailyQuestDef.rewardFish }} 🐟</span>
           </div>
         </div>
       </aside>
@@ -917,92 +1048,158 @@ function handleFileChange(e: Event) {
   </div>
 
   <!-- ====================================================================== -->
-  <!-- 2. LEVEL SELECT SCREEN (8 Levels Across 4 Biomes) -->
+  <!-- 2. LEVEL SELECT SCREEN (12 Levels Across 6 Biomes + Secret Finale Bosses) -->
   <!-- ====================================================================== -->
   <div v-else-if="hud.screen === 'levelSelect'" class="overlay-backdrop">
     <div class="pixel-panel modal-card modal-card--levels">
       <div class="modal-header">
-        <h2 class="modal-title">🗺️ PILIH LEVEL (8 TAHAP • 4 DUNIA)</h2>
+        <h2 class="modal-title">🗺️ PILIH LEVEL (12 TAHAP • 6 DUNIA)</h2>
         <div class="title-badges">
           <span class="highscore-chip">★ {{ hud.highScore }}</span>
           <span class="fish-chip">🐟 {{ progress.fishBank }}</span>
         </div>
       </div>
 
-      <div class="level-grid">
-        <div
-          v-for="lvl in levels"
-          :key="lvl.id"
-          class="level-card"
-          :class="{ 'level-card--locked': lvl.id > progress.unlockedLevel }"
-          @click="lvl.id <= progress.unlockedLevel && $emit('selectLevel', lvl.id)"
-        >
-          <div class="level-card__top">
-            <span class="level-num">LVL {{ lvl.id }}</span>
-            <span
-              class="biome-pill"
-              :style="{
-                backgroundColor: BIOMES[lvl.biome].badgeBg,
-                borderColor: BIOMES[lvl.biome].badgeBorder
-              }"
-            >
-              {{ BIOMES[lvl.biome].icon }} {{ BIOMES[lvl.biome].name }}
-            </span>
-          </div>
-
-          <div class="level-card__name-row">
-            <span class="level-card__name">{{ lvl.name }}</span>
-            <span v-if="lvl.id > progress.unlockedLevel" class="lock-badge">🔒</span>
-            <span v-else class="rating-stars">
+      <div class="level-select-scroll">
+        <div class="level-grid">
+          <div
+            v-for="lvl in mainLevels"
+            :key="lvl.id"
+            class="level-card"
+            :class="{ 'level-card--locked': lvl.id > progress.unlockedLevel }"
+            @click="lvl.id <= progress.unlockedLevel && $emit('selectLevel', lvl.id)"
+          >
+            <div class="level-card__top">
+              <span class="level-num">LVL {{ lvl.id }}</span>
               <span
-                v-for="s in 3"
-                :key="s"
-                :class="s <= (progress.levelRecords[lvl.id]?.rating ?? 0) ? 'star-on' : 'star-off'"
-              >★</span>
-            </span>
-          </div>
-
-          <div class="level-card__sub">{{ lvl.subtitle }}</div>
-
-          <div class="level-card__records">
-            <span>⭐ {{ progress.levelRecords[lvl.id]?.bestStars ?? 0 }}/{{ getLevelTotal(lvl, 'star') }}</span>
-            <span>🐟 {{ progress.levelRecords[lvl.id]?.bestFish ?? 0 }}/{{ getLevelTotal(lvl, 'fish') }}</span>
-            <span class="level-shards-strip" title="Starlight Shards (3 per level)">
-              <span class="shard-bracket">[</span>
-              <span
-                v-for="(found, sIdx) in getLevelShardTuple(lvl.id)"
-                :key="sIdx"
-                class="shard-gem"
-                :class="found ? 'shard-gem--on' : 'shard-gem--off'"
-              >{{ found ? '★' : '☆' }}</span>
-              <span class="shard-bracket">]</span>
-            </span>
-          </div>
-
-          <!-- Best Speedrun Time & Rank (S / A / B) -->
-          <div v-if="progress.bestTimes[lvl.id]" class="level-speedrun-row">
-            <span class="level-best-time">⏱️ {{ formatSpeedrunTime(progress.bestTimes[lvl.id]!) }}</span>
-            <span
-              v-if="progress.levelRanks[lvl.id]"
-              class="rank-badge"
-              :class="`rank-badge--${progress.levelRanks[lvl.id]}`"
-            >
-              RANK {{ progress.levelRanks[lvl.id] }}
-            </span>
-          </div>
-
-          <!-- Time Trial Mode Button for Cleared Levels -->
-          <div v-if="(progress.levelRecords[lvl.id]?.rating ?? 0) >= 1" class="level-tt-row">
-            <button
-              type="button"
-              class="level-tt-btn"
-              @click.stop="$emit('startTimeTrial', lvl.id)"
-            >
-              ⏱️ Tantangan Waktu
-              <span v-if="progress.timeTrials[lvl.id]" class="level-tt-best">
-                {{ medalIcon(progress.timeTrials[lvl.id]?.medal) }} {{ formatTimeTrial(progress.timeTrials[lvl.id]!.bestTimeMs) }}
+                class="biome-pill"
+                :style="{
+                  backgroundColor: BIOMES[lvl.biome].badgeBg,
+                  borderColor: BIOMES[lvl.biome].badgeBorder
+                }"
+              >
+                {{ BIOMES[lvl.biome].icon }} {{ BIOMES[lvl.biome].name }}
               </span>
-            </button>
+            </div>
+
+            <div class="level-card__name-row">
+              <span class="level-card__name">{{ lvl.name }}</span>
+              <span v-if="lvl.id > progress.unlockedLevel" class="lock-badge">🔒</span>
+              <span v-else class="rating-stars">
+                <span
+                  v-for="s in 3"
+                  :key="s"
+                  :class="s <= (progress.levelRecords[lvl.id]?.rating ?? 0) ? 'star-on' : 'star-off'"
+                >★</span>
+              </span>
+            </div>
+
+            <div class="level-card__sub">{{ lvl.subtitle }}</div>
+
+            <div class="level-card__records">
+              <span>⭐ {{ progress.levelRecords[lvl.id]?.bestStars ?? 0 }}/{{ getLevelTotal(lvl, 'star') }}</span>
+              <span>🐟 {{ progress.levelRecords[lvl.id]?.bestFish ?? 0 }}/{{ getLevelTotal(lvl, 'fish') }}</span>
+              <span class="level-shards-strip" title="Starlight Shards (3 per level)">
+                <span class="shard-bracket">[</span>
+                <span
+                  v-for="(found, sIdx) in getLevelShardTuple(lvl.id)"
+                  :key="sIdx"
+                  class="shard-gem"
+                  :class="found ? 'shard-gem--on' : 'shard-gem--off'"
+                >{{ found ? '★' : '☆' }}</span>
+                <span class="shard-bracket">]</span>
+              </span>
+            </div>
+
+            <!-- Best Speedrun Time & Rank (S / A / B) -->
+            <div v-if="progress.bestTimes[lvl.id]" class="level-speedrun-row">
+              <span class="level-best-time">⏱️ {{ formatSpeedrunTime(progress.bestTimes[lvl.id]!) }}</span>
+              <span
+                v-if="progress.levelRanks[lvl.id]"
+                class="rank-badge"
+                :class="`rank-badge--${progress.levelRanks[lvl.id]}`"
+              >
+                RANK {{ progress.levelRanks[lvl.id] }}
+              </span>
+            </div>
+
+            <!-- Time Trial Mode Button for Cleared Levels -->
+            <div v-if="(progress.levelRecords[lvl.id]?.rating ?? 0) >= 1" class="level-tt-row">
+              <button
+                type="button"
+                class="level-tt-btn"
+                @click.stop="$emit('startTimeTrial', lvl.id)"
+              >
+                ⏱️ Tantangan Waktu
+                <span v-if="progress.timeTrials[lvl.id]" class="level-tt-best">
+                  {{ medalIcon(progress.timeTrials[lvl.id]?.medal) }} {{ formatTimeTrial(progress.timeTrials[lvl.id]!.bestTimeMs) }}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ★ SECRET FINALE SECTION (Levels 13 & 14 • Unlocked at Rank S >= 3) -->
+        <div class="secret-finale-section">
+          <div class="secret-finale-header">
+            <span class="secret-finale-title">★ SECRET FINALE • BOSS STAGES</span>
+            <span
+              class="secret-finale-badge"
+              :class="secretFinaleUnlocked ? 'secret-finale-badge--open' : 'secret-finale-badge--locked'"
+            >
+              {{ secretFinaleUnlocked ? `✓ TERBUKA • Rank S: ${rankSCount}` : `🔒 Rank S: ${rankSCount}/3` }}
+            </span>
+          </div>
+
+          <div class="secret-finale-grid">
+            <div
+              v-for="lvl in secretFinaleLevels"
+              :key="lvl.id"
+              class="level-card level-card--boss"
+              :class="{ 'level-card--locked': !secretFinaleUnlocked }"
+              @click="secretFinaleUnlocked && $emit('selectLevel', lvl.id)"
+            >
+              <div class="level-card__top">
+                <span class="level-num">BOSS LVL {{ lvl.id }}</span>
+                <span
+                  class="biome-pill"
+                  :style="{
+                    backgroundColor: BIOMES[lvl.biome].badgeBg,
+                    borderColor: BIOMES[lvl.biome].badgeBorder
+                  }"
+                >
+                  {{ BIOMES[lvl.biome].icon }} {{ BIOMES[lvl.biome].name }}
+                </span>
+              </div>
+
+              <div class="level-card__name-row">
+                <span class="level-card__name">{{ lvl.name }}</span>
+                <span v-if="!secretFinaleUnlocked" class="lock-badge">🔒</span>
+                <span v-else class="rating-stars">
+                  <span
+                    v-for="s in 3"
+                    :key="s"
+                    :class="s <= (progress.levelRecords[lvl.id]?.rating ?? 0) ? 'star-on' : 'star-off'"
+                  >★</span>
+                </span>
+              </div>
+
+              <div class="level-card__sub">{{ lvl.subtitle }}</div>
+              <div class="boss-reward-hint">
+                {{ lvl.id === 13 ? '🎁 +250 🐟 • Eclipse Halo' : '🎁 +500 🐟 • Nebula Sovereign Cape' }}
+              </div>
+
+              <div v-if="progress.bestTimes[lvl.id]" class="level-speedrun-row">
+                <span class="level-best-time">⏱️ {{ formatSpeedrunTime(progress.bestTimes[lvl.id]!) }}</span>
+                <span
+                  v-if="progress.levelRanks[lvl.id]"
+                  class="rank-badge"
+                  :class="`rank-badge--${progress.levelRanks[lvl.id]}`"
+                >
+                  RANK {{ progress.levelRanks[lvl.id] }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1012,7 +1209,7 @@ function handleFileChange(e: Event) {
           ◀ Menu Utama
         </button>
         <button
-          v-if="(progress.levelRecords[8]?.rating ?? 0) >= 1"
+          v-if="(progress.levelRecords[12]?.rating ?? 0) >= 1 || (progress.levelRecords[8]?.rating ?? 0) >= 1"
           type="button"
           class="pixel-btn"
           @click="$emit('openEnding')"
@@ -1116,6 +1313,7 @@ function handleFileChange(e: Event) {
             <div class="char-name">{{ ch.name }}</div>
             <p class="char-desc">{{ ch.description }}</p>
             <div class="char-perk-badge" :title="ch.perkDesc">✨ {{ ch.perkTitle }}</div>
+            <p class="char-perk-desc-mini">{{ ch.perkDesc }}</p>
 
             <button
               v-if="progress.selectedCharacter === ch.id"
@@ -1184,6 +1382,7 @@ function handleFileChange(e: Event) {
                 <div class="char-name">{{ ch.name }}</div>
                 <div class="mission-desc">{{ ch.missionDesc }}</div>
                 <div class="char-perk-badge char-perk-badge--inline" :title="ch.perkDesc">✨ {{ ch.perkTitle }}</div>
+                <p class="char-perk-desc-mini">{{ ch.perkDesc }}</p>
               </div>
             </div>
 
@@ -1265,6 +1464,8 @@ function handleFileChange(e: Event) {
             <span class="eq-tag" :class="{ 'eq-tag--tryon': previewScarf !== null }">🧣 {{ effectiveShopScarf.name }}</span>
             <span class="eq-tag" :class="{ 'eq-tag--tryon': previewHat !== null }">🎩 {{ effectiveShopHat.name }}</span>
             <span class="eq-tag" :class="{ 'eq-tag--tryon': previewCape !== null }">🧥 {{ effectiveShopCape.name }}</span>
+            <span class="eq-tag" :class="{ 'eq-tag--tryon': previewHeadAcc !== null }">🌿 {{ effectiveShopHeadAcc.name }}</span>
+            <span class="eq-tag" :class="{ 'eq-tag--tryon': previewFaceAcc !== null }">🕶️ {{ effectiveShopFaceAcc.name }}</span>
           </div>
 
           <div class="preview-controls-row">
@@ -1296,8 +1497,8 @@ function handleFileChange(e: Event) {
         </button>
       </div>
 
-      <!-- 3 Separate Section Tabs -->
-      <div class="shop-tabs" role="tablist" aria-label="Kategori Aksesoris">
+      <!-- 5 Separate Section Tabs (Scarf, Hat, Cape, Head Acc, Face/Eyewear) -->
+      <div class="shop-tabs shop-tabs--five" role="tablist" aria-label="Kategori Aksesoris">
         <button
           type="button"
           role="tab"
@@ -1306,7 +1507,7 @@ function handleFileChange(e: Event) {
           :aria-selected="activeShopTab === 'scarf'"
           @click="activeShopTab = 'scarf'"
         >
-          🧣 Section 1: Syal ({{ progress.ownedScarves.length }}/{{ SCARF_COLORS.length }})
+          🧣 Syal ({{ progress.ownedScarves.length }}/{{ SCARF_COLORS.length }})
         </button>
         <button
           type="button"
@@ -1316,7 +1517,7 @@ function handleFileChange(e: Event) {
           :aria-selected="activeShopTab === 'hat'"
           @click="activeShopTab = 'hat'"
         >
-          🎩 Section 2: Topi ({{ progress.ownedHats.length - 1 }}/{{ HATS.length - 1 }})
+          🎩 Topi ({{ progress.ownedHats.length - 1 }}/{{ HATS.length - 1 }})
         </button>
         <button
           type="button"
@@ -1326,7 +1527,27 @@ function handleFileChange(e: Event) {
           :aria-selected="activeShopTab === 'cape'"
           @click="activeShopTab = 'cape'"
         >
-          🧥 Section 3: Jubah ({{ progress.ownedCapes.length - 1 }}/{{ CAPES.length - 1 }})
+          🧥 Jubah ({{ progress.ownedCapes.length - 1 }}/{{ CAPES.length - 1 }})
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="shop-tab-btn"
+          :class="{ 'shop-tab-btn--active': activeShopTab === 'head_acc' }"
+          :aria-selected="activeShopTab === 'head_acc'"
+          @click="activeShopTab = 'head_acc'"
+        >
+          🌿 Kepala ({{ progress.ownedHeadAccs.length - 1 }}/{{ HEAD_ACCS.length - 1 }})
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="shop-tab-btn"
+          :class="{ 'shop-tab-btn--active': activeShopTab === 'face' }"
+          :aria-selected="activeShopTab === 'face'"
+          @click="activeShopTab = 'face'"
+        >
+          🕶️ Wajah ({{ progress.ownedFaceAccs.length - 1 }}/{{ FACE_ACCS.length - 1 }})
         </button>
       </div>
 
@@ -1478,7 +1699,7 @@ function handleFileChange(e: Event) {
       </div>
 
       <!-- SECTION 3: CAPES -->
-      <div v-else class="shop-item-grid">
+      <div v-else-if="activeShopTab === 'cape'" class="shop-item-grid">
         <div
           v-for="cape in CAPES"
           :key="cape.id"
@@ -1496,6 +1717,7 @@ function handleFileChange(e: Event) {
             <span v-else-if="progress.selectedCape === cape.id" class="char-status char-status--active">DIPAKAI</span>
             <span v-else-if="progress.ownedCapes.includes(cape.id)" class="char-status char-status--owned">DIMILIKI</span>
             <span v-else-if="cape.shardUnlockBiome" class="char-status char-status--shard">💎 BIOME REWARD</span>
+            <span v-else-if="cape.bossUnlockLevelId" class="char-status char-status--shard">👑 BOSS LVL {{ cape.bossUnlockLevelId }}</span>
             <span v-else class="char-status char-status--cost">🐟 {{ cape.cost }}</span>
           </div>
 
@@ -1534,6 +1756,15 @@ function handleFileChange(e: Event) {
             🔒 6 Shard {{ BIOMES[cape.shardUnlockBiome].icon }} ({{ countBiomeCollectedShards(cape.shardUnlockBiome, progress) }}/6)
           </button>
           <button
+            v-else-if="cape.bossUnlockLevelId"
+            type="button"
+            class="pixel-btn pixel-btn--ghost char-action-btn"
+            disabled
+            @click.stop
+          >
+            🔒 Kalahkan Boss Lvl {{ cape.bossUnlockLevelId }}
+          </button>
+          <button
             v-else
             type="button"
             class="pixel-btn char-action-btn"
@@ -1541,6 +1772,132 @@ function handleFileChange(e: Event) {
             @click.stop="handleActionCape(cape.id)"
           >
             {{ progress.fishBank >= cape.cost ? `Beli (🐟 ${cape.cost})` : `Perlu 🐟 ${cape.cost}` }}
+          </button>
+        </div>
+      </div>
+
+      <!-- SECTION 4: HEAD ACCESSORIES (`head_acc`) -->
+      <div v-else-if="activeShopTab === 'head_acc'" class="shop-item-grid">
+        <div
+          v-for="acc in HEAD_ACCS"
+          :key="acc.id"
+          class="shop-card shop-card--clickable"
+          :class="{
+            'shop-card--equipped': progress.selectedHeadAcc === acc.id,
+            'shop-card--owned': progress.ownedHeadAccs.includes(acc.id),
+            'shop-card--preview': previewHeadAcc === acc.id
+          }"
+          @click="tryOnHeadAcc(acc.id)"
+        >
+          <div class="shop-card__top">
+            <span class="swatch-dot" :style="{ backgroundColor: acc.swatch }" />
+            <span v-if="previewHeadAcc === acc.id" class="char-status char-status--preview">COBA</span>
+            <span v-else-if="progress.selectedHeadAcc === acc.id" class="char-status char-status--active">DIPAKAI</span>
+            <span v-else-if="progress.ownedHeadAccs.includes(acc.id)" class="char-status char-status--owned">DIMILIKI</span>
+            <span v-else-if="acc.bossUnlockLevelId" class="char-status char-status--shard">👑 BOSS LVL {{ acc.bossUnlockLevelId }}</span>
+            <span v-else class="char-status char-status--cost">🐟 {{ acc.cost }}</span>
+          </div>
+
+          <div class="shop-icon-stage">
+            <img v-if="headAccIcons[acc.id]" :src="headAccIcons[acc.id]" :alt="acc.name" class="shop-icon-img" />
+            <span v-else class="none-icon">∅</span>
+          </div>
+
+          <div class="shop-item-name">{{ acc.name }}</div>
+          <div class="shop-item-sub">{{ acc.groupName }}</div>
+
+          <button
+            v-if="progress.selectedHeadAcc === acc.id"
+            type="button"
+            class="pixel-btn char-action-btn"
+            disabled
+            @click.stop
+          >
+            ✓ Dipakai
+          </button>
+          <button
+            v-else-if="progress.ownedHeadAccs.includes(acc.id)"
+            type="button"
+            class="pixel-btn pixel-btn--secondary char-action-btn"
+            @click.stop="handleActionHeadAcc(acc.id)"
+          >
+            Pakai
+          </button>
+          <button
+            v-else-if="acc.bossUnlockLevelId"
+            type="button"
+            class="pixel-btn pixel-btn--ghost char-action-btn"
+            disabled
+            @click.stop
+          >
+            🔒 Kalahkan Boss Lvl {{ acc.bossUnlockLevelId }}
+          </button>
+          <button
+            v-else
+            type="button"
+            class="pixel-btn char-action-btn"
+            :disabled="progress.fishBank < acc.cost"
+            @click.stop="handleActionHeadAcc(acc.id)"
+          >
+            {{ progress.fishBank >= acc.cost ? `Beli (🐟 ${acc.cost})` : `Perlu 🐟 ${acc.cost}` }}
+          </button>
+        </div>
+      </div>
+
+      <!-- SECTION 5: FACE / EYEWEAR (`face`) -->
+      <div v-else class="shop-item-grid">
+        <div
+          v-for="face in FACE_ACCS"
+          :key="face.id"
+          class="shop-card shop-card--clickable"
+          :class="{
+            'shop-card--equipped': progress.selectedFaceAcc === face.id,
+            'shop-card--owned': progress.ownedFaceAccs.includes(face.id),
+            'shop-card--preview': previewFaceAcc === face.id
+          }"
+          @click="tryOnFaceAcc(face.id)"
+        >
+          <div class="shop-card__top">
+            <span class="swatch-dot" :style="{ backgroundColor: face.swatch }" />
+            <span v-if="previewFaceAcc === face.id" class="char-status char-status--preview">COBA</span>
+            <span v-else-if="progress.selectedFaceAcc === face.id" class="char-status char-status--active">DIPAKAI</span>
+            <span v-else-if="progress.ownedFaceAccs.includes(face.id)" class="char-status char-status--owned">DIMILIKI</span>
+            <span v-else class="char-status char-status--cost">🐟 {{ face.cost }}</span>
+          </div>
+
+          <div class="shop-icon-stage">
+            <img v-if="faceAccIcons[face.id]" :src="faceAccIcons[face.id]" :alt="face.name" class="shop-icon-img" />
+            <span v-else class="none-icon">∅</span>
+          </div>
+
+          <div class="shop-item-name">{{ face.name }}</div>
+          <div class="shop-item-sub">{{ face.groupName }}</div>
+
+          <button
+            v-if="progress.selectedFaceAcc === face.id"
+            type="button"
+            class="pixel-btn char-action-btn"
+            disabled
+            @click.stop
+          >
+            ✓ Dipakai
+          </button>
+          <button
+            v-else-if="progress.ownedFaceAccs.includes(face.id)"
+            type="button"
+            class="pixel-btn pixel-btn--secondary char-action-btn"
+            @click.stop="handleActionFaceAcc(face.id)"
+          >
+            Pakai
+          </button>
+          <button
+            v-else
+            type="button"
+            class="pixel-btn char-action-btn"
+            :disabled="progress.fishBank < face.cost"
+            @click.stop="handleActionFaceAcc(face.id)"
+          >
+            {{ progress.fishBank >= face.cost ? `Beli (🐟 ${face.cost})` : `Perlu 🐟 ${face.cost}` }}
           </button>
         </div>
       </div>
@@ -2899,7 +3256,7 @@ function handleFileChange(e: Event) {
 }
 
 .char-grid--five {
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .char-grid--three {
@@ -3133,6 +3490,40 @@ function handleFileChange(e: Event) {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
+}
+
+.shop-tabs--five {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+.home-daily-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.home-daily-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.daily-bonus-pill {
+  padding: 1px 6px;
+  font-size: 7.4px;
+  font-weight: 700;
+  color: #ffe896;
+  background: rgba(102, 54, 138, 0.85);
+  border: 1px solid #ffd873;
+  white-space: nowrap;
+}
+
+.daily-bonus-pill--done {
+  color: #b8ffe0;
+  background: rgba(24, 82, 62, 0.85);
+  border-color: #6ee6b8;
 }
 
 .shop-tab-btn {
@@ -4614,7 +5005,7 @@ function handleFileChange(e: Event) {
 }
 
 .home-daily-title {
-  font-size: 8.2px;
+  font-size: 7.4px;
   color: #fff3d6;
   white-space: nowrap;
   overflow: hidden;
@@ -4626,7 +5017,7 @@ function handleFileChange(e: Event) {
   display: grid;
   grid-template-columns: repeat(10, 1fr);
   gap: 2px;
-  height: 8px;
+  height: 6px;
   padding: 1px;
   background: #150826;
   border: 1px solid rgba(255, 224, 140, 0.45);
@@ -4769,28 +5160,38 @@ function handleFileChange(e: Event) {
   }
 
   .shop-tabs {
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 4px;
+    display: flex !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    gap: 5px;
+    padding-bottom: 2px;
   }
 
   .shop-tab-btn {
-    padding: 5px 4px;
-    font-size: 7.8px;
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    font-size: 8px;
+    white-space: nowrap;
   }
 
   .shop-item-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 6px;
   }
 
-  .char-grid--five {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-  }
-
+  .char-grid--five,
   .char-grid--three {
     grid-template-columns: repeat(2, 1fr);
     gap: 6px;
+  }
+
+  @media (max-width: 520px) {
+    .char-grid--five,
+    .char-grid--three {
+      grid-template-columns: 1fr;
+    }
   }
 
   .modal-footer {
@@ -5382,6 +5783,106 @@ function handleFileChange(e: Event) {
 .char-perk-badge--inline {
   margin-top: 3px;
   display: inline-block;
+}
+
+.char-perk-desc-mini {
+  margin: 2px 0 0;
+  font-size: 7.4px;
+  line-height: 1.3;
+  color: #d6c8eb;
+}
+
+.level-select-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 68dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 4px;
+  touch-action: pan-y;
+}
+
+.secret-finale-section {
+  margin-top: 12px;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(64, 16, 48, 0.72), rgba(26, 12, 54, 0.85));
+  border: 2px solid #ff7ca8;
+  box-shadow: 0 3px 0 #140724;
+}
+
+.secret-finale-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.secret-finale-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #ffe475;
+  text-shadow: 0 2px 0 #160926;
+}
+
+.secret-finale-badge {
+  padding: 2px 7px;
+  font-size: 8.2px;
+  font-weight: 700;
+  border: 1px solid #ff9ec4;
+}
+
+.secret-finale-badge--open {
+  background: rgba(32, 92, 74, 0.85);
+  border-color: #8ef0c8;
+  color: #d9fff0;
+}
+
+.secret-finale-badge--locked {
+  background: rgba(54, 18, 48, 0.85);
+  border-color: #ff8cb8;
+  color: #ffd4e6;
+}
+
+.secret-finale-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.level-card--boss {
+  border-color: #ff7ca8;
+  background: rgba(44, 14, 52, 0.82);
+}
+
+.boss-reward-hint {
+  font-size: 7.8px;
+  color: #ffe885;
+  margin-top: 2px;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .quest-claim-btn {
+    min-height: 40px;
+    padding: 4px 10px;
+  }
+  .home-daily-row {
+    gap: 4px;
+  }
+  .home-daily-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 640px) {
+  .secret-finale-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .guide-perks-grid {

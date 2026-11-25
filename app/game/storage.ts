@@ -1,6 +1,11 @@
 import { ACHIEVEMENTS } from './achievements'
-import { CAPES, CHARACTERS, HATS, SCARF_COLORS } from './characters'
-import { DAILY_QUESTS, createDailyQuestForToday, getLocalDateKey } from './dailyQuest'
+import { CAPES, CHARACTERS, FACE_ACCS, HATS, HEAD_ACCS, SCARF_COLORS } from './characters'
+import {
+  DAILY_QUESTS,
+  createDailyMissionsForToday,
+  createDailyQuestForToday,
+  getLocalDateKey
+} from './dailyQuest'
 import { LEVELS } from './levels'
 import type {
   AchievementId,
@@ -8,12 +13,16 @@ import type {
   CapeId,
   CharacterId,
   ClaimedRankRewards,
+  DailyMissionSlot,
+  DailyMissionsState,
   DailyQuestId,
   DailyQuestState,
   EquippedCosmetics,
+  FaceAccId,
   GameSavePayload,
   GraphicsStyle,
   HatId,
+  HeadAccId,
   HomeBackdropMode,
   LevelRecord,
   SaveProgress,
@@ -57,13 +66,33 @@ const VALID_CHAR_IDS = new Set<string>(CHARACTERS.map((c) => c.id))
 const VALID_SCARF_IDS = new Set<string>(SCARF_COLORS.map((s) => s.id))
 const VALID_HAT_IDS = new Set<string>(HATS.map((h) => h.id))
 const VALID_CAPE_IDS = new Set<string>(CAPES.map((c) => c.id))
+const VALID_HEAD_ACC_IDS = new Set<string>(HEAD_ACCS.map((h) => h.id))
+const VALID_FACE_ACC_IDS = new Set<string>(FACE_ACCS.map((f) => f.id))
 const VALID_ACH_IDS = new Set<string>(ACHIEVEMENTS.map((a) => a.id))
-const VALID_BIOMES = new Set<string>(['rooftops', 'sakura', 'cloudland', 'harbor'])
+const VALID_BIOMES = new Set<string>([
+  'rooftops',
+  'sakura',
+  'cloudland',
+  'harbor',
+  'cavern',
+  'observatory',
+  'eclipse',
+  'citadel'
+])
+const VALID_MAIN_BIOMES = new Set<string>([
+  'rooftops',
+  'sakura',
+  'cloudland',
+  'harbor',
+  'cavern',
+  'observatory'
+])
 const VALID_DAILY_IDS = new Set<string>(DAILY_QUESTS.map((q) => q.id))
 const VALID_MEDALS = new Set<string>(['none', 'bronze', 'silver', 'gold'])
 const VALID_RANKS = new Set<string>(['S', 'A', 'B', 'C'])
 
-export const MAX_LEVEL_COUNT = 8
+export const MAX_LEVEL_COUNT = 14
+export const MAIN_LEVEL_COUNT = 12
 
 function clamp01(val: unknown, fallback: number): number {
   const num = Number(val)
@@ -86,10 +115,14 @@ export function createDefaultSave(): SaveProgress {
     selectedScarf: 'pink',
     selectedHat: 'none',
     selectedCape: 'none',
+    selectedHeadAcc: 'none',
+    selectedFaceAcc: 'none',
     unlockedCharacters: ['cat-mochi'],
     ownedScarves: ['pink'],
     ownedHats: ['none'],
     ownedCapes: ['none'],
+    ownedHeadAccs: ['none'],
+    ownedFaceAccs: ['none'],
     unlockedAchievements: [],
     bestLevelScores: {},
     levelRecords: {},
@@ -101,6 +134,8 @@ export function createDefaultSave(): SaveProgress {
     pacifistClears: 0,
     timeTrials: {},
     dailyQuest: createDailyQuestForToday(),
+    dailyMissions: createDailyMissionsForToday(),
+    totalDailyMissionsCompleted: 0,
     muted: false,
     reduceMotion: true,
     showSpeedrunTimer: false,
@@ -124,13 +159,17 @@ export function toCanonicalSavePayload(progress: SaveProgress): GameSavePayload 
   const ownedCosmetics: string[] = [
     ...sanitized.ownedScarves.map((id) => `scarf:${id}`),
     ...sanitized.ownedHats.map((id) => `hat:${id}`),
-    ...sanitized.ownedCapes.map((id) => `cape:${id}`)
+    ...sanitized.ownedCapes.map((id) => `cape:${id}`),
+    ...sanitized.ownedHeadAccs.map((id) => `head_acc:${id}`),
+    ...sanitized.ownedFaceAccs.map((id) => `face:${id}`)
   ]
 
   const equippedCosmetics: EquippedCosmetics = {
     scarf: sanitized.selectedScarf,
     hat: sanitized.selectedHat,
-    cape: sanitized.selectedCape
+    cape: sanitized.selectedCape,
+    head_acc: sanitized.selectedHeadAcc,
+    face: sanitized.selectedFaceAcc
   }
 
   return {
@@ -173,6 +212,8 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
   const ownedScarves: ScarfColorId[] = ['pink']
   const ownedHats: HatId[] = ['none']
   const ownedCapes: CapeId[] = ['none']
+  const ownedHeadAccs: HeadAccId[] = ['none']
+  const ownedFaceAccs: FaceAccId[] = ['none']
 
   if (Array.isArray(parsed.ownedScarves)) {
     for (const id of parsed.ownedScarves) {
@@ -204,7 +245,17 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
       }
     }
   }
-  // Also absorb canonical ownedCosmetics strings ('scarf:pink', 'hat:beanie-pink', 'cape:starlight-indigo')
+  if (Array.isArray(parsed.ownedHeadAccs)) {
+    for (const id of parsed.ownedHeadAccs) {
+      if (VALID_HEAD_ACC_IDS.has(id) && !ownedHeadAccs.includes(id)) ownedHeadAccs.push(id)
+    }
+  }
+  if (Array.isArray(parsed.ownedFaceAccs)) {
+    for (const id of parsed.ownedFaceAccs) {
+      if (VALID_FACE_ACC_IDS.has(id) && !ownedFaceAccs.includes(id)) ownedFaceAccs.push(id)
+    }
+  }
+  // Also absorb canonical ownedCosmetics strings ('scarf:pink', 'hat:...', 'cape:...', 'head_acc:...', 'face:...')
   if (Array.isArray(parsed.ownedCosmetics)) {
     for (const entry of parsed.ownedCosmetics) {
       if (typeof entry !== 'string') continue
@@ -216,6 +267,10 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
         ownedHats.push(itemId as HatId)
       } else if (slot === 'cape' && VALID_CAPE_IDS.has(itemId) && !ownedCapes.includes(itemId as CapeId)) {
         ownedCapes.push(itemId as CapeId)
+      } else if (slot === 'head_acc' && VALID_HEAD_ACC_IDS.has(itemId) && !ownedHeadAccs.includes(itemId as HeadAccId)) {
+        ownedHeadAccs.push(itemId as HeadAccId)
+      } else if (slot === 'face' && VALID_FACE_ACC_IDS.has(itemId) && !ownedFaceAccs.includes(itemId as FaceAccId)) {
+        ownedFaceAccs.push(itemId as FaceAccId)
       }
     }
   }
@@ -235,6 +290,18 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
   const rawSelCape = parsed.selectedCape ?? parsed.equippedCosmetics?.cape
   const selectedCape: CapeId =
     rawSelCape && VALID_CAPE_IDS.has(rawSelCape) && ownedCapes.includes(rawSelCape) ? rawSelCape : 'none'
+
+  const rawSelHeadAcc = parsed.selectedHeadAcc ?? parsed.equippedCosmetics?.head_acc
+  const selectedHeadAcc: HeadAccId =
+    rawSelHeadAcc && VALID_HEAD_ACC_IDS.has(rawSelHeadAcc) && ownedHeadAccs.includes(rawSelHeadAcc)
+      ? rawSelHeadAcc
+      : 'none'
+
+  const rawSelFaceAcc = parsed.selectedFaceAcc ?? parsed.equippedCosmetics?.face
+  const selectedFaceAcc: FaceAccId =
+    rawSelFaceAcc && VALID_FACE_ACC_IDS.has(rawSelFaceAcc) && ownedFaceAccs.includes(rawSelFaceAcc)
+      ? rawSelFaceAcc
+      : 'none'
 
   const unlockedAchievements = Array.isArray(parsed.unlockedAchievements)
     ? Array.from(new Set(parsed.unlockedAchievements.filter((id): id is AchievementId => VALID_ACH_IDS.has(id))))
@@ -290,7 +357,9 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
   for (const [lvlKey, rec] of Object.entries(levelRecords)) {
     const lvlId = Number(lvlKey)
     if (rec.rating >= 1) {
-      derivedUnlock = Math.max(derivedUnlock, Math.min(MAX_LEVEL_COUNT, lvlId + 1))
+      if (lvlId < MAIN_LEVEL_COUNT) {
+        derivedUnlock = Math.max(derivedUnlock, Math.min(MAIN_LEVEL_COUNT, lvlId + 1))
+      }
       const lvlDef = LEVELS.find((l) => l.id === lvlId)
       if (lvlDef && !visitedBiomes.includes(lvlDef.biome)) {
         visitedBiomes.push(lvlDef.biome)
@@ -300,6 +369,8 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
       bestLevelScores[lvlId] = rec.bestScore
     }
   }
+  // Cap normal sequential progression at MAIN_LEVEL_COUNT (12); Levels 13–14 unlock via Rank S >= 3!
+  derivedUnlock = Math.min(MAIN_LEVEL_COUNT, derivedUnlock)
 
   const collectedShards: Record<number, ShardTuple> = {}
   if (parsed.collectedShards && typeof parsed.collectedShards === 'object') {
@@ -317,7 +388,11 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
     rooftops: 0,
     sakura: 0,
     cloudland: 0,
-    harbor: 0
+    harbor: 0,
+    cavern: 0,
+    observatory: 0,
+    eclipse: 0,
+    citadel: 0
   }
   for (const lvl of LEVELS) {
     const tup = collectedShards[lvl.id]
@@ -335,6 +410,19 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
   }
   if (biomeShardCounts.harbor >= 6 && !ownedScarves.includes('lantern-gold')) {
     ownedScarves.push('lantern-gold')
+  }
+  if (biomeShardCounts.cavern >= 6 && !ownedCapes.includes('cape-crystal-glow')) {
+    ownedCapes.push('cape-crystal-glow')
+  }
+  if (biomeShardCounts.observatory >= 6 && !ownedHats.includes('hat-astral-clockwork')) {
+    ownedHats.push('hat-astral-clockwork')
+  }
+  // Retroactively ensure Boss Reward cosmetics stay unlocked if boss stages were cleared
+  if ((levelRecords[13]?.rating ?? 0) >= 1 && !ownedHeadAccs.includes('halo-eclipse')) {
+    ownedHeadAccs.push('halo-eclipse')
+  }
+  if ((levelRecords[14]?.rating ?? 0) >= 1 && !ownedCapes.includes('cape-nebula-sovereign')) {
+    ownedCapes.push('cape-nebula-sovereign')
   }
 
   const bestTimes: Record<number, number> = {}
@@ -395,20 +483,56 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
   }
 
   const todayKey = getLocalDateKey()
-  let dailyQuest: DailyQuestState = createDailyQuestForToday(todayKey)
+  let dailyMissions: DailyMissionsState = createDailyMissionsForToday(todayKey)
   if (
+    parsed.dailyMissions &&
+    typeof parsed.dailyMissions === 'object' &&
+    parsed.dailyMissions.dateKey === todayKey &&
+    Array.isArray(parsed.dailyMissions.missions) &&
+    parsed.dailyMissions.missions.length === 3
+  ) {
+    const rawSlots = parsed.dailyMissions.missions
+    const validated: DailyMissionSlot[] = dailyMissions.missions.map((fallbackSlot, idx) => {
+      const candidate = rawSlots[idx]
+      if (candidate && typeof candidate === 'object' && VALID_DAILY_IDS.has(candidate.questId)) {
+        return {
+          questId: candidate.questId as DailyQuestId,
+          progress: Math.max(0, Math.floor(Number(candidate.progress) || 0)),
+          claimed: Boolean(candidate.claimed)
+        }
+      }
+      return fallbackSlot
+    })
+    dailyMissions = {
+      dateKey: todayKey,
+      missions: [validated[0]!, validated[1]!, validated[2]!],
+      bonusClaimed: Boolean(parsed.dailyMissions.bonusClaimed)
+    }
+  } else if (
     parsed.dailyQuest &&
     typeof parsed.dailyQuest === 'object' &&
     parsed.dailyQuest.dateKey === todayKey &&
     VALID_DAILY_IDS.has(parsed.dailyQuest.questId)
   ) {
-    dailyQuest = {
-      dateKey: todayKey,
-      questId: parsed.dailyQuest.questId as DailyQuestId,
-      progress: Math.max(0, Math.floor(Number(parsed.dailyQuest.progress) || 0)),
-      claimed: Boolean(parsed.dailyQuest.claimed)
-    }
+    // Seamless upgrade from legacy 1-mission dailyQuest into today's 3-mission tracker
+    const matchIdx = dailyMissions.missions.findIndex((m) => m.questId === parsed.dailyQuest!.questId)
+    const targetSlot = matchIdx >= 0 ? dailyMissions.missions[matchIdx]! : dailyMissions.missions[0]!
+    targetSlot.questId = parsed.dailyQuest.questId as DailyQuestId
+    targetSlot.progress = Math.max(0, Math.floor(Number(parsed.dailyQuest.progress) || 0))
+    targetSlot.claimed = Boolean(parsed.dailyQuest.claimed)
   }
+
+  const dailyQuest: DailyQuestState = {
+    dateKey: todayKey,
+    questId: dailyMissions.missions[0].questId,
+    progress: dailyMissions.missions[0].progress,
+    claimed: dailyMissions.missions[0].claimed
+  }
+
+  const totalDailyMissionsCompleted = Math.max(
+    0,
+    Math.floor(Number(parsed.totalDailyMissionsCompleted) || 0)
+  )
 
   const rawFish = parsed.fishBank ?? parsed.fishCoins ?? 0
   const fishBank = Math.max(0, Math.floor(Number(rawFish) || 0))
@@ -455,7 +579,7 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
 
   const rawHomeMode = parsed.homeBackdropMode
   const homeBackdropMode: HomeBackdropMode =
-    rawHomeMode === 'auto' || (typeof rawHomeMode === 'string' && VALID_BIOMES.has(rawHomeMode))
+    rawHomeMode === 'auto' || (typeof rawHomeMode === 'string' && VALID_MAIN_BIOMES.has(rawHomeMode))
       ? (rawHomeMode as HomeBackdropMode)
       : 'auto'
 
@@ -473,10 +597,14 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
     selectedScarf,
     selectedHat,
     selectedCape,
+    selectedHeadAcc,
+    selectedFaceAcc,
     unlockedCharacters: unlockedChars,
     ownedScarves,
     ownedHats,
     ownedCapes,
+    ownedHeadAccs,
+    ownedFaceAccs,
     unlockedAchievements,
     bestLevelScores,
     levelRecords,
@@ -488,6 +616,8 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
     pacifistClears: Math.max(0, Math.floor(Number(parsed.pacifistClears) || 0)),
     timeTrials,
     dailyQuest,
+    dailyMissions,
+    totalDailyMissionsCompleted,
     muted,
     reduceMotion,
     showSpeedrunTimer,

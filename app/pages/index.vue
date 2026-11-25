@@ -6,8 +6,10 @@ import type {
   AudioSettings,
   CapeId,
   CharacterId,
+  FaceAccId,
   GraphicsStyle,
   HatId,
+  HeadAccId,
   HudSnapshot,
   PhotoModePose,
   ScarfColorId,
@@ -125,6 +127,8 @@ const hud = ref<HudSnapshot>({
   selectedScarf: progress.value.selectedScarf,
   selectedHat: progress.value.selectedHat,
   selectedCape: progress.value.selectedCape,
+  selectedHeadAcc: progress.value.selectedHeadAcc,
+  selectedFaceAcc: progress.value.selectedFaceAcc,
   graphicsStyle: progress.value.graphicsStyle,
   touchControlsMode: progress.value.touchControlsMode,
   checkpointReached: false,
@@ -140,6 +144,7 @@ const hud = ref<HudSnapshot>({
   magnetTimer: 0,
   magnetMax: 10,
   hasBubbleShield: false,
+  hasFrostShield: false,
   mooncakeTimer: 0,
   mooncakeMax: 8,
   yarnTimer: 0,
@@ -150,6 +155,24 @@ const hud = ref<HudSnapshot>({
   candyMax: 7,
   pearlTimer: 0,
   pearlMax: 10,
+  cometChargeTimer: 0,
+  cometChargeMax: 6,
+  moonlightFeatherTimer: 0,
+  moonlightFeatherMax: 10,
+  isBossStage: false,
+  bossActive: false,
+  bossDefeated: false,
+  bossName: '',
+  bossSubtitle: '',
+  bossHp: 0,
+  bossMaxHp: 1,
+  bossPhase: 1,
+  bossCoreExposed: false,
+  pulseReady: true,
+  pulseCharge: 1,
+  aegisReady: true,
+  aegisCharge: 1,
+  aegisActive: false,
   hurtPulseCount: 0,
   recentToast: null,
   starRingActive: false,
@@ -260,8 +283,8 @@ function handleContinueCheckpoint() {
   engine?.continueFromCheckpoint()
 }
 
-function handleClaimDailyQuest() {
-  engine?.claimDailyQuestReward()
+function handleClaimDailyQuest(slotIndex = 0) {
+  engine?.claimDailyQuestReward(slotIndex)
 }
 
 function handleStartTimeTrial(id: number) {
@@ -357,6 +380,14 @@ function handleBuyOrEquipHat(id: HatId) {
 
 function handleBuyOrEquipCape(id: CapeId) {
   engine?.buyOrEquipCape(id)
+}
+
+function handleBuyOrEquipHeadAcc(id: HeadAccId) {
+  engine?.buyOrEquipHeadAcc(id)
+}
+
+function handleBuyOrEquipFaceAcc(id: FaceAccId) {
+  engine?.buyOrEquipFaceAcc(id)
 }
 
 function handleUpdateAudio(partial: Partial<AudioSettings>) {
@@ -559,6 +590,8 @@ function handleToggleMute() {
           @buy-or-equip-scarf="handleBuyOrEquipScarf"
           @buy-or-equip-hat="handleBuyOrEquipHat"
           @buy-or-equip-cape="handleBuyOrEquipCape"
+          @buy-or-equip-head-acc="handleBuyOrEquipHeadAcc"
+          @buy-or-equip-face-acc="handleBuyOrEquipFaceAcc"
           @update-audio="handleUpdateAudio"
           @set-graphics-style="handleSetGraphicsStyle"
           @set-touch-controls-mode="handleSetTouchControlsMode"
@@ -587,6 +620,13 @@ function handleToggleMute() {
           :mode="progress.touchControlsMode"
           :dash-ready="hud.dashReady"
           :dash-charge="hud.dashCharge"
+          :is-boss-stage="hud.isBossStage"
+          :pulse-ready="hud.pulseReady"
+          :pulse-charge="hud.pulseCharge"
+          :aegis-ready="hud.aegisReady"
+          :aegis-charge="hud.aegisCharge"
+          :aegis-active="hud.aegisActive"
+          :comet-charge-active="hud.cometChargeTimer > 0"
           @input="handleTouchInput"
           @pause="handleTogglePause"
         />
@@ -639,6 +679,12 @@ function handleToggleMute() {
       >
         <span><kbd>A/D</kbd> atau <kbd>←/→</kbd> Gerak</span>
         <span class="hint-sep">•</span>
+        <template v-if="hud.isBossStage">
+          <span><kbd>C/J</kbd> Starlight Pulse ✦</span>
+          <span class="hint-sep">•</span>
+          <span><kbd>V/K</kbd> Astral Aegis ◈</span>
+          <span class="hint-sep">•</span>
+        </template>
         <span><kbd>W/Spasi/↑</kbd> Lompat</span>
         <span class="hint-sep">•</span>
         <span><kbd>Shift/X</kbd> Dash</span>

@@ -5,8 +5,10 @@ import type {
   BiomeId,
   CapeId,
   CharacterId,
+  FaceAccId,
   GraphicsStyle,
   HatId,
+  HeadAccId,
   PostcardPoseId,
   ScarfColorId
 } from './types'
@@ -19,6 +21,8 @@ export interface PostcardOptions {
   scarfId: ScarfColorId
   hatId: HatId
   capeId: CapeId
+  headAccId?: HeadAccId
+  faceAccId?: FaceAccId
 }
 
 export const POSTCARD_BASE_W = 240
@@ -86,7 +90,9 @@ export function renderPostcardBase(opts: PostcardOptions): HTMLCanvasElement {
     opts.scarfId,
     opts.hatId,
     opts.capeId,
-    opts.style
+    opts.style,
+    opts.headAccId ?? 'none',
+    opts.faceAccId ?? 'none'
   )
 
   // --------------------------------------------------------------------------
@@ -96,7 +102,11 @@ export function renderPostcardBase(opts: PostcardOptions): HTMLCanvasElement {
     rooftops: ['#120a24', '#1d103d', '#2e1a59', '#42256e'],
     sakura: ['#0d1233', '#192152', '#2d2b69', '#4a387a'],
     cloudland: ['#221445', '#3b226b', '#5d3382', '#824c96'],
-    harbor: ['#061920', '#0c2833', '#15404d', '#205b66']
+    harbor: ['#061920', '#0c2833', '#15404d', '#205b66'],
+    cavern: ['#071326', '#0e223d', '#183659', '#254a70'],
+    observatory: ['#0b0e29', '#161b47', '#262b66', '#3d3c7a'],
+    eclipse: ['#1a0616', '#330c28', '#52153c', '#731e4d'],
+    citadel: ['#090621', '#161042', '#281d69', '#3f2c8c']
   }
   const pal = skyPalettes[opts.biome]
   if (!isModern) {
@@ -251,6 +261,81 @@ export function renderPostcardBase(opts: PostcardOptions): HTMLCanvasElement {
       ctx.globalCompositeOperation = 'lighter'
       drawGlow(ctx, 62, 74, 18, 'rgba(255, 246, 176, 0.32)', 'rgba(255, 206, 120, 0.10)')
       drawGlow(ctx, 192, 70, 18, 'rgba(255, 246, 176, 0.32)', 'rgba(255, 206, 120, 0.10)')
+      ctx.restore()
+    }
+  } else if (opts.biome === 'cavern') {
+    // Crystal Mushroom Cavern: glowing mushrooms & crystal formations
+    ctx.fillStyle = '#0c1f36'
+    ctx.fillRect(0, 0, W, 18)
+    ctx.fillStyle = '#183757'
+    ctx.fillRect(16, 12, 12, 22)
+    ctx.fillRect(198, 10, 14, 26)
+    ctx.fillStyle = '#6cf2ec'
+    ctx.fillRect(28, 72, 6, 26)
+    ctx.fillRect(36, 80, 5, 18)
+    ctx.fillStyle = '#b88cff'
+    ctx.fillRect(190, 74, 7, 24)
+    for (let tx = 0; tx < W; tx += 16) {
+      ctx.drawImage(tiles.cavernTop, tx, floorY)
+      ctx.drawImage(tiles.cavernBody, tx, floorY + 16)
+    }
+    // Glowing bioluminescent mushroom caps
+    ctx.fillStyle = '#254463'
+    ctx.fillRect(42, floorY - 12, 4, 12)
+    ctx.fillStyle = '#5ef2e6'
+    ctx.fillRect(34, floorY - 18, 20, 7)
+    ctx.fillStyle = '#d4ffff'
+    ctx.fillRect(38, floorY - 16, 4, 2)
+    ctx.fillStyle = '#33285e'
+    ctx.fillRect(184, floorY - 10, 4, 10)
+    ctx.fillStyle = '#c48cff'
+    ctx.fillRect(178, floorY - 15, 16, 6)
+    if (isModern) {
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      drawGlow(ctx, 44, floorY - 14, 28, 'rgba(110, 248, 236, 0.36)', 'rgba(84, 178, 232, 0.12)')
+      drawGlow(ctx, 186, floorY - 12, 26, 'rgba(194, 142, 255, 0.34)', 'rgba(130, 88, 224, 0.12)')
+      ctx.restore()
+    }
+  } else if (opts.biome === 'observatory') {
+    // Clockwork Observatory: brass gears, dome silhouette, astral beams
+    ctx.fillStyle = '#1b1f4d'
+    ctx.fillRect(18, 56, 42, 44)
+    ctx.fillRect(26, 46, 26, 12)
+    ctx.fillStyle = '#d9a441'
+    ctx.fillRect(178, 56, 24, 24)
+    ctx.fillStyle = '#1d2152'
+    ctx.fillRect(184, 62, 12, 12)
+    ctx.fillStyle = '#ffe894'
+    ctx.fillRect(188, 66, 4, 4)
+    for (let tx = 0; tx < W; tx += 16) {
+      ctx.drawImage(tiles.observatoryTop, tx, floorY)
+      ctx.drawImage(tiles.observatoryBody, tx, floorY + 16)
+    }
+    if (isModern) {
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      drawGlow(ctx, 190, 68, 30, 'rgba(255, 226, 130, 0.32)', 'rgba(200, 152, 62, 0.10)')
+      ctx.restore()
+    }
+  } else if (opts.biome === 'eclipse' || opts.biome === 'citadel') {
+    const topT = opts.biome === 'eclipse' ? tiles.eclipseTop : tiles.citadelTop
+    const bodyT = opts.biome === 'eclipse' ? tiles.eclipseBody : tiles.citadelBody
+    for (let tx = 0; tx < W; tx += 16) {
+      ctx.drawImage(topT, tx, floorY)
+      ctx.drawImage(bodyT, tx, floorY + 16)
+    }
+    if (isModern) {
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      drawGlow(
+        ctx,
+        120,
+        floorY - 24,
+        42,
+        opts.biome === 'eclipse' ? 'rgba(255, 92, 138, 0.30)' : 'rgba(156, 140, 255, 0.34)',
+        'rgba(255, 224, 128, 0.10)'
+      )
       ctx.restore()
     }
   } else {

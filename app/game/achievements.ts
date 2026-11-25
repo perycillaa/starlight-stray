@@ -32,6 +32,38 @@ export const BIOMES: Record<BiomeId, BiomeMeta> = {
     icon: '⚓',
     badgeBg: 'rgba(18, 66, 74, 0.9)',
     badgeBorder: '#8ef0d8'
+  },
+  cavern: {
+    id: 'cavern',
+    name: 'Gua Jamur Kristal',
+    englishName: 'Crystal Mushroom Cavern',
+    icon: '🍄',
+    badgeBg: 'rgba(20, 42, 74, 0.92)',
+    badgeBorder: '#6ef2e6'
+  },
+  observatory: {
+    id: 'observatory',
+    name: 'Observatorium Roda Jam',
+    englishName: 'Clockwork Observatory',
+    icon: '⚙️',
+    badgeBg: 'rgba(34, 28, 66, 0.92)',
+    badgeBorder: '#f2c76e'
+  },
+  eclipse: {
+    id: 'eclipse',
+    name: 'Kuil Gerhana',
+    englishName: 'Eclipse Sanctum',
+    icon: '🌘',
+    badgeBg: 'rgba(66, 16, 44, 0.94)',
+    badgeBorder: '#ff6e91'
+  },
+  citadel: {
+    id: 'citadel',
+    name: 'Benteng Inti Astral',
+    englishName: 'Astral Core Citadel',
+    icon: '🌌',
+    badgeBg: 'rgba(24, 18, 72, 0.94)',
+    badgeBorder: '#a89eff'
   }
 }
 
@@ -50,7 +82,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     name: 'Rooftop Sprinter',
     subtitle: 'Pelari Atap Cepat',
     icon: '⏱️',
-    description: 'Selesaikan Level 1 dalam waktu kurang dari 45 detik.',
+    description: 'Selesaikan Level 1 dalam waktu kurang dari 75 detik.',
     rewardFish: 50,
     stampColor: '#7ee8ff'
   },
@@ -131,9 +163,29 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     name: 'Lightning Stray',
     subtitle: 'Mastery 8 Rank S',
     icon: '⚡',
-    description: 'Raih Rank S pada seluruh 8 level untuk membuka Lightning Scarf!',
+    description: 'Raih Rank S pada minimal 8 level untuk membuka Lightning Scarf!',
     rewardFish: 500,
     stampColor: '#fff066',
     rewardCosmeticLabel: '🧣 Lightning Scarf'
+  },
+  {
+    id: 'eclipse-conqueror',
+    name: 'Eclipse Conqueror',
+    subtitle: 'Penakluk Kuil Gerhana',
+    icon: '🌘',
+    description: 'Kalahkan Umbra Owl di Level 13 (Eclipse Sanctum) untuk membuka Eclipse Halo!',
+    rewardFish: 250,
+    stampColor: '#ff6e91',
+    rewardCosmeticLabel: '✨ Eclipse Halo'
+  },
+  {
+    id: 'starlight-legend',
+    name: 'Starlight Legend',
+    subtitle: 'Legenda Inti Astral',
+    icon: '🌌',
+    description: 'Kalahkan Chronos Leviathan di Level 14 (Astral Core Citadel) untuk Nebula Sovereign Cape!',
+    rewardFish: 500,
+    stampColor: '#b594ff',
+    rewardCosmeticLabel: '🌌 Nebula Sovereign Cape'
   }
 ]

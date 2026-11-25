@@ -23,15 +23,23 @@ const hasActiveBuffs = computed(
     props.hud.featherTimer > 0 ||
     props.hud.magnetTimer > 0 ||
     props.hud.hasBubbleShield ||
+    props.hud.hasFrostShield ||
     props.hud.mooncakeTimer > 0 ||
     props.hud.yarnTimer > 0 ||
     props.hud.mochiTimer > 0 ||
     props.hud.candyTimer > 0 ||
     props.hud.pearlTimer > 0 ||
+    props.hud.cometChargeTimer > 0 ||
+    props.hud.moonlightFeatherTimer > 0 ||
+    props.hud.aegisActive ||
     props.hud.starComboCount >= 2 ||
     props.hud.starRingActive ||
     props.hud.meteorShowerActive ||
     props.hud.nightEvent === 'pinkMoon'
+)
+
+const bossHpPct = computed(() =>
+  Math.max(0, Math.min(100, Math.round((props.hud.bossHp / Math.max(1, props.hud.bossMaxHp)) * 100)))
 )
 
 // Soft, non-shaking luminous glow pulse on the heart frame when hurt
@@ -224,6 +232,38 @@ onBeforeUnmount(() => {
           <span class="buff-sec">PERISAI</span>
         </div>
 
+        <div v-if="hud.hasFrostShield" class="buff-pill buff-pill--frost" title="Ketahanan Arktik (Beruang Kutub): Perisai Es Gratis">
+          <span>❄️</span>
+          <span class="buff-sec">FROST</span>
+        </div>
+
+        <div v-if="hud.cometChargeTimer > 0" class="buff-pill buff-pill--comet" title="Comet Charge: 3-Way Starlight Pulse Tanpa Cooldown">
+          <span>☄️</span>
+          <div class="buff-bar-track">
+            <div
+              class="buff-bar-fill buff-bar-fill--comet"
+              :style="{ width: `${Math.round((hud.cometChargeTimer / hud.cometChargeMax) * 100)}%` }"
+            />
+          </div>
+          <span class="buff-sec">{{ Math.ceil(hud.cometChargeTimer) }}s</span>
+        </div>
+
+        <div v-if="hud.moonlightFeatherTimer > 0" class="buff-pill buff-pill--moonfeather" title="Moonlight Feather: Triple Jump di Arena Boss">
+          <span>🌙</span>
+          <div class="buff-bar-track">
+            <div
+              class="buff-bar-fill buff-bar-fill--moonfeather"
+              :style="{ width: `${Math.round((hud.moonlightFeatherTimer / hud.moonlightFeatherMax) * 100)}%` }"
+            />
+          </div>
+          <span class="buff-sec">{{ Math.ceil(hud.moonlightFeatherTimer) }}s</span>
+        </div>
+
+        <div v-if="hud.aegisActive" class="buff-pill buff-pill--aegis" title="Astral Aegis Aktif: Menangkis Proyektil Boss">
+          <span>◈</span>
+          <span class="buff-sec">AEGIS</span>
+        </div>
+
         <!-- Star Chain Combo Indicator (< 2.5s chain) -->
         <div v-if="hud.starComboCount >= 2" class="buff-pill buff-pill--combo" title="Kombo Bintang Berantai">
           <span>⭐ x{{ Math.min(5, hud.starComboCount) }}</span>
@@ -276,6 +316,26 @@ onBeforeUnmount(() => {
           <span>🌸</span>
           <span class="buff-sec">+25% ⭐</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Centered Responsive Boss Nameplate & HP Bar (Levels 13 & 14) -->
+    <div v-if="hud.isBossStage && hud.bossActive && !hud.bossDefeated" class="boss-hud-banner" aria-label="Status Boss">
+      <div class="boss-hud-top">
+        <span class="boss-hud-name">{{ hud.bossName }}</span>
+        <span class="boss-hud-phase">FASE {{ hud.bossPhase }}</span>
+        <span v-if="hud.bossCoreExposed" class="boss-hud-crit">✦ CORE!</span>
+      </div>
+      <div class="boss-hp-track">
+        <div class="boss-hp-fill" :class="`boss-hp-fill--p${hud.bossPhase}`" :style="{ width: `${bossHpPct}%` }" />
+      </div>
+      <div v-if="!mobilePauseVisible" class="boss-skill-pills">
+        <span class="boss-skill-chip" :class="{ 'boss-skill-chip--ready': hud.pulseReady }">
+          ✦ [C/J] {{ hud.cometChargeTimer > 0 ? 'COMET' : hud.pulseReady ? 'SIAP' : `${Math.round(hud.pulseCharge * 100)}%` }}
+        </span>
+        <span class="boss-skill-chip" :class="{ 'boss-skill-chip--ready': hud.aegisReady }">
+          ◈ [V/K] {{ hud.aegisActive ? 'AKTIF' : hud.aegisReady ? 'SIAP' : `${Math.round(hud.aegisCharge * 100)}%` }}
+        </span>
       </div>
     </div>
 
@@ -833,6 +893,118 @@ onBeforeUnmount(() => {
 .floating-icon-btn--muted {
   color: #b098cc;
   opacity: 0.78;
+}
+
+.buff-pill--frost {
+  border-color: #8ef5ff;
+  color: #d9ffff;
+  background: rgba(18, 56, 86, 0.85);
+}
+
+.buff-pill--comet {
+  border-color: #ffe466;
+  color: #fff6bd;
+}
+.buff-bar-fill--comet {
+  background: linear-gradient(90deg, #ff9654, #ffe466);
+}
+
+.buff-pill--moonfeather {
+  border-color: #9ee8ff;
+  color: #dff8ff;
+}
+.buff-bar-fill--moonfeather {
+  background: linear-gradient(90deg, #87d6ff, #d9b5ff);
+}
+
+.buff-pill--aegis {
+  border-color: #ffe875;
+  color: #fff8cc;
+  background: rgba(58, 30, 98, 0.88);
+}
+
+.boss-hud-banner {
+  flex: 1 1 180px;
+  max-width: 310px;
+  min-width: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 8px;
+  background: rgba(28, 10, 42, 0.86);
+  border: 2px solid #ff7ca8;
+  box-shadow: 0 2px 0 rgba(12, 4, 24, 0.85);
+  pointer-events: none;
+}
+
+.boss-hud-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffeaf2;
+}
+
+.boss-hud-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.boss-hud-phase {
+  color: #ffd866;
+  font-size: 8px;
+  flex-shrink: 0;
+}
+
+.boss-hud-crit {
+  color: #8ef5ff;
+  font-size: 8px;
+  flex-shrink: 0;
+}
+
+.boss-hp-track {
+  width: 100%;
+  height: 7px;
+  background: rgba(16, 6, 28, 0.92);
+  border: 1px solid rgba(255, 190, 218, 0.55);
+  overflow: hidden;
+}
+
+.boss-hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff5e8c, #ffad66);
+  transition: width 0.12s ease;
+}
+
+.boss-hp-fill--p2 {
+  background: linear-gradient(90deg, #c95eff, #ff6ea6);
+}
+
+.boss-hp-fill--p3 {
+  background: linear-gradient(90deg, #ffe266, #ff4778);
+}
+
+.boss-skill-pills {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 7.5px;
+}
+
+.boss-skill-chip {
+  padding: 1px 5px;
+  border: 1px solid rgba(160, 134, 198, 0.5);
+  color: #bfa9db;
+  background: rgba(18, 8, 32, 0.72);
+}
+
+.boss-skill-chip--ready {
+  border-color: #9ef0ff;
+  color: #e6fbff;
 }
 
 @media (max-width: 720px) {

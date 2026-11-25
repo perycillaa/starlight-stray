@@ -1,4 +1,11 @@
-import type { AnimalSpecies, AudioSettings, BiomeCosmeticJumpKind, BiomeId, PlatformStyle } from './types'
+import type {
+  AnimalSpecies,
+  AudioSettings,
+  BiomeCosmeticJumpKind,
+  BiomeId,
+  CharacterId,
+  PlatformStyle
+} from './types'
 
 /**
  * Retro 8-Bit Lo-Fi Music Box + Dynamic Biome Ambient Soundscapes + Species Voices
@@ -913,6 +920,207 @@ export class RetroAudioEngine {
       og.connect(this.sfxGain)
       over.start(now)
       over.stop(now + 0.14)
+    } else if (layer === 'cape-crystal-glow') {
+      // Crystal Glow Cape: crystalline harmonic chime triad (1046, 1568, 2093 Hz)
+      ;[1046.5, 1567.98, 2093.0].forEach((freq, i) => {
+        const start = now + i * 0.028
+        const osc = ctx.createOscillator()
+        const g = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, start)
+        g.gain.setValueAtTime(0.0005, start)
+        g.gain.linearRampToValueAtTime(0.044 - i * 0.008, start + 0.01)
+        g.gain.exponentialRampToValueAtTime(0.0005, start + 0.16)
+        osc.connect(g)
+        g.connect(this.sfxGain!)
+        osc.start(start)
+        osc.stop(start + 0.17)
+      })
+    } else if (layer === 'hat-astral-clockwork') {
+      // Astral Clockwork Hat: soft ticking-bell accent (1180 Hz click + 784 Hz warm bell)
+      const tick = ctx.createOscillator()
+      const tg = ctx.createGain()
+      tick.type = 'square'
+      tick.frequency.setValueAtTime(1180, now)
+      tg.gain.setValueAtTime(0.028, now)
+      tg.gain.exponentialRampToValueAtTime(0.0005, now + 0.03)
+      tick.connect(tg)
+      tg.connect(this.sfxGain)
+      tick.start(now)
+      tick.stop(now + 0.035)
+
+      const bell = ctx.createOscillator()
+      const bg = ctx.createGain()
+      bell.type = 'triangle'
+      bell.frequency.setValueAtTime(784, now + 0.025)
+      bg.gain.setValueAtTime(0.0005, now + 0.025)
+      bg.gain.linearRampToValueAtTime(0.048, now + 0.04)
+      bg.gain.exponentialRampToValueAtTime(0.0005, now + 0.18)
+      bell.connect(bg)
+      bg.connect(this.sfxGain)
+      bell.start(now + 0.025)
+      bell.stop(now + 0.19)
+    } else if (layer === 'cape-nebula-sovereign') {
+      // Nebula Sovereign Cape: celestial harp upward arpeggio (659, 880, 1175, 1568 Hz)
+      ;[659.25, 880.0, 1174.66, 1567.98].forEach((freq, i) => {
+        const start = now + i * 0.025
+        const osc = ctx.createOscillator()
+        const g = ctx.createGain()
+        osc.type = 'triangle'
+        osc.frequency.setValueAtTime(freq, start)
+        g.gain.setValueAtTime(0.0005, start)
+        g.gain.linearRampToValueAtTime(0.042, start + 0.01)
+        g.gain.exponentialRampToValueAtTime(0.0005, start + 0.18)
+        osc.connect(g)
+        g.connect(this.sfxGain!)
+        osc.start(start)
+        osc.stop(start + 0.19)
+      })
+    }
+  }
+
+  public playFrostShieldBreak(): void {
+    const ctx = this.ensureContext()
+    if (!ctx || !this.sfxGain || this.muted) return
+    const now = ctx.currentTime
+    ;[1480, 1180, 880].forEach((f, i) => {
+      const t = now + i * 0.03
+      const osc = ctx.createOscillator()
+      const g = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(f, t)
+      g.gain.setValueAtTime(0.14, t)
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.12)
+      osc.connect(g)
+      g.connect(this.sfxGain!)
+      osc.start(t)
+      osc.stop(t + 0.13)
+    })
+  }
+
+  public playStarlightPulse(spread = false): void {
+    const ctx = this.ensureContext()
+    if (!ctx || !this.sfxGain || this.muted) return
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    const g = ctx.createGain()
+    osc.type = spread ? 'triangle' : 'sine'
+    osc.frequency.setValueAtTime(spread ? 980 : 820, now)
+    osc.frequency.exponentialRampToValueAtTime(spread ? 1560 : 1240, now + 0.09)
+    g.gain.setValueAtTime(0.16, now)
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.12)
+    osc.connect(g)
+    g.connect(this.sfxGain)
+    osc.start(now)
+    osc.stop(now + 0.13)
+  }
+
+  public playAstralAegis(blocked = false): void {
+    const ctx = this.ensureContext()
+    if (!ctx || !this.sfxGain || this.muted) return
+    const now = ctx.currentTime
+    const notes = blocked ? [784, 1175, 1568] : [523.25, 784]
+    notes.forEach((f, i) => {
+      const t = now + i * 0.035
+      const osc = ctx.createOscillator()
+      const g = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(f, t)
+      g.gain.setValueAtTime(blocked ? 0.18 : 0.14, t)
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+      osc.connect(g)
+      g.connect(this.sfxGain!)
+      osc.start(t)
+      osc.stop(t + 0.19)
+    })
+  }
+
+  public playBossSfx(kind: 'cue' | 'beam' | 'swoop' | 'deflect' | 'hit' | 'phase' | 'defeat'): void {
+    const ctx = this.ensureContext()
+    if (!ctx || !this.sfxGain || this.muted) return
+    const now = ctx.currentTime
+    if (kind === 'cue') {
+      const osc = ctx.createOscillator()
+      const g = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(420, now)
+      osc.frequency.exponentialRampToValueAtTime(640, now + 0.14)
+      g.gain.setValueAtTime(0.14, now)
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.16)
+      osc.connect(g)
+      g.connect(this.sfxGain)
+      osc.start(now)
+      osc.stop(now + 0.17)
+    } else if (kind === 'beam' || kind === 'swoop') {
+      const osc = ctx.createOscillator()
+      const g = ctx.createGain()
+      osc.type = 'sawtooth'
+      const lp = ctx.createBiquadFilter()
+      lp.type = 'lowpass'
+      lp.frequency.setValueAtTime(kind === 'beam' ? 920 : 520, now)
+      osc.frequency.setValueAtTime(kind === 'beam' ? 540 : 320, now)
+      osc.frequency.exponentialRampToValueAtTime(kind === 'beam' ? 180 : 120, now + 0.24)
+      g.gain.setValueAtTime(0.18, now)
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.26)
+      osc.connect(lp)
+      lp.connect(g)
+      g.connect(this.sfxGain)
+      osc.start(now)
+      osc.stop(now + 0.27)
+    } else if (kind === 'deflect') {
+      ;[880, 1320, 1760].forEach((f, i) => {
+        const t = now + i * 0.03
+        const osc = ctx.createOscillator()
+        const g = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(f, t)
+        g.gain.setValueAtTime(0.2, t)
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.16)
+        osc.connect(g)
+        g.connect(this.sfxGain!)
+        osc.start(t)
+        osc.stop(t + 0.17)
+      })
+    } else if (kind === 'hit') {
+      const osc = ctx.createOscillator()
+      const g = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(340, now)
+      osc.frequency.exponentialRampToValueAtTime(160, now + 0.12)
+      g.gain.setValueAtTime(0.2, now)
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.13)
+      osc.connect(g)
+      g.connect(this.sfxGain)
+      osc.start(now)
+      osc.stop(now + 0.14)
+    } else if (kind === 'phase') {
+      ;[293.66, 369.99, 440, 587.33].forEach((f, i) => {
+        const t = now + i * 0.055
+        const osc = ctx.createOscillator()
+        const g = ctx.createGain()
+        osc.type = 'triangle'
+        osc.frequency.setValueAtTime(f, t)
+        g.gain.setValueAtTime(0.18, t)
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.22)
+        osc.connect(g)
+        g.connect(this.sfxGain!)
+        osc.start(t)
+        osc.stop(t + 0.23)
+      })
+    } else {
+      ;[523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => {
+        const t = now + i * 0.075
+        const osc = ctx.createOscillator()
+        const g = ctx.createGain()
+        osc.type = 'triangle'
+        osc.frequency.setValueAtTime(f, t)
+        g.gain.setValueAtTime(0.24, t)
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.36)
+        osc.connect(g)
+        g.connect(this.sfxGain!)
+        osc.start(t)
+        osc.stop(t + 0.38)
+      })
     }
   }
 
@@ -1557,7 +1765,238 @@ export class RetroAudioEngine {
         osc.start(t)
         osc.stop(t + 0.09)
       })
+    } else if (species === 'bear') {
+      this.playCampCharacterVoice('bear-black')
+    } else if (species === 'fox') {
+      this.playCampCharacterVoice('fox-brown')
     }
+  }
+
+  /**
+   * Bespoke procedural Web Audio API vocal SFX for all 9 Camp Hub character personas.
+   * Respects mute & scales cleanly through `this.sfxGain` (sfxVolume).
+   */
+  public playCampCharacterVoice(charId: CharacterId): void {
+    const ctx = this.ensureContext()
+    if (!ctx || !this.sfxGain || this.muted) return
+    const now = ctx.currentTime
+
+    if (charId === 'bear-sun') {
+      // Sun Bear: Warm friendly bear rumble — low triangle (135 -> 175 -> 150 Hz over 200ms) via 380Hz lowpass
+      const osc = ctx.createOscillator()
+      const filter = ctx.createBiquadFilter()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(135, now)
+      osc.frequency.linearRampToValueAtTime(175, now + 0.09)
+      osc.frequency.linearRampToValueAtTime(150, now + 0.2)
+      filter.type = 'lowpass'
+      filter.frequency.setValueAtTime(380, now)
+      gain.gain.setValueAtTime(0.001, now)
+      gain.gain.linearRampToValueAtTime(0.28, now + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.21)
+      osc.connect(filter)
+      filter.connect(gain)
+      gain.connect(this.sfxGain)
+      osc.start(now)
+      osc.stop(now + 0.22)
+      return
+    }
+
+    if (charId === 'bear-polar') {
+      // Polar Bear: Deep gentle sleepy huff — soft sine + triangle downward glide (115 -> 85 Hz over 240ms)
+      const oscA = ctx.createOscillator()
+      const oscB = ctx.createOscillator()
+      const gain = ctx.createGain()
+      oscA.type = 'sine'
+      oscB.type = 'triangle'
+      oscA.frequency.setValueAtTime(115, now)
+      oscA.frequency.exponentialRampToValueAtTime(85, now + 0.24)
+      oscB.frequency.setValueAtTime(115, now)
+      oscB.frequency.exponentialRampToValueAtTime(85, now + 0.24)
+      gain.gain.setValueAtTime(0.001, now)
+      gain.gain.linearRampToValueAtTime(0.22, now + 0.04)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24)
+      oscA.connect(gain)
+      oscB.connect(gain)
+      gain.connect(this.sfxGain)
+      oscA.start(now)
+      oscB.start(now)
+      oscA.stop(now + 0.26)
+      oscB.stop(now + 0.26)
+      return
+    }
+
+    if (charId === 'bear-black') {
+      // Black Bear: Short mellow bear grunt — muted sawtooth (140 -> 165 Hz over 180ms) via 320Hz lowpass
+      const osc = ctx.createOscillator()
+      const filter = ctx.createBiquadFilter()
+      const gain = ctx.createGain()
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(140, now)
+      osc.frequency.linearRampToValueAtTime(165, now + 0.18)
+      filter.type = 'lowpass'
+      filter.frequency.setValueAtTime(320, now)
+      gain.gain.setValueAtTime(0.001, now)
+      gain.gain.linearRampToValueAtTime(0.22, now + 0.025)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19)
+      osc.connect(filter)
+      filter.connect(gain)
+      gain.connect(this.sfxGain)
+      osc.start(now)
+      osc.stop(now + 0.2)
+      return
+    }
+
+    if (charId === 'fox-brown') {
+      // Brown Fox: Playful fox yip — crisp triangle pitch arc (520 -> 780 -> 460 Hz within 140ms)
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(520, now)
+      osc.frequency.exponentialRampToValueAtTime(780, now + 0.065)
+      osc.frequency.exponentialRampToValueAtTime(460, now + 0.14)
+      gain.gain.setValueAtTime(0.001, now)
+      gain.gain.linearRampToValueAtTime(0.24, now + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15)
+      osc.connect(gain)
+      gain.connect(this.sfxGain)
+      osc.start(now)
+      osc.stop(now + 0.16)
+      return
+    }
+
+    if (charId === 'fox-kitsune') {
+      // Japanese Fox (Kitsune): Delicate shrine-bell chime — dual harmonic sine (987 + 1480 Hz, 280ms decay)
+      ;[
+        { freq: 987, amp: 0.18 },
+        { freq: 1480, amp: 0.11 }
+      ].forEach(({ freq, amp }) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, now)
+        gain.gain.setValueAtTime(amp, now)
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28)
+        osc.connect(gain)
+        gain.connect(this.sfxGain!)
+        osc.start(now)
+        osc.stop(now + 0.3)
+      })
+      return
+    }
+
+    if (charId === 'bunny-starlight') {
+      // White Rabbit: Two quick high sine chirps (760 Hz then 980 Hz over 110ms)
+      ;[
+        { freq: 760, offset: 0 },
+        { freq: 980, offset: 0.055 }
+      ].forEach(({ freq, offset }) => {
+        const t = now + offset
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, t)
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.12, t + 0.05)
+        gain.gain.setValueAtTime(0.2, t)
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.055)
+        osc.connect(gain)
+        gain.connect(this.sfxGain!)
+        osc.start(t)
+        osc.stop(t + 0.06)
+      })
+      return
+    }
+
+    if (charId === 'dog-samoyed') {
+      // White Dog: Two crisp triangle + filtered noise bursts (340 -> 480 Hz, 90ms each)
+      ;[0, 0.11].forEach((offset) => {
+        const t = now + offset
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'triangle'
+        osc.frequency.setValueAtTime(340, t)
+        osc.frequency.exponentialRampToValueAtTime(480, t + 0.05)
+        osc.frequency.exponentialRampToValueAtTime(320, t + 0.09)
+        gain.gain.setValueAtTime(0.22, t)
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.092)
+        osc.connect(gain)
+        gain.connect(this.sfxGain!)
+        osc.start(t)
+        osc.stop(t + 0.1)
+
+        if (this.pinkNoiseBuffer) {
+          const nSrc = ctx.createBufferSource()
+          nSrc.buffer = this.pinkNoiseBuffer
+          const nFilter = ctx.createBiquadFilter()
+          nFilter.type = 'bandpass'
+          nFilter.frequency.setValueAtTime(900, t)
+          const nGain = ctx.createGain()
+          nGain.gain.setValueAtTime(0.06, t)
+          nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.07)
+          nSrc.connect(nFilter)
+          nFilter.connect(nGain)
+          nGain.connect(this.sfxGain!)
+          nSrc.start(t)
+          nSrc.stop(t + 0.08)
+        }
+      })
+      return
+    }
+
+    if (charId === 'dog-shiba') {
+      // Shiba Inu: Expressive melodic yip-bark — punchy triangle sweep (310 -> 560 -> 420 Hz over 160ms)
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(310, now)
+      osc.frequency.exponentialRampToValueAtTime(560, now + 0.075)
+      osc.frequency.exponentialRampToValueAtTime(420, now + 0.16)
+      gain.gain.setValueAtTime(0.001, now)
+      gain.gain.linearRampToValueAtTime(0.24, now + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.17)
+      osc.connect(gain)
+      gain.connect(this.sfxGain)
+      osc.start(now)
+      osc.stop(now + 0.18)
+      return
+    }
+
+    // White Cat / Mochi & Cat variants: Soft warm purr-meow — sine + triangle glide (420 -> 640 -> 510 Hz over 220ms) with subtle tremolo
+    const oscA = ctx.createOscillator()
+    const oscB = ctx.createOscillator()
+    const lfo = ctx.createOscillator()
+    const lfoGain = ctx.createGain()
+    const gain = ctx.createGain()
+
+    oscA.type = 'sine'
+    oscB.type = 'triangle'
+    oscA.frequency.setValueAtTime(420, now)
+    oscA.frequency.exponentialRampToValueAtTime(640, now + 0.09)
+    oscA.frequency.exponentialRampToValueAtTime(510, now + 0.22)
+    oscB.frequency.setValueAtTime(420, now)
+    oscB.frequency.exponentialRampToValueAtTime(640, now + 0.09)
+    oscB.frequency.exponentialRampToValueAtTime(510, now + 0.22)
+
+    lfo.type = 'sine'
+    lfo.frequency.setValueAtTime(24, now)
+    lfoGain.gain.setValueAtTime(0.035, now)
+    lfo.connect(lfoGain)
+    lfoGain.connect(gain.gain)
+
+    gain.gain.setValueAtTime(0.001, now)
+    gain.gain.linearRampToValueAtTime(0.18, now + 0.03)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.23)
+
+    oscA.connect(gain)
+    oscB.connect(gain)
+    gain.connect(this.sfxGain)
+    oscA.start(now)
+    oscB.start(now)
+    lfo.start(now)
+    oscA.stop(now + 0.24)
+    oscB.stop(now + 0.24)
+    lfo.stop(now + 0.24)
   }
 
   public playHurt(): void {

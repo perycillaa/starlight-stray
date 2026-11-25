@@ -5,8 +5,12 @@ import type {
   CapeId,
   CharacterDef,
   CharacterId,
+  FaceAccDef,
+  FaceAccId,
   HatDef,
   HatId,
+  HeadAccDef,
+  HeadAccId,
   MissionProgressInfo,
   SaveProgress,
   ScarfColorDef,
@@ -74,6 +78,40 @@ export const CHARACTERS: CharacterDef[] = [
     unlockMode: 'regular',
     cost: 9
   },
+  // New Coin-Purchasable Bear & Fox Characters
+  {
+    id: 'bear-black',
+    name: 'Beruang Hitam',
+    species: 'bear',
+    category: 'Beruang',
+    description: 'Beruang hitam pekat bertelinga bulat dengan tanda bulan sabit krem di dada.',
+    perkTitle: 'Cakar Kokoh (Sturdy Paws)',
+    perkDesc: 'Knockback lebih kecil saat terkena serangan & jarak Dash +10% lebih jauh.',
+    unlockMode: 'regular',
+    cost: 10
+  },
+  {
+    id: 'fox-brown',
+    name: 'Rubah Cokelat',
+    species: 'fox',
+    category: 'Rubah',
+    description: 'Rubah cokelat hangat bertelinga runcing dan ekor lebat berujung putih.',
+    perkTitle: 'Lincah Rimba (Forest Agility)',
+    perkDesc: 'Kecepatan gerak dasar +6% & pemulihan cooldown Dash 10% lebih cepat.',
+    unlockMode: 'regular',
+    cost: 8
+  },
+  {
+    id: 'fox-kitsune',
+    name: 'Rubah Jepang (Kitsune)',
+    species: 'fox',
+    category: 'Rubah',
+    description: 'Rubah kuil seputih salju dengan aksen merah-emas di ujung telinga & ekor.',
+    perkTitle: 'Keanggunan Kitsune (Kitsune Grace)',
+    perkDesc: 'Gravitasi turun 15% lebih lembut di puncak lompatan untuk pendaratan presisi.',
+    unlockMode: 'regular',
+    cost: 12
+  },
 
   // Special Characters (Unlocked ONLY via Special Missions!)
   {
@@ -114,6 +152,32 @@ export const CHARACTERS: CharacterDef[] = [
     cost: 0,
     missionTitle: 'Juara Mercusuar Bintang',
     missionDesc: 'Tamatkan Level 8 dengan minimal 2 Bintang (⭐⭐).'
+  },
+  {
+    id: 'bear-sun',
+    name: 'Beruang Madu',
+    species: 'bear',
+    category: 'Beruang',
+    description: 'Beruang madu ramping cokelat gelap dengan corak dada emas madu hangat.',
+    perkTitle: 'Pencari Madu (Sweet Forager)',
+    perkDesc: 'Radius magnet koin +25% bawaan & +10% bonus koin ikan saat selesai level.',
+    unlockMode: 'mission',
+    cost: 0,
+    missionTitle: 'Sahabat Misi Harian',
+    missionDesc: 'Selesaikan total 6 Misi Harian (Daily Missions).'
+  },
+  {
+    id: 'bear-polar',
+    name: 'Beruang Kutub',
+    species: 'bear',
+    category: 'Beruang',
+    description: 'Beruang arktik seputih salju dengan bayangan biru es lembut yang hangat.',
+    perkTitle: 'Ketahanan Arktik (Arctic Resilience)',
+    perkDesc: 'Mulai setiap level dengan 1 Perisai Es gratis (tidak merusak Pacifist Run).',
+    unlockMode: 'mission',
+    cost: 0,
+    missionTitle: 'Penjelajah Bintang Kutub',
+    missionDesc: 'Kumpulkan minimal 12 Starlight Shards ATAU raih Rank S di 3 level.'
   }
 ]
 
@@ -380,6 +444,21 @@ export const HATS: HatDef[] = [
     accent: '#9ef0ff',
     outline: '#1d2238',
     swatch: '#dce6f7'
+  },
+  // Biome 6 (Clockwork Observatory) 6/6 Shard Reward Cosmetic!
+  {
+    id: 'hat-astral-clockwork',
+    model: 'clockwork',
+    groupName: 'Biome Reward • Observatorium',
+    colorName: 'Astronom Kuningan',
+    name: 'Astral Clockwork Hat',
+    cost: 0,
+    primary: '#23326b',
+    secondary: '#d9a441',
+    accent: '#fff1a6',
+    outline: '#121736',
+    swatch: '#d9a441',
+    shardUnlockBiome: 'observatory'
   }
 ]
 
@@ -523,22 +602,320 @@ export const CAPES: CapeDef[] = [
     outline: '#355c87',
     swatch: '#d9f2ff',
     shardUnlockBiome: 'cloudland'
+  },
+  // Biome 5 (Crystal Mushroom Cavern) 6/6 Shard Reward Cosmetic!
+  {
+    id: 'cape-crystal-glow',
+    model: 'crystal',
+    groupName: 'Biome Reward • Gua Kristal',
+    colorName: 'Prisma Kristal',
+    name: 'Crystal Glow Cape',
+    cost: 0,
+    primary: '#6cf2ec',
+    secondary: '#8e6dff',
+    accent: '#e8ffff',
+    outline: '#182b4d',
+    swatch: '#6cf2ec',
+    shardUnlockBiome: 'cavern'
+  },
+  // Level 14 Endgame Boss Reward Cosmetic!
+  {
+    id: 'cape-nebula-sovereign',
+    model: 'nebula',
+    groupName: 'Boss Reward • Inti Astral',
+    colorName: 'Nebula Kosmik',
+    name: 'Nebula Sovereign Cape',
+    cost: 0,
+    primary: '#4f2a8c',
+    secondary: '#24114f',
+    accent: '#ffe275',
+    outline: '#130829',
+    swatch: '#7b4ad4',
+    bossUnlockLevelId: 14
   }
 ]
 
 export interface BiomeRewardDescriptor {
-  biome: 'rooftops' | 'sakura' | 'cloudland' | 'harbor'
+  biome: 'rooftops' | 'sakura' | 'cloudland' | 'harbor' | 'cavern' | 'observatory'
   slot: 'hat' | 'cape' | 'scarf'
   id: string
   name: string
 }
 
-export const BIOME_SHARD_REWARDS: Record<'rooftops' | 'sakura' | 'cloudland' | 'harbor', BiomeRewardDescriptor> = {
+export const BIOME_SHARD_REWARDS: Record<
+  'rooftops' | 'sakura' | 'cloudland' | 'harbor' | 'cavern' | 'observatory',
+  BiomeRewardDescriptor
+> = {
   rooftops: { biome: 'rooftops', slot: 'hat', id: 'beret-starlight', name: 'Starlight Beret' },
   sakura: { biome: 'sakura', slot: 'cape', id: 'cape-sakura-petal', name: 'Sakura Petal Cape' },
   cloudland: { biome: 'cloudland', slot: 'cape', id: 'wings-cloud-pastel', name: 'Cloud Wings Cape' },
-  harbor: { biome: 'harbor', slot: 'scarf', id: 'lantern-gold', name: 'Golden Lantern Scarf' }
+  harbor: { biome: 'harbor', slot: 'scarf', id: 'lantern-gold', name: 'Golden Lantern Scarf' },
+  cavern: { biome: 'cavern', slot: 'cape', id: 'cape-crystal-glow', name: 'Crystal Glow Cape' },
+  observatory: { biome: 'observatory', slot: 'hat', id: 'hat-astral-clockwork', name: 'Astral Clockwork Hat' }
 }
+
+// ============================================================================
+// SECTION 4: HEAD ACCESSORIES (`head_acc`) — Layerable with Hats & Face Items!
+// ============================================================================
+
+export const HEAD_ACCS: HeadAccDef[] = [
+  {
+    id: 'none',
+    model: 'none',
+    groupName: 'Default',
+    colorName: 'Polos',
+    name: 'Tanpa Hiasan Kepala',
+    cost: 0,
+    primary: 'transparent',
+    secondary: 'transparent',
+    accent: 'transparent',
+    outline: 'transparent',
+    swatch: '#4a2f63'
+  },
+  {
+    id: 'sprout-green',
+    model: 'sprout',
+    groupName: 'Tunas Daun',
+    colorName: 'Hijau Segar',
+    name: 'Tunas Daun Hijau',
+    cost: 2,
+    primary: '#5fd68c',
+    secondary: '#2d9458',
+    accent: '#c9ffd9',
+    outline: '#162e23',
+    swatch: '#5fd68c'
+  },
+  {
+    id: 'sprout-gold',
+    model: 'sprout',
+    groupName: 'Tunas Daun',
+    colorName: 'Emas Musim Gugur',
+    name: 'Tunas Daun Emas',
+    cost: 4,
+    primary: '#ffd55c',
+    secondary: '#c98824',
+    accent: '#fff6c4',
+    outline: '#2e1d14',
+    swatch: '#ffd55c'
+  },
+  {
+    id: 'sakura-pink',
+    model: 'sakura',
+    groupName: 'Jepit Sakura',
+    colorName: 'Sakura Pink',
+    name: 'Jepit Sakura Pink',
+    cost: 3,
+    primary: '#ff9ec9',
+    secondary: '#db6398',
+    accent: '#fff099',
+    outline: '#36132d',
+    swatch: '#ff9ec9'
+  },
+  {
+    id: 'sakura-white',
+    model: 'sakura',
+    groupName: 'Jepit Sakura',
+    colorName: 'Sakura Putih',
+    name: 'Jepit Sakura Putih',
+    cost: 3,
+    primary: '#fff2f8',
+    secondary: '#d9b0cc',
+    accent: '#ffd866',
+    outline: '#2c1936',
+    swatch: '#ffe8f3'
+  },
+  {
+    id: 'antlers-warm',
+    model: 'antlers',
+    groupName: 'Tanduk Rusa',
+    colorName: 'Cokelat Hangat',
+    name: 'Tanduk Rusa Mini',
+    cost: 4,
+    primary: '#b37a4c',
+    secondary: '#7a4b2b',
+    accent: '#e6ba8e',
+    outline: '#291512',
+    swatch: '#b37a4c'
+  },
+  {
+    id: 'antlers-frost',
+    model: 'antlers',
+    groupName: 'Tanduk Rusa',
+    colorName: 'Kristal Es',
+    name: 'Tanduk Rusa Es',
+    cost: 5,
+    primary: '#9ee8ff',
+    secondary: '#529ec9',
+    accent: '#ffffff',
+    outline: '#19324d',
+    swatch: '#9ee8ff'
+  },
+  {
+    id: 'headphones-lofi',
+    model: 'headphones',
+    groupName: 'Headphone Lo-Fi',
+    colorName: 'Ungu Retro',
+    name: 'Headphone Lo-Fi',
+    cost: 5,
+    primary: '#8e5ce6',
+    secondary: '#55309e',
+    accent: '#ff9ec4',
+    outline: '#1b0d30',
+    swatch: '#8e5ce6'
+  },
+  {
+    id: 'headphones-mint',
+    model: 'headphones',
+    groupName: 'Headphone Lo-Fi',
+    colorName: 'Mint Pastel',
+    name: 'Headphone Mint Lo-Fi',
+    cost: 5,
+    primary: '#5fd6b0',
+    secondary: '#2b8a72',
+    accent: '#ffe375',
+    outline: '#142c2b',
+    swatch: '#5fd6b0'
+  },
+  {
+    id: 'crown-starlight',
+    model: 'starlightCrown',
+    groupName: 'Mahkota Bintang',
+    colorName: 'Emas Bintang',
+    name: 'Mahkota Bintang',
+    cost: 7,
+    primary: '#ffd84d',
+    secondary: '#d48d1e',
+    accent: '#9ef2ff',
+    outline: '#2e1821',
+    swatch: '#ffd84d'
+  },
+  {
+    id: 'crown-moon',
+    model: 'starlightCrown',
+    groupName: 'Mahkota Bintang',
+    colorName: 'Perak Bulan',
+    name: 'Mahkota Bulan Perak',
+    cost: 7,
+    primary: '#dce8ff',
+    secondary: '#8ba2cc',
+    accent: '#ffe475',
+    outline: '#1a2138',
+    swatch: '#dce8ff'
+  },
+  // Level 13 Endgame Boss Reward Cosmetic!
+  {
+    id: 'halo-eclipse',
+    model: 'halo',
+    groupName: 'Boss Reward • Gerhana',
+    colorName: 'Gerhana Emas',
+    name: 'Eclipse Halo',
+    cost: 0,
+    primary: '#ff4f79',
+    secondary: '#ffd452',
+    accent: '#fff8d6',
+    outline: '#380d22',
+    swatch: '#ff5c82',
+    bossUnlockLevelId: 13
+  }
+]
+
+// ============================================================================
+// SECTION 5: FACE / EYEWEAR (`face`) — Pixel Eyepatch, Round Glasses & Bandage!
+// ============================================================================
+
+export const FACE_ACCS: FaceAccDef[] = [
+  {
+    id: 'none',
+    model: 'none',
+    groupName: 'Default',
+    colorName: 'Polos',
+    name: 'Tanpa Aksesori Wajah',
+    cost: 0,
+    primary: 'transparent',
+    secondary: 'transparent',
+    accent: 'transparent',
+    outline: 'transparent',
+    swatch: '#4a2f63'
+  },
+  {
+    id: 'eyepatch-gold',
+    model: 'eyepatch',
+    groupName: 'Penutup Mata',
+    colorName: 'Arang Emas',
+    name: 'Penutup Mata Emas',
+    cost: 4,
+    primary: '#242030',
+    secondary: '#120e1a',
+    accent: '#ffd84d',
+    outline: '#0b0812',
+    swatch: '#2c253b'
+  },
+  {
+    id: 'eyepatch-crimson',
+    model: 'eyepatch',
+    groupName: 'Penutup Mata',
+    colorName: 'Arang Merah',
+    name: 'Penutup Mata Merah',
+    cost: 5,
+    primary: '#261b29',
+    secondary: '#140c17',
+    accent: '#ff5277',
+    outline: '#0c0712',
+    swatch: '#d93654'
+  },
+  {
+    id: 'glasses-round',
+    model: 'glasses',
+    groupName: 'Kacamata Bulat',
+    colorName: 'Hitam Klasik',
+    name: 'Kacamata Bulat',
+    cost: 3,
+    primary: '#291e38',
+    secondary: '#9ce6ff',
+    accent: '#ffffff',
+    outline: '#150d24',
+    swatch: '#596b8f'
+  },
+  {
+    id: 'glasses-gold',
+    model: 'glasses',
+    groupName: 'Kacamata Bulat',
+    colorName: 'Bingkai Emas',
+    name: 'Kacamata Bulat Emas',
+    cost: 4,
+    primary: '#e0a938',
+    secondary: '#c4f2ff',
+    accent: '#fffbe0',
+    outline: '#2b1b14',
+    swatch: '#e0a938'
+  },
+  {
+    id: 'bandage-star',
+    model: 'bandage',
+    groupName: 'Plester Pipi',
+    colorName: 'Krem Petualang',
+    name: 'Plester Pipi Bintang',
+    cost: 2,
+    primary: '#ffe0b8',
+    secondary: '#d9a473',
+    accent: '#fff8eb',
+    outline: '#402521',
+    swatch: '#ffe0b8'
+  },
+  {
+    id: 'bandage-pink',
+    model: 'bandage',
+    groupName: 'Plester Pipi',
+    colorName: 'Sakura Pink',
+    name: 'Plester Pipi Sakura',
+    cost: 3,
+    primary: '#ffc2dd',
+    secondary: '#e07ca9',
+    accent: '#fff5fa',
+    outline: '#3d1930',
+    swatch: '#ffc2dd'
+  }
+]
 
 // ============================================================================
 // LOOKUPS & SPECIAL CHARACTER MISSION EVALUATION
@@ -558,6 +935,14 @@ export function getHatById(id: HatId): HatDef {
 
 export function getCapeById(id: CapeId): CapeDef {
   return CAPES.find((c) => c.id === id) ?? CAPES[0]!
+}
+
+export function getHeadAccById(id: HeadAccId): HeadAccDef {
+  return HEAD_ACCS.find((h) => h.id === id) ?? HEAD_ACCS[0]!
+}
+
+export function getFaceAccById(id: FaceAccId): FaceAccDef {
+  return FACE_ACCS.find((f) => f.id === id) ?? FACE_ACCS[0]!
 }
 
 export function getCharacterMissionProgress(id: CharacterId, progress: SaveProgress): MissionProgressInfo {
@@ -604,6 +989,54 @@ export function getCharacterMissionProgress(id: CharacterId, progress: SaveProgr
       current: cur,
       target: 2,
       label: done ? `Level 8: ${lvl8Rating} ★ ✓` : `Level 8: ${lvl8Rating} / 2 ★`
+    }
+  }
+
+  if (id === 'bear-sun') {
+    const totalDaily = Math.max(0, Math.floor(Number(progress.totalDailyMissionsCompleted) || 0))
+    const cur = Math.min(6, totalDaily)
+    const done = totalDaily >= 6
+    return {
+      completed: done,
+      current: cur,
+      target: 6,
+      label: done ? `${totalDaily} / 6 Misi Harian ✓` : `${cur} / 6 Misi Harian`
+    }
+  }
+
+  if (id === 'bear-polar') {
+    let shards = 0
+    for (const tuple of Object.values(progress.collectedShards)) {
+      if (Array.isArray(tuple)) {
+        if (tuple[0]) shards += 1
+        if (tuple[1]) shards += 1
+        if (tuple[2]) shards += 1
+      }
+    }
+    let sRanks = 0
+    for (const rank of Object.values(progress.levelRanks)) {
+      if (rank === 'S') sRanks += 1
+    }
+    const done = shards >= 12 || sRanks >= 3
+    const shardPct = shards / 12
+    const rankPct = sRanks / 3
+    if (rankPct > shardPct) {
+      return {
+        completed: done,
+        current: Math.min(3, sRanks),
+        target: 3,
+        label: done
+          ? `${shards}/12 Shard • ${sRanks}/3 Rank S ✓`
+          : `${shards}/12 Shard • ${sRanks}/3 Rank S`
+      }
+    }
+    return {
+      completed: done,
+      current: Math.min(12, shards),
+      target: 12,
+      label: done
+        ? `${shards}/12 Shard • ${sRanks}/3 Rank S ✓`
+        : `${shards}/12 Shard • ${sRanks}/3 Rank S`
     }
   }
 

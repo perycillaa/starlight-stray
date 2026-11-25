@@ -1,5 +1,15 @@
 import { LEVEL_PAR_TIMES, calculateSpeedrunRank, rankOrder } from '~/utils/levelParTimes'
-import type { DailyQuestDef, DailyQuestId, DailyQuestState, SpeedrunRank, TimeTrialMedal } from './types'
+import type {
+  DailyMissionSlot,
+  DailyMissionsState,
+  DailyQuestDef,
+  DailyQuestId,
+  DailyQuestState,
+  SpeedrunRank,
+  TimeTrialMedal
+} from './types'
+
+export const ALL_DAILY_BONUS_FISH = 25
 
 export const DAILY_QUESTS: DailyQuestDef[] = [
   {
@@ -7,14 +17,28 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     title: 'Kumpulkan 15 Bintang di Hutan Sakura',
     icon: '🌸',
     target: 15,
-    rewardFish: 2
+    rewardFish: 3
+  },
+  {
+    id: 'stars-rooftops',
+    title: 'Kumpulkan 15 Bintang di Atap Kota',
+    icon: '🏙️',
+    target: 15,
+    rewardFish: 3
+  },
+  {
+    id: 'clear-2-levels',
+    title: 'Selesaikan 2 Level mana saja',
+    icon: '🏁',
+    target: 2,
+    rewardFish: 4
   },
   {
     id: 'no-hit-clear',
     title: 'Selesaikan 1 Level tanpa terkena rintangan',
     icon: '🛡️',
     target: 1,
-    rewardFish: 2
+    rewardFish: 4
   },
   {
     id: 'dash-10',
@@ -28,14 +52,14 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     title: 'Kumpulkan 4 Ikan Emas di level mana saja',
     icon: '🐟',
     target: 4,
-    rewardFish: 2
+    rewardFish: 3
   },
   {
     id: 'stars-any-20',
     title: 'Kumpulkan 20 Bintang di dunia mana saja',
     icon: '⭐',
     target: 20,
-    rewardFish: 2
+    rewardFish: 3
   },
   {
     id: 'powerup-3',
@@ -43,6 +67,13 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     icon: '🥮',
     target: 3,
     rewardFish: 2
+  },
+  {
+    id: 'collect-shard-1',
+    title: 'Temukan 1 Starlight Shard tersembunyi',
+    icon: '💎',
+    target: 1,
+    rewardFish: 4
   }
 ]
 
@@ -53,13 +84,46 @@ export function getLocalDateKey(date = new Date()): string {
   return `${y}-${m}-${d}`
 }
 
-export function pickDailyQuestForDate(dateKey: string): DailyQuestDef {
+function hashDateString(seed: string): number {
   let hash = 2166136261
-  for (let i = 0; i < dateKey.length; i++) {
-    hash ^= dateKey.charCodeAt(i)
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i)
     hash = Math.imul(hash, 16777619) >>> 0
   }
-  return DAILY_QUESTS[hash % DAILY_QUESTS.length]!
+  return hash
+}
+
+/** Deterministically selects 3 distinct daily missions for the given local YYYY-MM-DD date. */
+export function pickThreeDailyQuestsForDate(
+  dateKey: string
+): [DailyQuestDef, DailyQuestDef, DailyQuestDef] {
+  const pool = [...DAILY_QUESTS]
+  const picked: DailyQuestDef[] = []
+  let h = hashDateString(dateKey)
+  for (let i = 0; i < 3; i++) {
+    h = Math.imul(h ^ (i * 2654435761), 16777619) >>> 0
+    const idx = h % pool.length
+    picked.push(pool.splice(idx, 1)[0]!)
+  }
+  return [picked[0]!, picked[1]!, picked[2]!]
+}
+
+export function pickDailyQuestForDate(dateKey: string): DailyQuestDef {
+  return pickThreeDailyQuestsForDate(dateKey)[0]
+}
+
+export function createDailyMissionsForToday(dateKey = getLocalDateKey()): DailyMissionsState {
+  const [q0, q1, q2] = pickThreeDailyQuestsForDate(dateKey)
+  const makeSlot = (def: DailyQuestDef): DailyMissionSlot => ({
+    questId: def.id,
+    progress: 0,
+    claimed: false
+  })
+  return {
+    dateKey,
+    missions: [makeSlot(q0), makeSlot(q1), makeSlot(q2)],
+    bonusClaimed: false
+  }
 }
 
 export function createDailyQuestForToday(dateKey = getLocalDateKey()): DailyQuestState {

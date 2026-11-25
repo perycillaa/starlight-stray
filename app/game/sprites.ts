@@ -1,5 +1,22 @@
-import { getCapeById, getCharacterById, getHatById, getScarfById } from './characters'
-import type { AnimalSpecies, CapeId, CharacterId, GraphicsStyle, HatId, PowerUpKind, ScarfColorId } from './types'
+import {
+  getCapeById,
+  getCharacterById,
+  getFaceAccById,
+  getHatById,
+  getHeadAccById,
+  getScarfById
+} from './characters'
+import type {
+  AnimalSpecies,
+  CapeId,
+  CharacterId,
+  FaceAccId,
+  GraphicsStyle,
+  HatId,
+  HeadAccId,
+  PowerUpKind,
+  ScarfColorId
+} from './types'
 
 /**
  * Procedural Pixel Art Sprite Generator
@@ -104,6 +121,14 @@ export interface SpriteBank {
     cloudBody: HTMLCanvasElement
     harborTop: HTMLCanvasElement
     harborBody: HTMLCanvasElement
+    cavernTop: HTMLCanvasElement
+    cavernBody: HTMLCanvasElement
+    observatoryTop: HTMLCanvasElement
+    observatoryBody: HTMLCanvasElement
+    eclipseTop: HTMLCanvasElement
+    eclipseBody: HTMLCanvasElement
+    citadelTop: HTMLCanvasElement
+    citadelBody: HTMLCanvasElement
     movingLeft: HTMLCanvasElement
     movingMid: HTMLCanvasElement
     movingRight: HTMLCanvasElement
@@ -119,6 +144,14 @@ export interface SpriteBank {
     cloudBody: HTMLCanvasElement
     harborTop: HTMLCanvasElement
     harborBody: HTMLCanvasElement
+    cavernTop: HTMLCanvasElement
+    cavernBody: HTMLCanvasElement
+    observatoryTop: HTMLCanvasElement
+    observatoryBody: HTMLCanvasElement
+    eclipseTop: HTMLCanvasElement
+    eclipseBody: HTMLCanvasElement
+    citadelTop: HTMLCanvasElement
+    citadelBody: HTMLCanvasElement
   }
 }
 
@@ -1430,12 +1463,580 @@ function getCharacterPalette(charId: CharacterId, scarfId: ScarfColorId): Record
         g: '#ffffff',
         ...scarfTokens
       }
+    case 'bear-black':
+      return {
+        o: '#0c0814',
+        w: '#2a2438', // deep charcoal-black bear fur
+        s: '#1b1626',
+        a: '#4a405e', // soft muzzle highlight
+        b: '#ffefc2', // signature warm-cream crescent chest mark!
+        p: '#5c4b6e',
+        n: '#140f1c',
+        c: '#3d3352',
+        e: '#100a18',
+        g: '#fffbe0',
+        ...scarfTokens
+      }
+    case 'bear-sun':
+      return {
+        o: '#120a14',
+        w: '#332226', // sleek dark brown-black sun bear fur
+        s: '#211419',
+        a: '#c98e4b', // warm amber snout
+        b: '#ffbf3b', // iconic golden-amber sun bear chest bib!
+        p: '#8c5a3c',
+        n: '#1a0e12',
+        c: '#523438',
+        e: '#140a14',
+        g: '#fff8cc',
+        ...scarfTokens
+      }
+    case 'bear-polar':
+      return {
+        o: '#1f2b45',
+        w: '#f7fbff', // pure snowy arctic white fur
+        s: '#c4ddf5', // soft ice-blue shading
+        a: '#ffffff',
+        b: '#d8ecff', // subtle frosted chest fluff
+        p: '#b8d7f5',
+        n: '#1c263d',
+        c: '#cfe8ff',
+        e: '#182238',
+        g: '#ffffff',
+        ...scarfTokens
+      }
+    case 'fox-brown':
+      return {
+        o: '#26121b',
+        w: '#c95e2c', // warm russet-brown fox coat
+        s: '#963d1b',
+        a: '#381e1c', // dark russet ear tips & paws
+        b: '#fff4e3', // fluffy snowy white tail tip & cheeks!
+        p: '#f0b59c',
+        n: '#1c0e14',
+        c: '#fff4e3',
+        e: '#1a0e1a',
+        g: '#ffffff',
+        ...scarfTokens
+      }
+    case 'fox-kitsune':
+      return {
+        o: '#261026',
+        w: '#fff9fc', // snow-white shrine kitsune coat
+        s: '#e3d6eb',
+        a: '#d9324e', // crimson shrine accents on ear tips & markings
+        b: '#ffcf4d', // golden shrine shimmer on tail & cheek marks!
+        p: '#ff8aa3',
+        n: '#b82542',
+        c: '#ff96ad',
+        e: '#b81f3d', // mystic ruby shrine eyes
+        g: '#fff7cc',
+        ...scarfTokens
+      }
   }
 }
+
+// ============================================================================
+// SPECIES 5: BEAR GRIDS (20x20, facing RIGHT — rounded ears, cozy snout, chest bib `b`)
+// ============================================================================
+
+const BEAR_IDLE_0 = [
+  '....................',
+  '.....ooo....ooo.....',
+  '....owpwo..owpwo....',
+  '....oowwwwwwwwoo....',
+  '....owwwwwwwwwwo....',
+  '....owwgewwgewwo....',
+  '....owweewweewwo....',
+  '....owcwaanwwcwo....',
+  '.....owwaaaawwo.....',
+  '......oorhhroo......',
+  '.....orrrrrrdro.....',
+  '...oooroowbwwwo.....',
+  '..owwwoowbbbwwwo....',
+  '...ooo.owwbbwswo....',
+  '.......owwwwwswo....',
+  '.......owwwwwswo....',
+  '.......owwwoowwwo...',
+  '.......owwwoowwwo...',
+  '........ooo..ooo....',
+  '....................'
+]
+
+const BEAR_IDLE_1 = [
+  '....................',
+  '....................',
+  '.....ooo....ooo.....',
+  '....owpwo..owpwo....',
+  '....oowwwwwwwwoo....',
+  '....owwwwwwwwwwo....',
+  '....owwgewwgewwo....',
+  '....owweewweewwo....',
+  '....owcwaanwwcwo....',
+  '.....owwaaaawwo.....',
+  '......oorhhroo......',
+  '...ooorrrrrrdro.....',
+  '..owwwoowbbbwwwo....',
+  '...ooo.owwbbwswo....',
+  '.......owwwwwswo....',
+  '.......owwwwwswo....',
+  '.......owwwoowwwo...',
+  '.......owwwoowwwo...',
+  '........ooo..ooo....',
+  '....................'
+]
+
+const BEAR_IDLE_BLINK = [
+  '....................',
+  '.....ooo....ooo.....',
+  '....owpwo..owpwo....',
+  '....oowwwwwwwwoo....',
+  '....owwwwwwwwwwo....',
+  '....owwwwwwwwwwo....',
+  '....owweewwwewwo....',
+  '....owcwaanwwcwo....',
+  '.....owwaaaawwo.....',
+  '......oorhhroo......',
+  '.....orrrrrrdro.....',
+  '...oooroowbwwwo.....',
+  '..owwwoowbbbwwwo....',
+  '...ooo.owwbbwswo....',
+  '.......owwwwwswo....',
+  '.......owwwwwswo....',
+  '.......owwwoowwwo...',
+  '.......owwwoowwwo...',
+  '........ooo..ooo....',
+  '....................'
+]
+
+const BEAR_SIT_0 = [
+  '....................',
+  '.....ooo....ooo.....',
+  '....owpwo..owpwo....',
+  '....oowwwwwwwwoo....',
+  '....owwwwwwwwwwo....',
+  '....owwgewwgewwo....',
+  '....owweewweewwo....',
+  '....owcwaanwwcwo....',
+  '.....owwaaaawwo.....',
+  '......oorhhroo......',
+  '.....orrrrrrdro.....',
+  '....orowwbbbwwwo....',
+  '...oooowwbbbwswo....',
+  '..owwwoowwbbwswo....',
+  '..owwwoowwwwwswo....',
+  '...ooo.owwwwwswo....',
+  '......owwwwwwwwwo...',
+  '......owwwwwwwwwo...',
+  '.......ooooooooo....',
+  '....................'
+]
+
+const BEAR_SIT_BLINK = [
+  '....................',
+  '.....ooo....ooo.....',
+  '....owpwo..owpwo....',
+  '....oowwwwwwwwoo....',
+  '....owwwwwwwwwwo....',
+  '....owwwwwwwwwwo....',
+  '....owweewwwewwo....',
+  '....owcwaanwwcwo....',
+  '.....owwaaaawwo.....',
+  '......oorhhroo......',
+  '.....orrrrrrdro.....',
+  '....orowwbbbwwwo....',
+  '...oooowwbbbwswo....',
+  '..owwwoowwbbwswo....',
+  '..owwwoowwwwwswo....',
+  '...ooo.owwwwwswo....',
+  '......owwwwwwwwwo...',
+  '......owwwwwwwwwo...',
+  '.......ooooooooo....',
+  '....................'
+]
+
+const BEAR_RUN_0 = [
+  '....................',
+  '......ooo....ooo....',
+  '.....owpwo..owpwo...',
+  '.....oowwwwwwwwoo...',
+  '.....owwwwwwwwwwo...',
+  '.....owwgewwgewwo...',
+  '.....owweewweewwo...',
+  '.....owcwaanwwcwo...',
+  '......owwaaaawwo....',
+  '.......oorhhroo.....',
+  '....oorrrrrrdro.....',
+  '..oowwoowbbbwwwo....',
+  '..owwwoowwbbwswo....',
+  '...ooo.owwwwwswo....',
+  '......owwwwwsswo....',
+  '.....owwwo..owwwo...',
+  '....owwwo....owwwo..',
+  '.....ooo......ooo...',
+  '....................',
+  '....................'
+]
+
+const BEAR_RUN_1 = [
+  '....................',
+  '......ooo....ooo....',
+  '.....owpwo..owpwo...',
+  '.....oowwwwwwwwoo...',
+  '.....owwwwwwwwwwo...',
+  '.....owwgewwgewwo...',
+  '.....owweewweewwo...',
+  '.....owcwaanwwcwo...',
+  '......owwaaaawwo....',
+  '.......oorhhroo.....',
+  '....oorrrrrrdro.....',
+  '...oowoowbbbwwwo....',
+  '...owwoowwbbwswo....',
+  '....oo.owwwwwswo....',
+  '.......owwwwsswo....',
+  '.......owwwoowwo....',
+  '........owwwoowwo...',
+  '.........ooo..oo....',
+  '....................',
+  '....................'
+]
+
+const BEAR_JUMP_UP = [
+  '......ooo....ooo....',
+  '.....owpwo..owpwo...',
+  '.....oowwwwwwwwoo...',
+  '.....owwwwwwwwwwo...',
+  '.....owwgewwgewwo...',
+  '.....owweewweewwo...',
+  '.....owcwaanwwcwo...',
+  '......owwaaaawwo....',
+  '.......oorhhroo.....',
+  '....oorrrrrrdro.....',
+  '...oowoowbbbwwwo....',
+  '..owwwoowwbbwswo....',
+  '...ooo.owwwwwswo....',
+  '......owwwwwsswo....',
+  '.....owwwo..owwwo...',
+  '.....oooo....oooo...',
+  '....................',
+  '....................',
+  '....................',
+  '....................'
+]
+
+const BEAR_JUMP_FALL = [
+  '....................',
+  '......ooo....ooo....',
+  '.....owpwo..owpwo...',
+  '.....oowwwwwwwwoo...',
+  '.....owwwwwwwwwwo...',
+  '.....owwgewwgewwo...',
+  '.....owweewweewwo...',
+  '.....owcwaanwwcwo...',
+  '......owwaaaawwo....',
+  '.......oorhhroo.....',
+  '....oorrrrrrdro.....',
+  '...oowoowbbbwwwo....',
+  '..owwwoowwbbwswo....',
+  '...ooo.owwwwwswo....',
+  '......owwwoowwwo....',
+  '.....owwwo..owwwo...',
+  '......ooo....ooo....',
+  '....................',
+  '....................',
+  '....................'
+]
+
+const BEAR_DASH = [
+  '....................',
+  '....................',
+  '.......ooo....ooo...',
+  '......owpwo..owpwo..',
+  '......oowwwwwwwwoo..',
+  '......owwgewwgewwo..',
+  '......owweewweewwo..',
+  '......owcwaanwwcwo..',
+  '..ooo..owwaaaawwo...',
+  '.orrrrooorhhroo.....',
+  'orrrddrrrrrrrrro....',
+  '..oooowwwbbbwwwwo...',
+  '....owwwwwwbbsswo...',
+  '....owwwo...owwwo...',
+  '.....ooo.....ooo....',
+  '....................',
+  '....................',
+  '....................',
+  '....................',
+  '....................'
+]
+
+// ============================================================================
+// SPECIES 6: FOX GRIDS (20x20, facing RIGHT — tall pointed ears `a`, lush bushy tail `b`)
+// ============================================================================
+
+const FOX_IDLE_0 = [
+  '....................',
+  '......oo......oo....',
+  '.....oaao....oaao...',
+  '.....oapo....oapo...',
+  '.....owpoooooopwo...',
+  '.....owwwwwwwwwwo...',
+  '.....owwgewwgewwo...',
+  '.....owweewweewwo...',
+  '.....obbbwnwwbbbo...',
+  '.ooo..obbbbbbbbo....',
+  'obbbo..oorhhroo.....',
+  'obbwo.orrrrrrdro....',
+  '.owwoorroowwwbbwo...',
+  '..owwo.ooowwwbbwo...',
+  '...ooo..owwwwsswo...',
+  '........owwwwsswo...',
+  '........oaao.oaao...',
+  '........oaao.oaao...',
+  '.........oo...oo....',
+  '....................'
+]
+
+const FOX_IDLE_1 = [
+  '....................',
+  '......oo......oo....',
+  '.....oaao....oaao...',
+  '.....oapo....oapo...',
+  '.....owpoooooopwo...',
+  '.....owwwwwwwwwwo...',
+  '.....owwgewwgewwo...',
+  '.....owweewweewwo...',
+  '.ooo.obbbwnwwbbbo...',
+  'obbbo.obbbbbbbbo....',
+  'obbwo..oorhhroo.....',
+  '.owwo.orrrrrrdro....',
+  '..owoorroowwwbbwo...',
+  '...ooo.ooowwwbbwo...',
+  '........owwwwsswo...',
+  '........owwwwsswo...',
+  '........oaao.oaao...',
+  '........oaao.oaao...',
+  '.........oo...oo....',
+  '....................'
+]
+
+const FOX_IDLE_BLINK = [
+  '....................',
+  '......oo......oo....',
+  '.....oaao....oaao...',
+  '.....oapo....oapo...',
+  '.....owpoooooopwo...',
+  '.....owwwwwwwwwwo...',
+  '.....owwwwwwwwwwo...',
+  '.....owweewwwewwo...',
+  '.....obbbwnwwbbbo...',
+  '.ooo..obbbbbbbbo....',
+  'obbbo..oorhhroo.....',
+  'obbwo.orrrrrrdro....',
+  '.owwoorroowwwbbwo...',
+  '..owwo.ooowwwbbwo...',
+  '...ooo..owwwwsswo...',
+  '........owwwwsswo...',
+  '........oaao.oaao...',
+  '........oaao.oaao...',
+  '.........oo...oo....',
+  '....................'
+]
+
+const FOX_SIT_0 = [
+  '....................',
+  '......oo......oo....',
+  '.....oaao....oaao...',
+  '.....oapo....oapo...',
+  '.....owpoooooopwo...',
+  '.....owwwwwwwwwwo...',
+  '.....owwgewwgewwo...',
+  '.....owweewweewwo...',
+  '.....obbbwnwwbbbo...',
+  '......obbbbbbbbo....',
+  '.......oorhhroo.....',
+  '.....oorrrrrrdro....',
+  '....orowwwwbbwwwo...',
+  '..oooo.owwwbbwswo...',
+  '.obbbo.owwwbbwswo...',
+  '.obbwo.owwwwwsswo...',
+  '..owwo.owwwwwwwwo...',
+  '...ooo.oaawoowwwo...',
+  '.......oooooooooo...',
+  '....................'
+]
+
+const FOX_SIT_BLINK = [
+  '....................',
+  '......oo......oo....',
+  '.....oaao....oaao...',
+  '.....oapo....oapo...',
+  '.....owpoooooopwo...',
+  '.....owwwwwwwwwwo...',
+  '.....owwwwwwwwwwo...',
+  '.....owweewwwewwo...',
+  '.....obbbwnwwbbbo...',
+  '......obbbbbbbbo....',
+  '.......oorhhroo.....',
+  '.....oorrrrrrdro....',
+  '....orowwwwbbwwwo...',
+  '..oooo.owwwbbwswo...',
+  '.obbbo.owwwbbwswo...',
+  '.obbwo.owwwwwsswo...',
+  '..owwo.owwwwwwwwo...',
+  '...ooo.oaawoowwwo...',
+  '.......oooooooooo...',
+  '....................'
+]
+
+const FOX_RUN_0 = [
+  '....................',
+  '.......oo......oo...',
+  '......oaao....oaao..',
+  '......oapo....oapo..',
+  '......owpoooooopwo..',
+  '......owwwwwwwwwwo..',
+  '......owwgewwgewwo..',
+  '......owweewweewwo..',
+  '......obbbwnwwbbbo..',
+  '.oooo..obbbbbbbbo...',
+  'obbwwo..oorhhroo....',
+  'obwwwoorrrrrrdro....',
+  '.oowwoooowwwwbbwo...',
+  '...ooooowwwwwsswo...',
+  '.......owwwoowwwo...',
+  '......oaao...oaao...',
+  '.....oaao.....oaao..',
+  '......oo.......oo...',
+  '....................',
+  '....................'
+]
+
+const FOX_RUN_1 = [
+  '....................',
+  '.......oo......oo...',
+  '......oaao....oaao..',
+  '......oapo....oapo..',
+  '......owpoooooopwo..',
+  '......owwwwwwwwwwo..',
+  '......owwgewwgewwo..',
+  '......owweewweewwo..',
+  '......obbbwnwwbbbo..',
+  '..oooo.obbbbbbbbo...',
+  '.obbwwo.oorhhroo....',
+  '.obwwwoorrrrrrdro...',
+  '..oowwoooowwwbbwo...',
+  '....oooowwwwwsswo...',
+  '........owwwoowwo...',
+  '........oaao.oaao...',
+  '.........oo...oo....',
+  '....................',
+  '....................',
+  '....................'
+]
+
+const FOX_JUMP_UP = [
+  '.......oo......oo...',
+  '......oaao....oaao..',
+  '......oapo....oapo..',
+  '......owpoooooopwo..',
+  '......owwwwwwwwwwo..',
+  '......owwgewwgewwo..',
+  '......owweewweewwo..',
+  '......obbbwnwwbbbo..',
+  '.......obbbbbbbbo...',
+  '..ooo...oorhhroo....',
+  '.obbwo.orrrrrrdro...',
+  '.obwwoooowwwwbbwo...',
+  '..owwo.owwwwwsswo...',
+  '...oo..oaao..oaao...',
+  '.......ooo....ooo...',
+  '....................',
+  '....................',
+  '....................',
+  '....................',
+  '....................'
+]
+
+const FOX_JUMP_FALL = [
+  '....................',
+  '.......oo......oo...',
+  '......oaao....oaao..',
+  '......oapo....oapo..',
+  '......owpoooooopwo..',
+  '......owwwwwwwwwwo..',
+  '......owwgewwgewwo..',
+  '......owweewweewwo..',
+  '..ooo.obbbwnwwbbbo..',
+  '.obbwo.obbbbbbbbo...',
+  '.obwwo..oorhhroo....',
+  '..owwoorrrrrrdro....',
+  '...ooo.owwwwwbbwo...',
+  '.......owwwwwsswo...',
+  '......oaao...oaao...',
+  '......ooo.....ooo...',
+  '....................',
+  '....................',
+  '....................',
+  '....................'
+]
+
+const FOX_DASH = [
+  '....................',
+  '....................',
+  '........oo......oo..',
+  '.......oaao....oaao.',
+  '.......oapo....oapo.',
+  '.......owwgewwgewwo.',
+  '.......owweewweewwo.',
+  '.oooo..obbbwnwwbbbo.',
+  'obbwwooroorhhroo....',
+  'obwwddrrrrrrrrrro...',
+  '.ooooowwwwwbbwwwwo..',
+  '.....owwwwwwwsswo...',
+  '.....oaao....oaao...',
+  '......oo......oo....',
+  '....................',
+  '....................',
+  '....................',
+  '....................',
+  '....................',
+  '....................'
+]
 
 function getSpeciesGrids(charId: CharacterId) {
   const def = getCharacterById(charId)
   switch (def.species) {
+    case 'bear':
+      return {
+        idle0: BEAR_IDLE_0,
+        idle1: BEAR_IDLE_1,
+        idleBlink: BEAR_IDLE_BLINK,
+        idleSpecial: BEAR_IDLE_1,
+        sit0: BEAR_SIT_0,
+        sitBlink: BEAR_SIT_BLINK,
+        run0: BEAR_RUN_0,
+        run1: BEAR_RUN_1,
+        run2: BEAR_RUN_0,
+        jumpUp: BEAR_JUMP_UP,
+        jumpFall: BEAR_JUMP_FALL,
+        dash: BEAR_DASH
+      }
+    case 'fox':
+      return {
+        idle0: FOX_IDLE_0,
+        idle1: FOX_IDLE_1,
+        idleBlink: FOX_IDLE_BLINK,
+        idleSpecial: FOX_IDLE_1,
+        sit0: FOX_SIT_0,
+        sitBlink: FOX_SIT_BLINK,
+        run0: FOX_RUN_0,
+        run1: FOX_RUN_1,
+        run2: FOX_RUN_0,
+        jumpUp: FOX_JUMP_UP,
+        jumpFall: FOX_JUMP_FALL,
+        dash: FOX_DASH
+      }
     case 'bunny':
       return {
         idle0: BUNNY_IDLE_0,
@@ -1651,6 +2252,211 @@ const SCARF_ICON_GRID = [
   '............'
 ]
 
+// ============================================================================
+// HEAD ACCESSORIES (`head_acc`, 14x8) & FACE / EYEWEAR (`face`, 12x6) PIXEL GRIDS
+// ============================================================================
+
+const HEAD_SPROUT_GRID = [
+  '..............',
+  '....oo..oo....',
+  '...oppooppo...',
+  '...oappppao...',
+  '....ooosoo....',
+  '......oo......',
+  '.....oooo.....',
+  '..............'
+]
+
+const HEAD_SAKURA_GRID = [
+  '..............',
+  '........oo....',
+  '......ooppoo..',
+  '.....oppaappo.',
+  '......oossoo..',
+  '.......oooo...',
+  '..............',
+  '..............'
+]
+
+const HEAD_ANTLERS_GRID = [
+  '.o..........o.',
+  'opo..o..o..opo',
+  '.opo.o..o.opo.',
+  '..oppoppoppo..',
+  '...osoo.oso...',
+  '...oo....oo...',
+  '..............',
+  '..............'
+]
+
+const HEAD_HEADPHONES_GRID = [
+  '....oooooo....',
+  '..ooppppppoo..',
+  '.opoo....oopo.',
+  'oopo......opoo',
+  'opao......oapo',
+  'osso......osso',
+  '.oo........oo.',
+  '..............'
+]
+
+const HEAD_STARLIGHT_CROWN_GRID = [
+  '......oo......',
+  '..o..oaao..o..',
+  '.opoopaaopopo.',
+  '.opppaaaapppo.',
+  '.oppppppppppo.',
+  '.osssssssssso.',
+  '..oooooooooo..',
+  '..............'
+]
+
+// Pixel Eyepatch: dark charcoal patch + gold/crimson trim + diagonal forehead strap!
+const FACE_EYEPATCH_GRID = [
+  'oo..........',
+  '.ooo........',
+  '...oooaao...',
+  '.....opppo..',
+  '.....ossso..',
+  '......ooo...'
+]
+
+// Round Glasses: classic thin-rimmed round spectacles
+const FACE_GLASSES_GRID = [
+  '............',
+  '.oooo..oooo.',
+  'opsspoopsspo',
+  'opsapooosapo',
+  '.oooo..oooo.',
+  '............'
+]
+
+// Star Bandage: small adventurous cheek bandage
+const FACE_BANDAGE_GRID = [
+  '............',
+  '............',
+  '............',
+  '......ooooo.',
+  '.....opapapo',
+  '......ooooo.'
+]
+
+const HAT_CLOCKWORK_GRID = [
+  '....oooo....',
+  '...oppppo...',
+  '..oppaappo..',
+  '..opppsspo..',
+  '.oosassssoo.',
+  'ooopsssspooo',
+  'oooooooooooo',
+  '............'
+]
+
+const HEAD_HALO_GRID = [
+  '...oooooo...',
+  '..osaaaaso..',
+  '.osp....pso.',
+  '.oap....pao.',
+  '..os....so..',
+  '...o....o...',
+  '............',
+  '............'
+]
+
+const CAPE_CRYSTAL_NORMAL = [
+  '......oooo..',
+  '.....opppao.',
+  '....oppsspo.',
+  '...oappsspo.',
+  '..oppppssspo',
+  '..oppsssaaao',
+  '.ooppssssppo',
+  '.oap.oss.aao',
+  '..o...oo..oo',
+  '............'
+]
+
+const CAPE_CRYSTAL_DASH = [
+  '.....ooooo..',
+  '...oopppao..',
+  '.ooapppsspo.',
+  'oappppsssspo',
+  '.oosssaaapoo',
+  '..ooossssoo.',
+  '....oo..oo..',
+  '............',
+  '............',
+  '............'
+]
+
+const CAPE_NEBULA_NORMAL = [
+  '......oooo..',
+  '.....oppppo.',
+  '....opapppo.',
+  '...oppssspo.',
+  '..oppssapspo',
+  '..opsssssspo',
+  '.oopssassppo',
+  '.oapsssssaao',
+  '..oooooooooo',
+  '............'
+]
+
+const CAPE_NEBULA_DASH = [
+  '.....ooooo..',
+  '...oopappo..',
+  '.oopppssspo.',
+  'oappsssapspo',
+  '.oosssssapoo',
+  '..ooooooooo.',
+  '............',
+  '............',
+  '............',
+  '............'
+]
+
+function bakeHeadAccCanvas(headAccId: HeadAccId): HTMLCanvasElement | null {
+  const def = getHeadAccById(headAccId)
+  if (def.model === 'none') return null
+  const palette: Record<string, string> = {
+    o: def.outline,
+    p: def.primary,
+    s: def.secondary,
+    a: def.accent
+  }
+  const grid =
+    def.model === 'sprout'
+      ? HEAD_SPROUT_GRID
+      : def.model === 'sakura'
+        ? HEAD_SAKURA_GRID
+        : def.model === 'antlers'
+          ? HEAD_ANTLERS_GRID
+          : def.model === 'headphones'
+            ? HEAD_HEADPHONES_GRID
+            : def.model === 'halo'
+              ? HEAD_HALO_GRID
+              : HEAD_STARLIGHT_CROWN_GRID
+  return bakeGrid(grid, palette)
+}
+
+function bakeFaceAccCanvas(faceAccId: FaceAccId): HTMLCanvasElement | null {
+  const def = getFaceAccById(faceAccId)
+  if (def.model === 'none') return null
+  const palette: Record<string, string> = {
+    o: def.outline,
+    p: def.primary,
+    s: def.secondary,
+    a: def.accent
+  }
+  const grid =
+    def.model === 'eyepatch'
+      ? FACE_EYEPATCH_GRID
+      : def.model === 'glasses'
+        ? FACE_GLASSES_GRID
+        : FACE_BANDAGE_GRID
+  return bakeGrid(grid, palette)
+}
+
 function bakeHatCanvas(hatId: HatId): HTMLCanvasElement | null {
   const def = getHatById(hatId)
   if (def.model === 'none') return null
@@ -1667,9 +2473,11 @@ function bakeHatCanvas(hatId: HatId): HTMLCanvasElement | null {
         ? HAT_WITCH_GRID
         : def.model === 'crown'
           ? HAT_CROWN_GRID
-          : def.id === 'clip-sakura'
-            ? HAT_CLIP_SAKURA_GRID
-            : HAT_CLIP_SPROUT_GRID
+          : def.model === 'clockwork'
+            ? HAT_CLOCKWORK_GRID
+            : def.id === 'clip-sakura'
+              ? HAT_CLIP_SAKURA_GRID
+              : HAT_CLIP_SPROUT_GRID
   return bakeGrid(grid, palette)
 }
 
@@ -1687,13 +2495,21 @@ function bakeCapeCanvas(capeId: CapeId, isDash: boolean): HTMLCanvasElement | nu
       ? isDash
         ? CAPE_WINGS_DASH
         : CAPE_WINGS_NORMAL
-      : def.model === 'royal'
+      : def.model === 'crystal'
         ? isDash
-          ? CAPE_ROYAL_DASH
-          : CAPE_ROYAL_NORMAL
-        : isDash
-          ? CAPE_CLOAK_DASH
-          : CAPE_CLOAK_NORMAL
+          ? CAPE_CRYSTAL_DASH
+          : CAPE_CRYSTAL_NORMAL
+        : def.model === 'nebula'
+          ? isDash
+            ? CAPE_NEBULA_DASH
+            : CAPE_NEBULA_NORMAL
+          : def.model === 'royal'
+            ? isDash
+              ? CAPE_ROYAL_DASH
+              : CAPE_ROYAL_NORMAL
+            : isDash
+              ? CAPE_CLOAK_DASH
+              : CAPE_CLOAK_NORMAL
   return bakeGrid(grid, palette)
 }
 
@@ -1702,45 +2518,103 @@ type PoseKind = 'idle' | 'sit' | 'run' | 'jumpUp' | 'jumpFall' | 'dash'
 function getAccessoryOffsets(
   species: AnimalSpecies,
   pose: PoseKind,
-  hatModel: string
-): { hatX: number; hatY: number; capeX: number; capeY: number } {
+  hatModel: string,
+  headAccModel = 'none'
+): {
+  hatX: number
+  hatY: number
+  capeX: number
+  capeY: number
+  headAccX: number
+  headAccY: number
+  faceX: number
+  faceY: number
+} {
   // Base 20x20 animal sits at (2, 4) inside the 24x24 composite canvas
   let hatX = 6
   let hatY = 1
   let capeX = 1
   let capeY = 13
+  let headAccX = 5
+  let headAccY = 2
+  let faceX = 7
+  let faceY = 8
 
   if (species === 'bunny') {
     hatX = 6
     hatY = hatModel === 'clip' ? 4 : 1
     capeX = 1
     capeY = 14
+    headAccY = 2
+    faceY = 9
   } else if (species === 'samoyed') {
     hatX = 6
     hatY = 0
     capeX = 1
     capeY = 13
+    headAccY = 1
+    faceY = 8
+  } else if (species === 'bear') {
+    hatX = 5
+    hatY = 1
+    capeX = 1
+    capeY = 13
+    headAccX = 4
+    headAccY = 1
+    faceX = 6
+    faceY = 8
+  } else if (species === 'fox') {
+    hatX = 6
+    hatY = 1
+    capeX = 1
+    capeY = 13
+    headAccX = 5
+    headAccY = 2
+    faceX = 7
+    faceY = 9
   } else {
     // Cat & Shiba
     hatX = 6
     hatY = 1
     capeX = 1
     capeY = 13
+    headAccX = 5
+    headAccY = 2
+    faceX = 7
+    faceY = 9
+  }
+
+  if (headAccModel === 'headphones') {
+    headAccY += 2
+  } else if (headAccModel === 'antlers') {
+    headAccY = Math.max(0, headAccY - 1)
   }
 
   if (pose === 'run') {
     hatX += 1
+    headAccX += 1
+    faceX += 1
     capeX = 0
   } else if (pose === 'jumpUp') {
     hatX += 1
     hatY = Math.max(0, hatY - 1)
+    headAccX += 1
+    headAccY = Math.max(0, headAccY - 1)
+    faceX += 1
+    faceY = Math.max(0, faceY - 1)
     capeY -= 1
   } else if (pose === 'jumpFall') {
     hatX += 1
+    headAccX += 1
+    faceX += 1
     capeY -= 1
   } else if (pose === 'dash') {
     hatX += 2
     hatY += 2
+    headAccX += 2
+    headAccY += 2
+    faceX += 2
+    faceY += 1
     capeX = 0
     capeY = 12
   } else if (pose === 'sit') {
@@ -1755,19 +2629,27 @@ function getAccessoryOffsets(
     hatY += 1
   }
 
-  return { hatX, hatY, capeX, capeY }
+  return { hatX, hatY, capeX, capeY, headAccX, headAccY, faceX, faceY }
 }
 
 function composeCharacterFrame(
   baseAnimal: HTMLCanvasElement,
   hatCanvas: HTMLCanvasElement | null,
   capeCanvas: HTMLCanvasElement | null,
+  headAccCanvas: HTMLCanvasElement | null,
+  faceAccCanvas: HTMLCanvasElement | null,
   species: AnimalSpecies,
   pose: PoseKind,
-  hatModel: string
+  hatModel: string,
+  headAccModel = 'none'
 ): HTMLCanvasElement {
   const [canvas, ctx] = createCanvas(24, 24)
-  const { hatX, hatY, capeX, capeY } = getAccessoryOffsets(species, pose, hatModel)
+  const { hatX, hatY, capeX, capeY, headAccX, headAccY, faceX, faceY } = getAccessoryOffsets(
+    species,
+    pose,
+    hatModel,
+    headAccModel
+  )
 
   // 1. Cape / Wings behind the animal's back
   if (capeCanvas) {
@@ -1777,9 +2659,19 @@ function composeCharacterFrame(
   // 2. Animal + Dynamic Scarf centered cleanly at (2, 4)
   ctx.drawImage(baseAnimal, 2, 4)
 
-  // 3. Hat perched cleanly atop head
+  // 3. Face / Eyewear (Eyepatch, Round Glasses, Star Bandage) layered neatly over eyes/cheeks
+  if (faceAccCanvas) {
+    ctx.drawImage(faceAccCanvas, faceX, faceY)
+  }
+
+  // 4. Hat perched cleanly atop head
   if (hatCanvas) {
     ctx.drawImage(hatCanvas, hatX, hatY)
+  }
+
+  // 5. Head Accessory (Sprout, Sakura Hairpin, Mini Antlers, Lo-Fi Headphones, Starlight Crown)
+  if (headAccCanvas) {
+    ctx.drawImage(headAccCanvas, headAccX, headAccY)
   }
 
   return canvas
@@ -1908,9 +2800,11 @@ export function getPlayerSpriteSet(
   scarfId: ScarfColorId,
   hatId: HatId = 'none',
   capeId: CapeId = 'none',
-  style: GraphicsStyle = 'modern'
+  style: GraphicsStyle = 'modern',
+  headAccId: HeadAccId = 'none',
+  faceAccId: FaceAccId = 'none'
 ): DirectionalPlayerSprites {
-  const key = `${style}:${charId}:${scarfId}:${hatId}:${capeId}`
+  const key = `${style}:${charId}:${scarfId}:${hatId}:${capeId}:${headAccId}:${faceAccId}`
   const existing = playerSpriteCache.get(key)
   if (existing) return existing
 
@@ -1934,19 +2828,25 @@ export function getPlayerSpriteSet(
         }
   const scarf = getScarfById(scarfId)
   const hatDef = getHatById(hatId)
+  const headAccDef = getHeadAccById(headAccId)
 
   const hatCanvas = bakeHatCanvas(hatId)
   const capeNormal = bakeCapeCanvas(capeId, false)
   const capeDash = bakeCapeCanvas(capeId, true)
+  const headAccCanvas = bakeHeadAccCanvas(headAccId)
+  const faceAccCanvas = bakeFaceAccCanvas(faceAccId)
 
   const wrap = (grid: string[], pose: PoseKind, pal = palette) => {
     const composed = composeCharacterFrame(
       bakeGrid(grid, pal),
       hatCanvas,
       pose === 'dash' ? capeDash : capeNormal,
+      headAccCanvas,
+      faceAccCanvas,
       charDef.species,
       pose,
-      hatDef.model
+      hatDef.model,
+      headAccDef.model
     )
     return style === 'modern' ? enhanceSpriteToModern16Bit(composed) : composed
   }
@@ -2035,13 +2935,15 @@ export function getCharacterPreviewDataUrl(
   capeId: CapeId = 'none',
   facing: 'right' | 'left' = 'right',
   idleFrame: 0 | 1 = 0,
-  style: GraphicsStyle = 'modern'
+  style: GraphicsStyle = 'modern',
+  headAccId: HeadAccId = 'none',
+  faceAccId: FaceAccId = 'none'
 ): string {
   if (typeof document === 'undefined') return ''
-  const key = `${style}:${charId}:${scarfId}:${hatId}:${capeId}:${facing}:${idleFrame}`
+  const key = `${style}:${charId}:${scarfId}:${hatId}:${capeId}:${headAccId}:${faceAccId}:${facing}:${idleFrame}`
   const cached = previewDataUrlCache.get(key)
   if (cached) return cached
-  const sprites = getPlayerSpriteSet(charId, scarfId, hatId, capeId, style)
+  const sprites = getPlayerSpriteSet(charId, scarfId, hatId, capeId, style, headAccId, faceAccId)
   const dirSet = facing === 'left' ? sprites.left : sprites.right
   const frameCanvas = idleFrame === 1 ? dirSet.idleSpecial : dirSet.idle0
   const url = frameCanvas.toDataURL('image/png')
@@ -2084,6 +2986,30 @@ export function getCapeIconDataUrl(capeId: CapeId): string {
   const cached = accessoryIconCache.get(key)
   if (cached) return cached
   const canvas = bakeCapeCanvas(capeId, false)
+  if (!canvas) return ''
+  const url = canvas.toDataURL('image/png')
+  accessoryIconCache.set(key, url)
+  return url
+}
+
+export function getHeadAccIconDataUrl(headAccId: HeadAccId): string {
+  if (typeof document === 'undefined') return ''
+  const key = `head_acc:${headAccId}`
+  const cached = accessoryIconCache.get(key)
+  if (cached) return cached
+  const canvas = bakeHeadAccCanvas(headAccId)
+  if (!canvas) return ''
+  const url = canvas.toDataURL('image/png')
+  accessoryIconCache.set(key, url)
+  return url
+}
+
+export function getFaceAccIconDataUrl(faceAccId: FaceAccId): string {
+  if (typeof document === 'undefined') return ''
+  const key = `face:${faceAccId}`
+  const cached = accessoryIconCache.get(key)
+  if (cached) return cached
+  const canvas = bakeFaceAccCanvas(faceAccId)
   if (!canvas) return ''
   const url = canvas.toDataURL('image/png')
   accessoryIconCache.set(key, url)
@@ -3184,6 +4110,52 @@ function bakeHarborBody(): HTMLCanvasElement {
   return canvas
 }
 
+function bakeStyledTile(
+  topHi: string,
+  topMid: string,
+  bodyMain: string,
+  bodyDark: string,
+  accent: string,
+  isTop: boolean,
+  modern: boolean
+): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(16, 16)
+  ctx.fillStyle = bodyDark
+  ctx.fillRect(0, 0, 16, 16)
+  if (isTop) {
+    ctx.fillStyle = topHi
+    ctx.fillRect(0, 0, 16, 2)
+    ctx.fillStyle = topMid
+    ctx.fillRect(0, 2, 16, 3)
+    ctx.fillStyle = bodyMain
+    ctx.fillRect(0, 5, 16, 11)
+    ctx.fillStyle = accent
+    ctx.fillRect(2, 1, 3, 1)
+    ctx.fillRect(10, 2, 4, 1)
+    if (modern) {
+      ctx.fillStyle = bodyDark
+      ctx.fillRect(0, 5, 16, 1)
+      ctx.fillRect(5, 6, 1, 10)
+      ctx.fillRect(12, 6, 1, 10)
+      ctx.fillStyle = accent
+      ctx.fillRect(7, 9, 2, 2)
+    }
+  } else {
+    ctx.fillStyle = bodyMain
+    ctx.fillRect(1, 0, 14, 15)
+    ctx.fillStyle = bodyDark
+    ctx.fillRect(0, 7, 16, 1)
+    ctx.fillRect(7, 0, 1, 7)
+    ctx.fillRect(13, 8, 1, 8)
+    if (modern) {
+      ctx.fillStyle = accent
+      ctx.fillRect(3, 3, 2, 1)
+      ctx.fillRect(10, 11, 2, 1)
+    }
+  }
+  return canvas
+}
+
 // ============================================================================
 // 16-BIT MODERN COZY TILES & PROPS (Stacked Clay Shingles, Bark, Roped Pier, Potted Plants)
 // ============================================================================
@@ -3797,6 +4769,14 @@ export function getSpriteBank(): SpriteBank {
       cloudBody: bakeCloudBody(),
       harborTop: bakeHarborTop(),
       harborBody: bakeHarborBody(),
+      cavernTop: bakeStyledTile('#76f5e8', '#3ba3a8', '#253959', '#131d33', '#b88cff', true, false),
+      cavernBody: bakeStyledTile('#76f5e8', '#3ba3a8', '#223352', '#111a2e', '#65e8dc', false, false),
+      observatoryTop: bakeStyledTile('#ffe694', '#c9933b', '#333463', '#1a1b3b', '#fff5cc', true, false),
+      observatoryBody: bakeStyledTile('#ffe694', '#c9933b', '#2b2c57', '#161733', '#d9a441', false, false),
+      eclipseTop: bakeStyledTile('#ff7d9e', '#9e2a55', '#36193b', '#1b0b21', '#ffd670', true, false),
+      eclipseBody: bakeStyledTile('#ff7d9e', '#9e2a55', '#2b1330', '#16091c', '#e64972', false, false),
+      citadelTop: bakeStyledTile('#b8c4ff', '#6c5ce7', '#262059', '#120d33', '#ffe680', true, false),
+      citadelBody: bakeStyledTile('#b8c4ff', '#6c5ce7', '#1f1a4d', '#0f0a2b', '#87e8ff', false, false),
       movingLeft: bakeMovingSegment('left'),
       movingMid: bakeMovingSegment('mid'),
       movingRight: bakeMovingSegment('right')
@@ -3811,7 +4791,15 @@ export function getSpriteBank(): SpriteBank {
       cloudTop: bakeModernCloudTop(),
       cloudBody: bakeModernCloudBody(),
       harborTop: bakeModernHarborTop(),
-      harborBody: bakeModernHarborBody()
+      harborBody: bakeModernHarborBody(),
+      cavernTop: bakeStyledTile('#8efcf2', '#42b8bf', '#294066', '#142038', '#c89eff', true, true),
+      cavernBody: bakeStyledTile('#8efcf2', '#42b8bf', '#233659', '#121c33', '#6cf2e8', false, true),
+      observatoryTop: bakeStyledTile('#ffeda8', '#d9a145', '#393b70', '#1c1d40', '#fff8d4', true, true),
+      observatoryBody: bakeStyledTile('#ffeda8', '#d9a145', '#2f3161', '#171836', '#e8b658', false, true),
+      eclipseTop: bakeStyledTile('#ff94b0', '#b53364', '#401e45', '#1d0b24', '#ffe082', true, true),
+      eclipseBody: bakeStyledTile('#ff94b0', '#b53364', '#311636', '#17091e', '#ff5e84', false, true),
+      citadelTop: bakeStyledTile('#d1dbff', '#7c6cf2', '#2c2566', '#140e38', '#ffeb8f', true, true),
+      citadelBody: bakeStyledTile('#d1dbff', '#7c6cf2', '#231d57', '#100b30', '#9ef0ff', false, true)
     }
   }
 

@@ -45,7 +45,9 @@ export function countOwnedCosmeticItems(progress: SaveProgress): number {
   const scarves = progress.ownedScarves.length
   const hats = progress.ownedHats.filter((id) => id !== 'none').length
   const capes = progress.ownedCapes.filter((id) => id !== 'none').length
-  return scarves + hats + capes
+  const headAccs = (progress.ownedHeadAccs ?? []).filter((id) => id !== 'none').length
+  const faceAccs = (progress.ownedFaceAccs ?? []).filter((id) => id !== 'none').length
+  return scarves + hats + capes + headAccs + faceAccs
 }
 
 export function countUnlockedSpecies(progress: SaveProgress): number {
@@ -82,11 +84,11 @@ export function getStampProgress(id: AchievementId, progress: SaveProgress): Sta
     }
     case 'rooftop-sprinter': {
       const best = progress.bestTimes[1]
-      const done = typeof best === 'number' && best > 0 && best < 45000
+      const done = typeof best === 'number' && best > 0 && best < 75000
       return {
         current: done ? 1 : 0,
         target: 1,
-        label: done ? `Rekor ${(best! / 1000).toFixed(1)}s!` : best ? `Terbaik ${(best / 1000).toFixed(1)}s (<45s)` : 'Target < 45.0s'
+        label: done ? `Rekor ${(best! / 1000).toFixed(1)}s!` : best ? `Terbaik ${(best / 1000).toFixed(1)}s (<75s)` : 'Target < 75.0s'
       }
     }
     case 'biome-explorer': {
@@ -127,8 +129,16 @@ export function getStampProgress(id: AchievementId, progress: SaveProgress): Sta
       return { current: count, target: 4, label: `${count}/4 Rank S` }
     }
     case 'lightning-stray': {
-      const count = countRankSLevels(progress)
+      const count = Math.min(8, countRankSLevels(progress))
       return { current: count, target: 8, label: `${count}/8 Rank S` }
+    }
+    case 'eclipse-conqueror': {
+      const done = (progress.levelRecords[13]?.rating ?? 0) >= 1 ? 1 : 0
+      return { current: done, target: 1, label: done ? 'Umbra Owl Tumbang!' : '0/1 Level 13' }
+    }
+    case 'starlight-legend': {
+      const done = (progress.levelRecords[14]?.rating ?? 0) >= 1 ? 1 : 0
+      return { current: done, target: 1, label: done ? 'Chronos Tumbang!' : '0/1 Level 14' }
     }
     default:
       return { current: 0, target: 1, label: '0/1' }
@@ -136,7 +146,7 @@ export function getStampProgress(id: AchievementId, progress: SaveProgress): Sta
 }
 
 /**
- * Evaluates all 11 Stamp Book milestones against live progress.
+ * Evaluates all Stamp Book milestones against live progress.
  * Returns only newly unlocked AchievementDefs (never duplicates).
  */
 export function evaluateStampAchievements(progress: SaveProgress): AchievementDef[] {
@@ -145,7 +155,7 @@ export function evaluateStampAchievements(progress: SaveProgress): AchievementDe
 
   const checks: Record<string, boolean> = {
     'first-step': (progress.levelRecords[1]?.rating ?? 0) >= 1,
-    'rooftop-sprinter': typeof progress.bestTimes[1] === 'number' && progress.bestTimes[1]! > 0 && progress.bestTimes[1]! < 45000,
+    'rooftop-sprinter': typeof progress.bestTimes[1] === 'number' && progress.bestTimes[1]! > 0 && progress.bestTimes[1]! < 75000,
     'biome-explorer': hasAnyFullShardLevel(progress),
     'starlight-collector': countTotalCollectedShards(progress) >= 24,
     'fashionista-stray': countOwnedCosmeticItems(progress) >= 5,
@@ -154,7 +164,9 @@ export function evaluateStampAchievements(progress: SaveProgress): AchievementDe
     'nine-lives': progress.totalFalls >= 9,
     'swift-paws': countRankAOrSLevels(progress) >= 8,
     'starlight-speedster': countRankSLevels(progress) >= 4,
-    'lightning-stray': countRankSLevels(progress) >= 8
+    'lightning-stray': countRankSLevels(progress) >= 8,
+    'eclipse-conqueror': (progress.levelRecords[13]?.rating ?? 0) >= 1,
+    'starlight-legend': (progress.levelRecords[14]?.rating ?? 0) >= 1
   }
 
   for (const def of ACHIEVEMENTS) {
