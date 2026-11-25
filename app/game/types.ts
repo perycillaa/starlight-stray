@@ -412,11 +412,29 @@ export type AchievementId =
   | 'lightning-stray'
   | 'eclipse-conqueror'
   | 'starlight-legend'
-  | 'fish-collector'
-  | 'dash-master'
-  | 'all-friends'
+  | 'sakura-wanderer'
+  | 'cloud-dancer'
+  | 'harbor-keeper'
+  | 'cavern-delver'
+  | 'clockwork-master'
   | 'world-explorer'
+  | 'shard-hunter-12'
+  | 'shard-master-36'
   | 'perfect-stars'
+  | 'star-virtuoso'
+  | 'celestial-perfection'
+  | 'high-scorer'
+  | 'dash-novice'
+  | 'dash-master'
+  | 'peaceful-sage'
+  | 'rank-s-first'
+  | 'grand-speedrunner'
+  | 'fish-collector'
+  | 'fish-tycoon'
+  | 'daily-helper'
+  | 'daily-devotee'
+  | 'wardrobe-curator'
+  | 'all-friends'
 
 export interface AchievementDef {
   id: AchievementId
@@ -1158,6 +1176,7 @@ export interface HudSnapshot {
   mendCharge: number
   mendUsesLeft: number
   hurtPulseCount: number
+  settingsFromPause: boolean
   recentToast: ToastNotice | null
   autoSavePulse: number
 }

@@ -198,6 +198,7 @@ const hud = ref<HudSnapshot>({
   mendCharge: 1,
   mendUsesLeft: 2,
   hurtPulseCount: 0,
+  settingsFromPause: false,
   recentToast: null,
   starRingActive: false,
   starRingCollected: 0,
@@ -319,6 +320,10 @@ function handleOpenSettings() {
   importFeedback.value = ''
   engine?.openSettings()
   void refreshCloudData()
+}
+
+function handleCloseSettings() {
+  engine?.closeSettings()
 }
 
 function handleOpenTitle() {
@@ -570,8 +575,8 @@ function handleToggleMute() {
       <div
         class="stage-frame"
         :class="{
-          'stage-frame--portrait-title': hud.screen !== 'playing' && hud.screen !== 'paused' && hud.screen !== 'photoMode' && hud.screen !== 'levelClear' && hud.screen !== 'gameOver',
-          'stage-frame--portrait-play': hud.screen === 'playing' || hud.screen === 'paused'
+          'stage-frame--portrait-title': hud.screen !== 'playing' && hud.screen !== 'paused' && hud.screen !== 'photoMode' && hud.screen !== 'levelClear' && hud.screen !== 'gameOver' && !(hud.screen === 'settings' && hud.settingsFromPause),
+          'stage-frame--portrait-play': hud.screen === 'playing' || hud.screen === 'paused' || (hud.screen === 'settings' && hud.settingsFromPause)
         }"
       >
         <!-- Top Retro Kawaii HUD (in-flow above canvas in portrait gameplay, floating overlay in landscape/desktop) -->
@@ -633,6 +638,7 @@ function handleToggleMute() {
           @open-photo-studio="handleOpenPhotoStudio"
           @open-guidebook="handleOpenGuidebook"
           @open-settings="handleOpenSettings"
+          @close-settings="handleCloseSettings"
           @open-title="handleOpenTitle"
           @open-ending="handleOpenEnding"
           @select-level="handleSelectLevel"

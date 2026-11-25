@@ -74,7 +74,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Langkah Pertama',
     icon: '🐾',
     description: 'Selesaikan Level 1 di Atap Kota Malam dan lewati Gerbang Bulan.',
-    rewardFish: 4,
+    rewardFish: 5,
     stampColor: '#ff9ec4'
   },
   {
@@ -83,7 +83,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Pelari Atap Cepat',
     icon: '⏱️',
     description: 'Selesaikan Level 1 dalam waktu kurang dari 75 detik.',
-    rewardFish: 4,
+    rewardFish: 6,
     stampColor: '#7ee8ff'
   },
   {
@@ -92,7 +92,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Penjelajah Shard',
     icon: '💎',
     description: 'Kumpulkan seluruh 3 Starlight Shards di salah satu level.',
-    rewardFish: 4,
+    rewardFish: 6,
     stampColor: '#b594ff'
   },
   {
@@ -101,7 +101,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Kolektor 24 Shard',
     icon: '✨',
     description: 'Kumpulkan minimal 24 Starlight Shards dari seluruh dunia.',
-    rewardFish: 10,
+    rewardFish: 22,
     stampColor: '#ffe375'
   },
   {
@@ -110,7 +110,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Gaya Petualang',
     icon: '🎩',
     description: 'Miliki minimal 5 item aksesoris berbeda (Syal, Topi, Jubah, Kepala, atau Wajah).',
-    rewardFish: 6,
+    rewardFish: 10,
     stampColor: '#ffb2d4'
   },
   {
@@ -119,7 +119,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Skuad Lengkap',
     icon: '🐶',
     description: 'Buka keempat spesies hewan: Kucing, Kelinci, Anjing Putih, & Shiba Inu.',
-    rewardFish: 6,
+    rewardFish: 12,
     stampColor: '#96f2cc'
   },
   {
@@ -128,7 +128,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Petualang Damai',
     icon: '🕊️',
     description: 'Selesaikan 1 level penuh tanpa terkena damage atau menyentuh musuh.',
-    rewardFish: 6,
+    rewardFish: 10,
     stampColor: '#a8f0ff'
   },
   {
@@ -137,7 +137,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Sembilan Nyawa',
     icon: '🌙',
     description: 'Terjatuh dari platform sebanyak 9 kali total — tetap bangkit terus!',
-    rewardFish: 4,
+    rewardFish: 5,
     stampColor: '#ffad75'
   },
   {
@@ -146,7 +146,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Speedrun A/S Penuh',
     icon: '💨',
     description: 'Raih Rank A atau Rank S pada minimal 8 level.',
-    rewardFish: 6,
+    rewardFish: 15,
     stampColor: '#8eeeff'
   },
   {
@@ -155,7 +155,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: '4 Level Rank S',
     icon: '🌟',
     description: 'Raih Rank S pada minimal 4 level berbeda.',
-    rewardFish: 10,
+    rewardFish: 15,
     stampColor: '#ffd84d'
   },
   {
@@ -164,7 +164,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Mastery 8 Rank S',
     icon: '⚡',
     description: 'Raih Rank S pada minimal 8 level untuk membuka Lightning Scarf!',
-    rewardFish: 10,
+    rewardFish: 20,
     stampColor: '#fff066',
     rewardCosmeticLabel: '🧣 Lightning Scarf'
   },
@@ -174,7 +174,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Penakluk Kuil Gerhana',
     icon: '🌘',
     description: 'Kalahkan Umbra Owl di Level 13 (Eclipse Sanctum) untuk membuka Eclipse Halo!',
-    rewardFish: 10,
+    rewardFish: 30,
     stampColor: '#ff6e91',
     rewardCosmeticLabel: '✨ Eclipse Halo'
   },
@@ -184,8 +184,219 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Legenda Inti Astral',
     icon: '🌌',
     description: 'Kalahkan Chronos Leviathan di Level 14 (Astral Core Citadel) untuk Nebula Sovereign Cape!',
-    rewardFish: 10,
+    rewardFish: 30,
     stampColor: '#b594ff',
     rewardCosmeticLabel: '🌌 Nebula Sovereign Cape'
+  },
+  // --- World Progression (6) ---
+  {
+    id: 'sakura-wanderer',
+    name: 'Penjelajah Sakura',
+    subtitle: 'Tamat Hutan Sakura',
+    icon: '🌸',
+    description: 'Selesaikan Level 4 di Hutan Sakura Malam.',
+    rewardFish: 8,
+    stampColor: '#ff9ec4'
+  },
+  {
+    id: 'cloud-dancer',
+    name: 'Penari Awan',
+    subtitle: 'Tamat Negeri Awan',
+    icon: '☁️',
+    description: 'Selesaikan Level 6 di Negeri Awan Pastel.',
+    rewardFish: 10,
+    stampColor: '#d9b5ff'
+  },
+  {
+    id: 'harbor-keeper',
+    name: 'Penjaga Dermaga',
+    subtitle: 'Tamat Dermaga Lampion',
+    icon: '⚓',
+    description: 'Selesaikan Level 8 di Dermaga Lampion.',
+    rewardFish: 12,
+    stampColor: '#8ef0d8'
+  },
+  {
+    id: 'cavern-delver',
+    name: 'Penyelam Gua',
+    subtitle: 'Tamat Gua Kristal',
+    icon: '🍄',
+    description: 'Selesaikan Level 10 di Gua Jamur Kristal.',
+    rewardFish: 14,
+    stampColor: '#6cf2ec'
+  },
+  {
+    id: 'clockwork-master',
+    name: 'Ahli Observatorium',
+    subtitle: 'Tamat 12 Level Utama',
+    icon: '⚙️',
+    description: 'Selesaikan Level 12 di Observatorium Roda Jam.',
+    rewardFish: 18,
+    stampColor: '#ffd873'
+  },
+  {
+    id: 'world-explorer',
+    name: 'Penjelajah 6 Dunia',
+    subtitle: 'Semua Bioma Utama',
+    icon: '🗺️',
+    description: 'Kunjungi seluruh 6 dunia utama Starlight Stray.',
+    rewardFish: 15,
+    stampColor: '#9ef5c8'
+  },
+  // --- Shards, Stars & Score (6) ---
+  {
+    id: 'shard-hunter-12',
+    name: 'Pemburu 12 Shard',
+    subtitle: 'Kolektor Permata',
+    icon: '🔷',
+    description: 'Kumpulkan minimal 12 Starlight Shards dari berbagai level.',
+    rewardFish: 12,
+    stampColor: '#8eeeff'
+  },
+  {
+    id: 'shard-master-36',
+    name: 'Master 36 Shard',
+    subtitle: 'Seluruh Shard Dunia',
+    icon: '👑',
+    description: 'Kumpulkan seluruh 36/36 Starlight Shards di semua 12 level utama!',
+    rewardFish: 35,
+    stampColor: '#ffe466'
+  },
+  {
+    id: 'perfect-stars',
+    name: 'Bintang Sempurna',
+    subtitle: 'Tiga Bintang Pertama',
+    icon: '⭐',
+    description: 'Raih rating 3 Bintang (⭐⭐⭐) pada minimal 1 level.',
+    rewardFish: 6,
+    stampColor: '#ffe875'
+  },
+  {
+    id: 'star-virtuoso',
+    name: 'Kolektor 6 Tiga Bintang',
+    subtitle: 'Setengah Sempurna',
+    icon: '🌠',
+    description: 'Raih rating 3 Bintang (⭐⭐⭐) pada minimal 6 level berbeda.',
+    rewardFish: 15,
+    stampColor: '#ffb8dc'
+  },
+  {
+    id: 'celestial-perfection',
+    name: 'Kesempurnaan 12 Map',
+    subtitle: 'Semua Level 3 Bintang',
+    icon: '🏆',
+    description: 'Raih rating 3 Bintang (⭐⭐⭐) di seluruh 12 level utama!',
+    rewardFish: 35,
+    stampColor: '#ffd84d'
+  },
+  {
+    id: 'high-scorer',
+    name: 'Skor Bintang Tinggi',
+    subtitle: '5.000 Poin',
+    icon: '🎯',
+    description: 'Capai skor tertinggi minimal 5.000 poin dalam permainan.',
+    rewardFish: 8,
+    stampColor: '#ffad75'
+  },
+  // --- Movement, Dash & Speedrun Mastery (5) ---
+  {
+    id: 'dash-novice',
+    name: 'Pelari Kilat',
+    subtitle: '50 Kali Dash',
+    icon: '💨',
+    description: 'Gunakan kemampuan Dash sebanyak 50 kali total.',
+    rewardFish: 6,
+    stampColor: '#9ee8ff'
+  },
+  {
+    id: 'dash-master',
+    name: 'Master Dash 200',
+    subtitle: '200 Kali Dash',
+    icon: '⚡',
+    description: 'Gunakan kemampuan Dash sebanyak 200 kali total.',
+    rewardFish: 14,
+    stampColor: '#ffe375'
+  },
+  {
+    id: 'peaceful-sage',
+    name: 'Petualang Damai Sejati',
+    subtitle: '5 Level Tanpa Luka',
+    icon: '🕊️',
+    description: 'Selesaikan total 5 level tanpa terkena damage atau menyentuh musuh.',
+    rewardFish: 22,
+    stampColor: '#b4ffe3'
+  },
+  {
+    id: 'rank-s-first',
+    name: 'Kilatan Rank S',
+    subtitle: 'Rank S Pertama',
+    icon: '⚡',
+    description: 'Raih Rank S pertama kali di level mana saja.',
+    rewardFish: 8,
+    stampColor: '#ffd84d'
+  },
+  {
+    id: 'grand-speedrunner',
+    name: 'Speedrunner 12 Map',
+    subtitle: 'Mastery 12 Rank S',
+    icon: '🏁',
+    description: 'Raih Rank S pada seluruh 12 level utama Starlight Stray!',
+    rewardFish: 40,
+    stampColor: '#ff8cb8'
+  },
+  // --- Fish, Daily Missions, Cosmetics & Squad (6) ---
+  {
+    id: 'fish-collector',
+    name: 'Pemancing Malam',
+    subtitle: '50 Ikan Emas',
+    icon: '🐟',
+    description: 'Kumpulkan total 50 Ikan Emas sepanjang permainan.',
+    rewardFish: 10,
+    stampColor: '#ffd452'
+  },
+  {
+    id: 'fish-tycoon',
+    name: 'Sultan Ikan Emas',
+    subtitle: '150 Ikan Emas',
+    icon: '💰',
+    description: 'Kumpulkan total 150 Ikan Emas sepanjang permainan.',
+    rewardFish: 18,
+    stampColor: '#ffe466'
+  },
+  {
+    id: 'daily-helper',
+    name: 'Sahabat Harian',
+    subtitle: '3 Misi Harian',
+    icon: '📋',
+    description: 'Selesaikan total 3 Misi Harian (Daily Missions).',
+    rewardFish: 7,
+    stampColor: '#96f2cc'
+  },
+  {
+    id: 'daily-devotee',
+    name: 'Pejuang Misi Harian',
+    subtitle: '12 Misi Harian',
+    icon: '🎖️',
+    description: 'Selesaikan total 12 Misi Harian (Daily Missions).',
+    rewardFish: 18,
+    stampColor: '#ff9ec4'
+  },
+  {
+    id: 'wardrobe-curator',
+    name: 'Kurator Lemari',
+    subtitle: '15 Item Aksesoris',
+    icon: '🎀',
+    description: 'Miliki minimal 15 item aksesoris berbeda di lemari koleksimu.',
+    rewardFish: 18,
+    stampColor: '#e2b8ff'
+  },
+  {
+    id: 'all-friends',
+    name: 'Keluarga Lengkap',
+    subtitle: '13 Karakter Terbuka',
+    icon: '🐾',
+    description: 'Buka seluruh 13 karakter hewan di Starlight Stray!',
+    rewardFish: 30,
+    stampColor: '#ffe375'
   }
 ]

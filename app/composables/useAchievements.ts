@@ -76,6 +76,20 @@ export function countRankSLevels(progress: SaveProgress): number {
   return count
 }
 
+export function countThreeStarMainLevels(progress: SaveProgress): number {
+  let count = 0
+  for (let lvlId = 1; lvlId <= 12; lvlId++) {
+    if ((progress.levelRecords[lvlId]?.rating ?? 0) >= 3) count += 1
+  }
+  return count
+}
+
+const MAIN_BIOME_IDS: BiomeId[] = ['rooftops', 'sakura', 'cloudland', 'harbor', 'cavern', 'observatory']
+
+export function countVisitedMainBiomes(progress: SaveProgress): number {
+  return MAIN_BIOME_IDS.filter((b) => progress.visitedBiomes.includes(b)).length
+}
+
 export function getStampProgress(id: AchievementId, progress: SaveProgress): StampProgressInfo {
   switch (id) {
     case 'first-step': {
@@ -140,6 +154,99 @@ export function getStampProgress(id: AchievementId, progress: SaveProgress): Sta
       const done = (progress.levelRecords[14]?.rating ?? 0) >= 1 ? 1 : 0
       return { current: done, target: 1, label: done ? 'Chronos Tumbang!' : '0/1 Level 14' }
     }
+    case 'sakura-wanderer': {
+      const done = (progress.levelRecords[4]?.rating ?? 0) >= 1 ? 1 : 0
+      return { current: done, target: 1, label: done ? 'Tamat!' : '0/1 Level 4' }
+    }
+    case 'cloud-dancer': {
+      const done = (progress.levelRecords[6]?.rating ?? 0) >= 1 ? 1 : 0
+      return { current: done, target: 1, label: done ? 'Tamat!' : '0/1 Level 6' }
+    }
+    case 'harbor-keeper': {
+      const done = (progress.levelRecords[8]?.rating ?? 0) >= 1 ? 1 : 0
+      return { current: done, target: 1, label: done ? 'Tamat!' : '0/1 Level 8' }
+    }
+    case 'cavern-delver': {
+      const done = (progress.levelRecords[10]?.rating ?? 0) >= 1 ? 1 : 0
+      return { current: done, target: 1, label: done ? 'Tamat!' : '0/1 Level 10' }
+    }
+    case 'clockwork-master': {
+      const done = (progress.levelRecords[12]?.rating ?? 0) >= 1 ? 1 : 0
+      return { current: done, target: 1, label: done ? 'Tamat!' : '0/1 Level 12' }
+    }
+    case 'world-explorer': {
+      const n = countVisitedMainBiomes(progress)
+      return { current: n, target: 6, label: `${n}/6 Dunia` }
+    }
+    case 'shard-hunter-12': {
+      const total = Math.min(12, countTotalCollectedShards(progress))
+      return { current: total, target: 12, label: `${total}/12 Shard` }
+    }
+    case 'shard-master-36': {
+      const total = Math.min(36, countTotalCollectedShards(progress))
+      return { current: total, target: 36, label: `${total}/36 Shard` }
+    }
+    case 'perfect-stars': {
+      const n = Math.min(1, countThreeStarMainLevels(progress))
+      return { current: n, target: 1, label: n ? 'Tercapai!' : '0/1 Level 3⭐' }
+    }
+    case 'star-virtuoso': {
+      const n = Math.min(6, countThreeStarMainLevels(progress))
+      return { current: n, target: 6, label: `${n}/6 Level 3⭐` }
+    }
+    case 'celestial-perfection': {
+      const n = Math.min(12, countThreeStarMainLevels(progress))
+      return { current: n, target: 12, label: `${n}/12 Level 3⭐` }
+    }
+    case 'high-scorer': {
+      const s = Math.min(5000, progress.highScore)
+      return { current: s, target: 5000, label: `${s}/5000 Poin` }
+    }
+    case 'dash-novice': {
+      const d = Math.min(50, progress.totalDashes)
+      return { current: d, target: 50, label: `${d}/50 Dash` }
+    }
+    case 'dash-master': {
+      const d = Math.min(200, progress.totalDashes)
+      return { current: d, target: 200, label: `${d}/200 Dash` }
+    }
+    case 'peaceful-sage': {
+      const c = Math.min(5, progress.pacifistClears)
+      return { current: c, target: 5, label: `${c}/5 Level Damai` }
+    }
+    case 'rank-s-first': {
+      const n = Math.min(1, countRankSLevels(progress))
+      return { current: n, target: 1, label: n ? 'Tercapai!' : '0/1 Rank S' }
+    }
+    case 'grand-speedrunner': {
+      const n = Math.min(12, countRankSLevels(progress))
+      return { current: n, target: 12, label: `${n}/12 Rank S` }
+    }
+    case 'fish-collector': {
+      const f = Math.min(50, progress.totalFishEarned)
+      return { current: f, target: 50, label: `${f}/50 Ikan` }
+    }
+    case 'fish-tycoon': {
+      const f = Math.min(150, progress.totalFishEarned)
+      return { current: f, target: 150, label: `${f}/150 Ikan` }
+    }
+    case 'daily-helper': {
+      const m = Math.min(3, progress.totalDailyMissionsCompleted ?? 0)
+      return { current: m, target: 3, label: `${m}/3 Misi Harian` }
+    }
+    case 'daily-devotee': {
+      const m = Math.min(12, progress.totalDailyMissionsCompleted ?? 0)
+      return { current: m, target: 12, label: `${m}/12 Misi Harian` }
+    }
+    case 'wardrobe-curator': {
+      const owned = Math.min(15, countOwnedCosmeticItems(progress))
+      return { current: owned, target: 15, label: `${owned}/15 Aksesoris` }
+    }
+    case 'all-friends': {
+      const totalChars = CHARACTERS.length
+      const unlocked = Math.min(totalChars, progress.unlockedCharacters.length)
+      return { current: unlocked, target: totalChars, label: `${unlocked}/${totalChars} Hewan` }
+    }
     default:
       return { current: 0, target: 1, label: '0/1' }
   }
@@ -152,21 +259,49 @@ export function getStampProgress(id: AchievementId, progress: SaveProgress): Sta
 export function evaluateStampAchievements(progress: SaveProgress): AchievementDef[] {
   const newlyUnlocked: AchievementDef[] = []
   const has = (id: AchievementId) => progress.unlockedAchievements.includes(id)
+  const totalShards = countTotalCollectedShards(progress)
+  const totalSRanks = countRankSLevels(progress)
+  const threeStarCount = countThreeStarMainLevels(progress)
+  const ownedCosmetics = countOwnedCosmeticItems(progress)
+  const dailyDone = progress.totalDailyMissionsCompleted ?? 0
 
-  const checks: Record<string, boolean> = {
+  const checks: Record<AchievementId, boolean> = {
     'first-step': (progress.levelRecords[1]?.rating ?? 0) >= 1,
     'rooftop-sprinter': typeof progress.bestTimes[1] === 'number' && progress.bestTimes[1]! > 0 && progress.bestTimes[1]! < 75000,
     'biome-explorer': hasAnyFullShardLevel(progress),
-    'starlight-collector': countTotalCollectedShards(progress) >= 24,
-    'fashionista-stray': countOwnedCosmeticItems(progress) >= 5,
+    'starlight-collector': totalShards >= 24,
+    'fashionista-stray': ownedCosmetics >= 5,
     'full-squad': countUnlockedSpecies(progress) >= 4,
     'pacifist-run': progress.pacifistClears >= 1,
     'nine-lives': progress.totalFalls >= 9,
     'swift-paws': countRankAOrSLevels(progress) >= 8,
-    'starlight-speedster': countRankSLevels(progress) >= 4,
-    'lightning-stray': countRankSLevels(progress) >= 8,
+    'starlight-speedster': totalSRanks >= 4,
+    'lightning-stray': totalSRanks >= 8,
     'eclipse-conqueror': (progress.levelRecords[13]?.rating ?? 0) >= 1,
-    'starlight-legend': (progress.levelRecords[14]?.rating ?? 0) >= 1
+    'starlight-legend': (progress.levelRecords[14]?.rating ?? 0) >= 1,
+    'sakura-wanderer': (progress.levelRecords[4]?.rating ?? 0) >= 1,
+    'cloud-dancer': (progress.levelRecords[6]?.rating ?? 0) >= 1,
+    'harbor-keeper': (progress.levelRecords[8]?.rating ?? 0) >= 1,
+    'cavern-delver': (progress.levelRecords[10]?.rating ?? 0) >= 1,
+    'clockwork-master': (progress.levelRecords[12]?.rating ?? 0) >= 1,
+    'world-explorer': countVisitedMainBiomes(progress) >= 6,
+    'shard-hunter-12': totalShards >= 12,
+    'shard-master-36': totalShards >= 36,
+    'perfect-stars': threeStarCount >= 1,
+    'star-virtuoso': threeStarCount >= 6,
+    'celestial-perfection': threeStarCount >= 12,
+    'high-scorer': progress.highScore >= 5000,
+    'dash-novice': progress.totalDashes >= 50,
+    'dash-master': progress.totalDashes >= 200,
+    'peaceful-sage': progress.pacifistClears >= 5,
+    'rank-s-first': totalSRanks >= 1,
+    'grand-speedrunner': totalSRanks >= 12,
+    'fish-collector': progress.totalFishEarned >= 50,
+    'fish-tycoon': progress.totalFishEarned >= 150,
+    'daily-helper': dailyDone >= 3,
+    'daily-devotee': dailyDone >= 12,
+    'wardrobe-curator': ownedCosmetics >= 15,
+    'all-friends': progress.unlockedCharacters.length >= CHARACTERS.length
   }
 
   for (const def of ACHIEVEMENTS) {

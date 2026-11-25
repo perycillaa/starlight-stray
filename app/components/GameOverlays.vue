@@ -76,6 +76,7 @@ const emit = defineEmits<{
   (e: 'openPhotoStudio'): void
   (e: 'openGuidebook'): void
   (e: 'openSettings'): void
+  (e: 'closeSettings'): void
   (e: 'openTitle'): void
   (e: 'openEnding'): void
   (e: 'selectLevel', id: number): void
@@ -117,7 +118,7 @@ const emit = defineEmits<{
 
 type ShopTab = 'scarf' | 'hat' | 'cape' | 'head_acc' | 'face'
 const activeShopTab = ref<ShopTab>('scarf')
-const activeGuideTab = ref<'items' | 'boss' | 'worlds'>('items')
+const activeGuideTab = ref<'items' | 'boss' | 'animals' | 'worlds'>('items')
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const confirmReset = ref(false)
 const cloudCodeDraft = ref('')
@@ -2193,11 +2194,21 @@ function handleFileChange(e: Event) {
           type="button"
           role="tab"
           class="shop-tab-btn"
+          :class="{ 'shop-tab-btn--active': activeGuideTab === 'animals' }"
+          :aria-selected="activeGuideTab === 'animals'"
+          @click="activeGuideTab = 'animals'"
+        >
+          🐾 13 Pasif Hewan
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="shop-tab-btn"
           :class="{ 'shop-tab-btn--active': activeGuideTab === 'worlds' }"
           :aria-selected="activeGuideTab === 'worlds'"
           @click="activeGuideTab = 'worlds'"
         >
-          🐾 13 Pasif Hewan &amp; Dunia
+          🌍 Dunia &amp; Mekanik Map
         </button>
       </div>
 
@@ -2270,8 +2281,8 @@ function handleFileChange(e: Event) {
         </div>
       </div>
 
-      <!-- TAB 3: ALL 13 INDIVIDUAL CHARACTER PASSIVES + 6 SPECIAL MISSIONS + BIOME MECHANICS -->
-      <div v-else class="guide-worlds-scroll">
+      <!-- TAB 3: ALL 13 INDIVIDUAL CHARACTER PASSIVES (6 SPECIAL + 7 REGULAR) -->
+      <div v-else-if="activeGuideTab === 'animals'" class="guide-worlds-scroll">
         <div class="section-heading section-heading--special">
           <span>⭐ KEMAMPUAN SPESIAL 6 KARAKTER MISI (BUKAN DIBELI IKAN)</span>
           <span class="section-sub">Kemampuan multi-efek istimewa &amp; berbeda-beda!</span>
@@ -2305,6 +2316,22 @@ function handleFileChange(e: Event) {
             <p class="guide-item-desc">{{ ch.perkDetail || ch.perkDesc }}</p>
           </div>
         </div>
+      </div>
+
+      <!-- TAB 4: WORLDS, BIOME MECHANICS & RARE NIGHT EVENTS -->
+      <div v-else class="guide-worlds-scroll">
+        <div class="section-heading">
+          <span>🌍 PIJAKAN KHUSUS, MUSUH &amp; ITEM EKSKLUSIF PER DUNIA (8 MAP)</span>
+          <span class="section-sub">⭐ Kombo Bintang &lt; 2.5 dtk = x2–x5!</span>
+        </div>
+        <div class="guide-world-grid">
+          <div v-for="w in GUIDE_WORLDS" :key="w.name" class="guide-world-card">
+            <div class="guide-world-title">{{ w.icon }} {{ w.name }}</div>
+            <div class="guide-world-line"><strong>Pijakan:</strong> {{ w.platform }}</div>
+            <div class="guide-world-line"><strong>Rintangan:</strong> {{ w.hazards }}</div>
+            <div class="guide-world-line"><strong>Rahasia &amp; Item:</strong> {{ w.secret }}</div>
+          </div>
+        </div>
 
         <div class="section-heading">
           <span>🔔 LONCENG BINTANG &amp; 🌠 PERISTIWA LANGIT MALAM</span>
@@ -2318,19 +2345,6 @@ function handleFileChange(e: Event) {
           <div class="guide-world-card">
             <div class="guide-world-title">🌠 Peristiwa Langit Malam Langka (25%)</div>
             <p class="guide-item-desc"><strong>Hujan Bintang Jatuh:</strong> Bintang bonus (+25 poin) turun perlahan selama 15 detik. <strong>Bulan Purnama Merah Muda:</strong> Langit pastel merah muda + bonus skor <strong>+25%</strong> semua bintang!</p>
-          </div>
-        </div>
-
-        <div class="section-heading">
-          <span>🌍 PIJAKAN KHUSUS, MUSUH &amp; ITEM EKSKLUSIF PER DUNIA (8 MAP)</span>
-          <span class="section-sub">⭐ Kombo Bintang &lt; 2.5 dtk = x2–x5!</span>
-        </div>
-        <div class="guide-world-grid">
-          <div v-for="w in GUIDE_WORLDS" :key="w.name" class="guide-world-card">
-            <div class="guide-world-title">{{ w.icon }} {{ w.name }}</div>
-            <div class="guide-world-line"><strong>Pijakan:</strong> {{ w.platform }}</div>
-            <div class="guide-world-line"><strong>Rintangan:</strong> {{ w.hazards }}</div>
-            <div class="guide-world-line"><strong>Rahasia &amp; Item:</strong> {{ w.secret }}</div>
           </div>
         </div>
       </div>
@@ -2748,8 +2762,13 @@ function handleFileChange(e: Event) {
         </div>
       </div>
 
-      <div class="modal-footer">
-        <button type="button" class="pixel-btn" @click="$emit('openTitle')">◀ Kembali</button>
+      <div class="modal-footer" :class="{ 'modal-footer--between': hud.settingsFromPause }">
+        <button type="button" class="pixel-btn pixel-btn--secondary" @click="$emit('closeSettings')">
+          {{ hud.settingsFromPause ? '◀ Kembali ke Jeda' : '◀ Kembali' }}
+        </button>
+        <button v-if="hud.settingsFromPause" type="button" class="pixel-btn" @click="$emit('resume')">
+          ▶ Lanjutkan Main
+        </button>
       </div>
     </div>
   </div>
@@ -2790,6 +2809,7 @@ function handleFileChange(e: Event) {
 
       <div class="menu-actions">
         <button type="button" class="pixel-btn" @click="$emit('resume')">▶ Lanjutkan</button>
+        <button type="button" class="pixel-btn pixel-btn--secondary" @click="$emit('openSettings')">⚙️ Pengaturan</button>
         <button type="button" class="pixel-btn pixel-btn--secondary" @click="$emit('openPhotoMode')">📸 Photo Mode</button>
         <button type="button" class="pixel-btn pixel-btn--secondary" @click="$emit('restart')">↺ Ulangi Level</button>
         <button type="button" class="pixel-btn pixel-btn--secondary" @click="$emit('openLevelSelect')">🗺️ Pilih Level</button>

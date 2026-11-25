@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { ACHIEVEMENTS } from '~/game/achievements'
 import { countRankSLevels, countTotalCollectedShards, getStampProgress } from '~/composables/useAchievements'
 import type { AchievementId, SaveProgress } from '~/game/types'
@@ -11,6 +11,8 @@ const props = defineProps<{
 defineEmits<{
   (e: 'close'): void
 }>()
+
+const activeFilter = ref<'all' | 'unlocked' | 'locked'>('all')
 
 const stampEntries = computed(() =>
   ACHIEVEMENTS.map((def) => {
@@ -24,6 +26,12 @@ const stampEntries = computed(() =>
     }
   })
 )
+
+const filteredStamps = computed(() => {
+  if (activeFilter.value === 'unlocked') return stampEntries.value.filter((s) => s.unlocked)
+  if (activeFilter.value === 'locked') return stampEntries.value.filter((s) => !s.unlocked)
+  return stampEntries.value
+})
 
 const unlockedCount = computed(() => stampEntries.value.filter((s) => s.unlocked).length)
 const totalShards = computed(() => countTotalCollectedShards(props.progress))
@@ -69,8 +77,36 @@ function getStampSvgPath(id: AchievementId): string {
         </div>
         <div class="stampbook-counters">
           <span class="stamp-chip">🏆 {{ unlockedCount }}/{{ stampEntries.length }}</span>
-          <span class="stamp-chip stamp-chip--shard">💎 {{ totalShards }}/24</span>
+          <span class="stamp-chip stamp-chip--shard">💎 {{ totalShards }}/36</span>
         </div>
+      </div>
+
+      <!-- Filter Pills for Easy Browsing across all 36 Achievements -->
+      <div class="stamp-filter-row" role="tablist" aria-label="Filter Pencapaian">
+        <button
+          type="button"
+          class="stamp-filter-btn"
+          :class="{ 'stamp-filter-btn--active': activeFilter === 'all' }"
+          @click="activeFilter = 'all'"
+        >
+          Semua ({{ stampEntries.length }})
+        </button>
+        <button
+          type="button"
+          class="stamp-filter-btn"
+          :class="{ 'stamp-filter-btn--active': activeFilter === 'unlocked' }"
+          @click="activeFilter = 'unlocked'"
+        >
+          ✓ Tercapai ({{ unlockedCount }})
+        </button>
+        <button
+          type="button"
+          class="stamp-filter-btn"
+          :class="{ 'stamp-filter-btn--active': activeFilter === 'locked' }"
+          @click="activeFilter = 'locked'"
+        >
+          🔒 Belum ({{ stampEntries.length - unlockedCount }})
+        </button>
       </div>
 
       <!-- Notebook Binding Dots -->
@@ -80,7 +116,7 @@ function getStampSvgPath(id: AchievementId): string {
 
       <div class="stamp-grid">
         <div
-          v-for="st in stampEntries"
+          v-for="st in filteredStamps"
           :key="st.id"
           class="stamp-card"
           :class="{ 'stamp-card--unlocked': st.unlocked }"
@@ -97,7 +133,7 @@ function getStampSvgPath(id: AchievementId): string {
 
           <div class="stamp-body">
             <div class="stamp-head">
-              <span class="stamp-name">{{ st.name }}</span>
+              <span class="stamp-name">{{ st.icon }} {{ st.name }}</span>
               <span class="stamp-reward" :class="{ 'stamp-reward--claimed': st.unlocked }">
                 {{ st.unlocked ? `✓ +${st.rewardFish}🐟` : `+${st.rewardFish}🐟` }}
                 <template v-if="st.rewardCosmeticLabel"> + {{ st.rewardCosmeticLabel }}</template>
@@ -118,9 +154,9 @@ function getStampSvgPath(id: AchievementId): string {
       </div>
 
       <div class="stampbook-stats">
-        <span>💎 Shard: {{ totalShards }}/24</span>
+        <span>💎 Shard: {{ totalShards }}/36</span>
         <span>•</span>
-        <span>⚡ Rank S: {{ totalSRanks }}/8</span>
+        <span>⚡ Rank S: {{ totalSRanks }}/12</span>
         <span>•</span>
         <span>🐟 Ikan: {{ progress.totalFishEarned }}</span>
         <span>•</span>
@@ -238,12 +274,36 @@ function getStampSvgPath(id: AchievementId): string {
   background: rgba(255, 224, 150, 0.45);
 }
 
+.stamp-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stamp-filter-btn {
+  padding: 4px 9px;
+  font-family: inherit;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #e2cef2;
+  background: rgba(24, 11, 38, 0.78);
+  border: 2px solid #5f4280;
+  cursor: pointer;
+}
+
+.stamp-filter-btn--active {
+  color: #210e30;
+  background: #ffd873;
+  border-color: #fff2b0;
+}
+
 .stamp-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
   max-height: 245px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 3px;
 }
 
@@ -273,6 +333,8 @@ function getStampSvgPath(id: AchievementId): string {
   background: rgba(34, 19, 52, 0.86);
   border: 2px dashed #6b4b8a;
   opacity: 0.78;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .stamp-card--unlocked {
@@ -316,25 +378,29 @@ function getStampSvgPath(id: AchievementId): string {
 
 .stamp-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 5px;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .stamp-name {
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
   color: #ffffff;
+  word-break: break-word;
 }
 
 .stamp-reward {
-  font-size: 8px;
+  font-size: 7.5px;
   font-weight: 700;
   padding: 1px 5px;
   background: rgba(255, 216, 115, 0.14);
   border: 1px solid rgba(255, 216, 115, 0.55);
   color: #ffe375;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 100%;
+  word-break: break-word;
 }
 
 .stamp-reward--claimed {

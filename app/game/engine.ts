@@ -237,6 +237,7 @@ export class MoonpawGameEngine {
   private toastTimer = 0
 
   private screen: GameScreen = 'title'
+  private settingsReturnScreen: 'title' | 'paused' = 'title'
   private currentLevelIdx = 0
   private level: LevelDefinition = LEVELS[0]!
 
@@ -554,7 +555,7 @@ export class MoonpawGameEngine {
       this.screen === 'achievements' ||
       this.screen === 'photoStudio' ||
       this.screen === 'guidebook' ||
-      this.screen === 'settings' ||
+      (this.screen === 'settings' && this.settingsReturnScreen !== 'paused') ||
       this.screen === 'victory'
 
     // In ultrawide landscape, keep full wide canvas even on Lobby/menus (zero black bars!).
@@ -1237,6 +1238,7 @@ export class MoonpawGameEngine {
   }
 
   public openTitle(): void {
+    this.settingsReturnScreen = 'title'
     this.audio.playUiClick()
     this.audio.setBgmMode('normal')
     this.audio.setBgmBiome('rooftops')
@@ -1355,10 +1357,27 @@ export class MoonpawGameEngine {
   public openSettings(): void {
     this.audio.unlock()
     this.audio.playUiClick()
-    this.audio.setBgmMode('normal')
+    if (this.screen === 'paused' || this.screen === 'playing') {
+      this.settingsReturnScreen = 'paused'
+    } else {
+      this.settingsReturnScreen = 'title'
+      this.audio.setBgmMode('normal')
+    }
     this.screen = 'settings'
     this.clearAllInputs()
     this.emitHud()
+  }
+
+  public closeSettings(): void {
+    this.audio.playUiClick()
+    if (this.settingsReturnScreen === 'paused') {
+      this.settingsReturnScreen = 'title'
+      this.screen = 'paused'
+      this.clearAllInputs()
+      this.emitHud()
+    } else {
+      this.openTitle()
+    }
   }
 
   public selectCharacter(id: CharacterId): void {
@@ -1620,8 +1639,13 @@ export class MoonpawGameEngine {
       this.clearAllInputs()
       this.audio.playUiClick()
       this.emitHud()
-    } else if (this.screen === 'paused') {
+    } else if (
+      this.screen === 'paused' ||
+      (this.screen === 'settings' && this.settingsReturnScreen === 'paused')
+    ) {
+      this.settingsReturnScreen = 'title'
       this.screen = 'playing'
+      this.clearAllInputs()
       this.audio.playUiClick()
       this.emitHud()
     }
@@ -2342,14 +2366,16 @@ export class MoonpawGameEngine {
       } else if (this.screen === 'playing' || this.screen === 'paused') {
         e.preventDefault()
         this.togglePause()
+      } else if (this.screen === 'settings') {
+        e.preventDefault()
+        this.closeSettings()
       } else if (
         this.screen === 'levelSelect' ||
         this.screen === 'characters' ||
         this.screen === 'shop' ||
         this.screen === 'achievements' ||
         this.screen === 'photoStudio' ||
-        this.screen === 'guidebook' ||
-        this.screen === 'settings'
+        this.screen === 'guidebook'
       ) {
         e.preventDefault()
         this.openTitle()
@@ -5489,7 +5515,7 @@ export class MoonpawGameEngine {
       this.screen === 'achievements' ||
       this.screen === 'photoStudio' ||
       this.screen === 'guidebook' ||
-      this.screen === 'settings'
+      (this.screen === 'settings' && this.settingsReturnScreen !== 'paused')
 
     if (isHomeMenuScreen) {
       this.renderHomeCampScene(ctx)
@@ -8632,7 +8658,7 @@ export class MoonpawGameEngine {
       this.screen === 'shop' ||
       this.screen === 'levelSelect' ||
       this.screen === 'achievements' ||
-      this.screen === 'settings'
+      (this.screen === 'settings' && this.settingsReturnScreen !== 'paused')
     ) {
       if (this.screen === 'title' && this.campReaction === 'hop') {
         sprite = dirBank.jumpUp
@@ -8672,7 +8698,7 @@ export class MoonpawGameEngine {
       this.screen === 'achievements' ||
       this.screen === 'photoStudio' ||
       this.screen === 'guidebook' ||
-      this.screen === 'settings'
+      (this.screen === 'settings' && this.settingsReturnScreen !== 'paused')
     const isGiant = p.mooncakeTimer > 0 && this.screen === 'playing'
     const drawSize = isHomeStage ? 40 : isGiant ? Math.round(24 * 1.35) : 24
     const campLift = this.screen === 'title' ? this.campHopOffset : this.screen === 'photoMode' && this.photoModePose === 'happyHop' ? 5 : 0
@@ -9006,6 +9032,7 @@ export class MoonpawGameEngine {
           : Math.max(0, Math.min(1, 1 - this.player.lunarMendCooldown / LUNAR_MEND_COOLDOWN)),
       mendUsesLeft: this.player.lunarMendUsesLeft,
       hurtPulseCount: this.hurtPulseCount,
+      settingsFromPause: this.screen === 'settings' && this.settingsReturnScreen === 'paused',
       recentToast: this.recentToast,
       autoSavePulse: this.autoSavePulse
     })
