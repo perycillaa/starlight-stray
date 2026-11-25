@@ -316,7 +316,7 @@ export const LEVELS: LevelDefinition[] = [
       { x: 228, y: 152, w: 160, h: 80, style: 'sakura' },
       { x: 444, y: 136, w: 144, h: 96, style: 'sakura' },
       { x: 644, y: 156, w: 192, h: 76, style: 'sakura' },
-      { x: 704, y: 92, w: 80, h: 16, style: 'sakura' },
+      { x: 704, y: 96, w: 80, h: 16, style: 'sakura' },
       // Act 2: Fragile Branches + Wind Vortex + Secret 1
       { x: 896, y: 148, w: 160, h: 84, style: 'sakura' },
       { x: 1228, y: 138, w: 192, h: 94, style: 'sakura' },
@@ -348,12 +348,12 @@ export const LEVELS: LevelDefinition[] = [
     ],
     starRingBell: { x: 1568, y: 128 },
     shards: [
-      { index: 0, x: 738, y: 72 },
+      { index: 0, x: 738, y: 76 },
       { index: 1, x: 1344, y: 118 },
       { index: 2, x: 2028, y: 100 }
     ],
     secretAlcoves: [
-      { x: 708, y: 64, w: 72, h: 28, kind: 'canopy' },
+      { x: 708, y: 68, w: 72, h: 28, kind: 'canopy' },
       { x: 2124, y: 50, w: 72, h: 28, kind: 'canopy' }
     ],
     hedgehogs: [
@@ -378,7 +378,7 @@ export const LEVELS: LevelDefinition[] = [
       { x: 404, y: 112, kind: 'star' },
       { x: 504, y: 108, kind: 'fish' },
       { x: 610, y: 118, kind: 'star' },
-      { x: 736, y: 72, kind: 'fish' }, // Secret 1!
+      { x: 736, y: 76, kind: 'fish' }, // Secret 1!
       { x: 862, y: 120, kind: 'star' },
       { x: 1004, y: 122, kind: 'star' },
       { x: 1106, y: 116, kind: 'star' },
@@ -449,7 +449,7 @@ export const LEVELS: LevelDefinition[] = [
       { x: 1896, y: 138, w: 160, h: 94, style: 'sakura' },
       // Act 3
       { x: 2132, y: 152, w: 176, h: 80, style: 'sakura' },
-      { x: 2180, y: 86, w: 72, h: 16, style: 'sakura' },
+      { x: 2180, y: 90, w: 72, h: 16, style: 'sakura' },
       { x: 2496, y: 136, w: 160, h: 96, style: 'sakura' },
       { x: 2800, y: 138, w: 160, h: 94, style: 'sakura' }
     ],
@@ -482,7 +482,7 @@ export const LEVELS: LevelDefinition[] = [
     ],
     secretAlcoves: [
       { x: 1344, y: 46, w: 72, h: 28, kind: 'canopy' },
-      { x: 2180, y: 58, w: 72, h: 28, kind: 'canopy' }
+      { x: 2180, y: 62, w: 72, h: 28, kind: 'canopy' }
     ],
     hedgehogs: [
       { x: 492, y: 144, minX: 448, maxX: 572, speed: 42 },
@@ -518,7 +518,7 @@ export const LEVELS: LevelDefinition[] = [
       { x: 1776, y: 118, kind: 'star' },
       { x: 1848, y: 114, kind: 'star' },
       { x: 2004, y: 112, kind: 'fish' },
-      { x: 2208, y: 66, kind: 'bigStar' }, // Secret 2!
+      { x: 2208, y: 70, kind: 'bigStar' }, // Secret 2!
       { x: 2360, y: 116, kind: 'star' },
       { x: 2436, y: 112, kind: 'star' },
       { x: 2576, y: 106, kind: 'star' },

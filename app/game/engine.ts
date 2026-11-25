@@ -111,8 +111,8 @@ const MOCHI_DURATION = 8.0
 const CANDY_DURATION = 7.0
 const PEARL_DURATION = 10.0
 const PEARL_FISH_RADIUS = 96
-const JUMP_VY = -218
-const DOUBLE_JUMP_VY = -196
+const JUMP_VY = -224
+const DOUBLE_JUMP_VY = -208
 const BOUNCE_CLOUD_VY = -302
 const WIRE_BOUNCE_VY = -286
 const STAR_COMBO_WINDOW = 2.5
@@ -6109,22 +6109,88 @@ export class MoonpawGameEngine {
 
   private renderWindVortices(ctx: CanvasRenderingContext2D, camX: number): void {
     if (!this.level.windVortices) return
+    const isModern = this.isModern
     for (const wv of this.level.windVortices) {
-      if (wv.x + wv.w < camX - 20 || wv.x > camX + this.viewW + 20) continue
+      if (wv.x + wv.w < camX - 24 || wv.x > camX + this.viewW + 24) continue
       const wx = Math.round(wv.x)
       const wy = Math.round(wv.y)
-      // Soft swirling pink sakura wind streaks
-      ctx.fillStyle = 'rgba(255, 186, 222, 0.14)'
-      ctx.fillRect(wx, wy, wv.w, wv.h)
-      for (let i = 0; i < 6; i++) {
-        const prog = ((this.worldTime * 0.9 + i * 0.17) % 1)
-        const dir = wv.pushX < 0 ? -1 : 1
-        const sx = Math.round(dir < 0 ? wx + wv.w - prog * wv.w : wx + prog * wv.w)
-        const sy = Math.round(wy + 8 + ((i * 11) % Math.max(12, wv.h - 14)) + Math.sin(this.worldTime * 4 + i) * 3)
-        ctx.fillStyle = i % 2 === 0 ? '#ffc7e3' : '#fff0f7'
-        ctx.fillRect(sx, sy, 6, 1)
-        ctx.fillRect(sx + 2, sy + 2, 2, 2)
+      const dir = wv.pushX < 0 ? -1 : 1
+
+      // Soft feathered breeze air shimmer (zero harsh rectangular box!)
+      if (isModern) {
+        const cx = wx + wv.w * 0.5
+        const cy = wy + wv.h * 0.5
+        const rad = Math.max(wv.w, wv.h) * 0.52
+        this.drawCircularGlow(
+          ctx,
+          cx,
+          cy,
+          rad,
+          'rgba(255, 206, 232, 0.09)',
+          'rgba(216, 188, 255, 0.04)',
+          'rgba(216, 188, 255, 0)'
+        )
       }
+
+      // Flowing curved pixel wind ribbons sweeping smoothly in the push direction
+      const ribbonCount = 5
+      for (let i = 0; i < ribbonCount; i++) {
+        const speed = 0.72 + (i % 3) * 0.14
+        const prog = (this.worldTime * speed + i * 0.21) % 1
+        // Smooth fade-in and fade-out at both ends of the gust (no hard clipping edge)
+        const edgeFade = Math.sin(prog * Math.PI)
+        if (edgeFade <= 0.05) continue
+
+        const headX = dir < 0 ? wx + wv.w - prog * wv.w : wx + prog * wv.w
+        const laneRatio = (i + 0.5) / ribbonCount
+        const baseY = wy + 6 + laneRatio * Math.max(12, wv.h - 12)
+        const ribbonLen = 14 + (i % 2) * 5
+
+        ctx.globalAlpha = Number((edgeFade * (isModern ? 0.62 : 0.72)).toFixed(2))
+        ctx.fillStyle = i % 2 === 0 ? '#ffdcf0' : '#dceeff'
+        for (let seg = 0; seg < ribbonLen; seg += 2) {
+          const sx = Math.round(headX - dir * seg)
+          const wave = Math.sin(this.worldTime * 5.2 + i * 1.4 - seg * 0.28) * 2.2
+          // Subtle upward curl at the leading tip of each wind gust
+          const curl = seg < 4 ? -Math.round((4 - seg) * 0.45) : 0
+          const sy = Math.round(baseY + wave + curl)
+          ctx.fillRect(sx, sy, 2, 1)
+        }
+        // Tiny pixel swirl curl dot at the trailing edge
+        const curlX = Math.round(headX - dir * (ribbonLen + 1))
+        const curlY = Math.round(
+          baseY + Math.sin(this.worldTime * 5.2 + i * 1.4 - ribbonLen * 0.28) * 2.2 - 1
+        )
+        ctx.fillRect(curlX, curlY, 1, 1)
+      }
+
+      // Organic drifting sakura petals tumbling softly inside the breeze
+      const petalCount = 7
+      for (let i = 0; i < petalCount; i++) {
+        const prog = (this.worldTime * (0.58 + (i % 3) * 0.12) + i * 0.145) % 1
+        const edgeFade = Math.sin(prog * Math.PI)
+        if (edgeFade <= 0.06) continue
+
+        const px = Math.round(dir < 0 ? wx + wv.w - prog * wv.w : wx + prog * wv.w)
+        const py = Math.round(
+          wy +
+            5 +
+            (((i * 17 + 7) % Math.max(14, wv.h - 10))) +
+            Math.sin(this.worldTime * 4.4 + i * 1.9) * 3.2
+        )
+        const tilt = Math.floor(this.worldTime * 5 + i) % 2 === 0
+        ctx.globalAlpha = Number((edgeFade * 0.92).toFixed(2))
+        ctx.fillStyle = i % 3 === 0 ? '#fff2f8' : i % 3 === 1 ? '#ffc2e0' : '#ff9bc9'
+        if (tilt) {
+          ctx.fillRect(px, py, 2, 1)
+          ctx.fillRect(px + 1, py + 1, 2, 1)
+        } else {
+          ctx.fillRect(px + 1, py, 2, 1)
+          ctx.fillRect(px, py + 1, 2, 1)
+        }
+      }
+
+      ctx.globalAlpha = 1
     }
   }
 
