@@ -31,7 +31,10 @@ import type {
   SpeedrunRank,
   TimeTrialMedal,
   TimeTrialRecord,
-  TouchControlsMode
+  TouchControlsMode,
+  TouchLayoutConfig,
+  TouchZoneId,
+  TouchZoneLayout
 } from './types'
 
 export const STORAGE_KEY = 'starlight_stray_save_v1'
@@ -100,6 +103,66 @@ function clamp01(val: unknown, fallback: number): number {
   return Math.max(0, Math.min(1, num))
 }
 
+function clampRange(val: unknown, min: number, max: number, fallback: number): number {
+  const num = Number(val)
+  if (!Number.isFinite(num)) return fallback
+  return Math.max(min, Math.min(max, num))
+}
+
+export function createDefaultTouchLayout(): TouchLayoutConfig {
+  return {
+    opacity: 0.65,
+    joystickRadius: 56,
+    joystickDeadzone: 12,
+    zones: {
+      joystick: { xPct: 19, yPct: 70, scale: 1.0 },
+      jump: { xPct: 87, yPct: 81, scale: 1.0 },
+      dash: { xPct: 70, yPct: 85, scale: 1.0 },
+      pulse: { xPct: 73, yPct: 60, scale: 1.0 },
+      aegis: { xPct: 88, yPct: 56, scale: 1.0 }
+    }
+  }
+}
+
+export function sanitizeTouchLayout(raw: unknown): TouchLayoutConfig {
+  const def = createDefaultTouchLayout()
+  if (!raw || typeof raw !== 'object') return def
+  const obj = raw as Partial<TouchLayoutConfig>
+  const rawZones = (obj.zones && typeof obj.zones === 'object' ? obj.zones : {}) as Partial<
+    Record<TouchZoneId, Partial<TouchZoneLayout>>
+  >
+  const fixZone = (id: TouchZoneId): TouchZoneLayout => {
+    const base = def.zones[id]
+    const z = rawZones[id]
+    return {
+      xPct: clampRange(z?.xPct, 6, 94, base.xPct),
+      yPct: clampRange(z?.yPct, 16, 92, base.yPct),
+      scale: clampRange(z?.scale, 0.7, 1.5, base.scale)
+    }
+  }
+  return {
+    opacity: clamp01(obj.opacity, def.opacity),
+    joystickRadius: Math.round(clampRange(obj.joystickRadius, 40, 85, def.joystickRadius)),
+    joystickDeadzone: Math.round(clampRange(obj.joystickDeadzone, 8, 20, def.joystickDeadzone)),
+    zones: {
+      joystick: fixZone('joystick'),
+      jump: fixZone('jump'),
+      dash: fixZone('dash'),
+      pulse: fixZone('pulse'),
+      aegis: fixZone('aegis')
+    }
+  }
+}
+
+export function normalizeTouchControlsMode(raw: unknown): TouchControlsMode {
+  if (raw === 'invisible' || raw === 'translucent' || raw === 'visible' || raw === 'off') {
+    return raw
+  }
+  // Backward-compatible migration from legacy 'auto' / 'on' modes
+  if (raw === 'on') return 'translucent'
+  return 'invisible'
+}
+
 export function createDefaultSave(): SaveProgress {
   return {
     unlockedLevel: 1,
@@ -140,7 +203,8 @@ export function createDefaultSave(): SaveProgress {
     reduceMotion: true,
     showSpeedrunTimer: false,
     graphicsStyle: 'modern',
-    touchControlsMode: 'auto',
+    touchControlsMode: 'invisible',
+    touchLayout: createDefaultTouchLayout(),
     audio: {
       bgmVolume: 0.65,
       ambienceVolume: 0.65,
@@ -189,7 +253,8 @@ export function toCanonicalSavePayload(progress: SaveProgress): GameSavePayload 
       bgmVolume: sanitized.audio.bgmVolume,
       ambienceVolume: sanitized.audio.ambienceVolume,
       sfxVolume: sanitized.audio.sfxVolume,
-      touchControlsMode: sanitized.touchControlsMode
+      touchControlsMode: sanitized.touchControlsMode,
+      touchLayout: sanitizeTouchLayout(sanitized.touchLayout)
     }
   }
 }
@@ -548,8 +613,10 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
         : 'modern'
 
   const rawTouch = parsed.touchControlsMode ?? settingsObj?.touchControlsMode
-  const touchControlsMode: TouchControlsMode =
-    rawTouch === 'auto' || rawTouch === 'on' || rawTouch === 'off' ? rawTouch : 'auto'
+  const touchControlsMode: TouchControlsMode = normalizeTouchControlsMode(rawTouch)
+  const touchLayout: TouchLayoutConfig = sanitizeTouchLayout(
+    parsed.touchLayout ?? settingsObj?.touchLayout
+  )
 
   const muted =
     typeof parsed.muted === 'boolean'
@@ -623,6 +690,7 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
     showSpeedrunTimer,
     graphicsStyle,
     touchControlsMode,
+    touchLayout,
     audio: {
       bgmVolume: clamp01(parsed.audio?.bgmVolume ?? settingsObj?.bgmVolume, def.audio.bgmVolume),
       ambienceVolume: clamp01(parsed.audio?.ambienceVolume ?? settingsObj?.ambienceVolume, def.audio.ambienceVolume),

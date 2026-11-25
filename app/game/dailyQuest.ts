@@ -9,7 +9,7 @@ import type {
   TimeTrialMedal
 } from './types'
 
-export const ALL_DAILY_BONUS_FISH = 25
+export const ALL_DAILY_BONUS_FISH = 5
 
 export const DAILY_QUESTS: DailyQuestDef[] = [
   {
@@ -17,28 +17,28 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     title: 'Kumpulkan 15 Bintang di Hutan Sakura',
     icon: '🌸',
     target: 15,
-    rewardFish: 3
+    rewardFish: 2
   },
   {
     id: 'stars-rooftops',
     title: 'Kumpulkan 15 Bintang di Atap Kota',
     icon: '🏙️',
     target: 15,
-    rewardFish: 3
+    rewardFish: 2
   },
   {
     id: 'clear-2-levels',
     title: 'Selesaikan 2 Level mana saja',
     icon: '🏁',
     target: 2,
-    rewardFish: 4
+    rewardFish: 3
   },
   {
     id: 'no-hit-clear',
     title: 'Selesaikan 1 Level tanpa terkena rintangan',
     icon: '🛡️',
     target: 1,
-    rewardFish: 4
+    rewardFish: 3
   },
   {
     id: 'dash-10',
@@ -59,7 +59,7 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     title: 'Kumpulkan 20 Bintang di dunia mana saja',
     icon: '⭐',
     target: 20,
-    rewardFish: 3
+    rewardFish: 2
   },
   {
     id: 'powerup-3',
@@ -73,7 +73,7 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     title: 'Temukan 1 Starlight Shard tersembunyi',
     icon: '💎',
     target: 1,
-    rewardFish: 4
+    rewardFish: 3
   }
 ]
 

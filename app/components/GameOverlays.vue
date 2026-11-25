@@ -45,12 +45,14 @@ import type {
   HeadAccId,
   HudSnapshot,
   LevelDefinition,
+  PostcardEmoteId,
   PostcardPoseId,
   PowerUpKind,
   SaveProgress,
   ScarfColorId,
   TimeTrialMedal,
-  TouchControlsMode
+  TouchControlsMode,
+  TouchLayoutConfig
 } from '~/game/types'
 
 const props = defineProps<{
@@ -90,10 +92,14 @@ const emit = defineEmits<{
   (e: 'updateAudio', partial: Partial<AudioSettings>): void
   (e: 'setGraphicsStyle', style: GraphicsStyle): void
   (e: 'setTouchControlsMode', mode: TouchControlsMode): void
+  (e: 'setTouchLayout', nextLayout: TouchLayoutConfig): void
+  (e: 'openTouchEditor'): void
   (e: 'setShowSpeedrunTimer', enabled: boolean): void
   (e: 'setReduceMotion', enabled: boolean): void
   (e: 'cycleHomeBackdrop'): void
   (e: 'triggerCampReaction'): void
+  (e: 'dismissCelebration'): void
+  (e: 'equipCelebration', openStudio?: boolean): void
   (e: 'openPhotoMode'): void
   (e: 'exportJson'): void
   (e: 'importJson', text: string): void
@@ -336,21 +342,59 @@ const dailyQuestPct = computed(() =>
 const postcardCanvasRef = ref<HTMLCanvasElement | null>(null)
 const photoBiome = ref<BiomeId>('rooftops')
 const photoPose = ref<PostcardPoseId>('sit')
+const photoEmote = ref<PostcardEmoteId>('none')
 const photoStyle = ref<GraphicsStyle>('modern')
 const photoSavedNotice = ref('')
+
+const celebrationCharDef = computed(() =>
+  props.hud.celebrationCharId ? getCharacterById(props.hud.celebrationCharId) : null
+)
+
+const celebrationPreviewUrl = computed(() => {
+  if (!props.hud.celebrationCharId || typeof document === 'undefined') return ''
+  return getCharacterPreviewDataUrl(
+    props.hud.celebrationCharId,
+    props.progress.selectedScarf,
+    props.progress.selectedHat,
+    props.progress.selectedCape,
+    'right',
+    0,
+    props.progress.graphicsStyle,
+    props.progress.selectedHeadAcc,
+    props.progress.selectedFaceAcc
+  )
+})
 
 const PHOTO_BIOMES: { id: BiomeId; label: string }[] = [
   { id: 'rooftops', label: '🏙️ Atap Bulan' },
   { id: 'sakura', label: '🌸 Hutan Sakura' },
   { id: 'cloudland', label: '☁️ Negeri Awan' },
-  { id: 'harbor', label: '⚓ Dermaga' }
+  { id: 'harbor', label: '⚓ Dermaga' },
+  { id: 'cavern', label: '🍄 Gua Kristal' },
+  { id: 'observatory', label: '⚙️ Observatorium' },
+  { id: 'eclipse', label: '🌘 Kuil Gerhana' },
+  { id: 'citadel', label: '🌌 Inti Bintang' }
 ]
 
 const PHOTO_POSES: { id: PostcardPoseId; label: string }[] = [
   { id: 'sit', label: '🐾 Duduk Manis' },
   { id: 'jump', label: '✨ Melompat Ceria' },
   { id: 'sleep', label: '💤 Tidur Melingkar' },
-  { id: 'wave', label: '💖 Melambai' }
+  { id: 'wave', label: '💖 Melambai' },
+  { id: 'hero', label: '⚔️ Berdiri Gagah' },
+  { id: 'snack', label: '🍯 Makan Camilan' },
+  { id: 'peek', label: '👀 Mengintip Malu' },
+  { id: 'victory', label: '🏆 Pose Kemenangan' }
+]
+
+const PHOTO_EMOTES: { id: PostcardEmoteId; label: string }[] = [
+  { id: 'none', label: '∅ Polos' },
+  { id: 'heart', label: '♥ Heart' },
+  { id: 'star', label: '★ Star' },
+  { id: 'music', label: '♪ Musik' },
+  { id: 'sleep', label: 'zZz Ngantuk' },
+  { id: 'alert', label: '! Kaget' },
+  { id: 'sweat', label: '💧 Malu' }
 ]
 
 function redrawPostcard() {
@@ -358,6 +402,7 @@ function redrawPostcard() {
   renderPostcardPreview(postcardCanvasRef.value, {
     biome: photoBiome.value,
     pose: photoPose.value,
+    emote: photoEmote.value,
     style: photoStyle.value,
     characterId: props.progress.selectedCharacter,
     scarfId: props.progress.selectedScarf,
@@ -372,6 +417,7 @@ function handleDownloadPostcardHd() {
   const dataUrl = exportPostcardHdDataUrl({
     biome: photoBiome.value,
     pose: photoPose.value,
+    emote: photoEmote.value,
     style: photoStyle.value,
     characterId: props.progress.selectedCharacter,
     scarfId: props.progress.selectedScarf,
@@ -464,7 +510,20 @@ watch(
   }
 )
 
-watch([photoBiome, photoPose, photoStyle, () => props.progress.selectedCharacter, () => props.progress.selectedScarf, () => props.progress.selectedHat, () => props.progress.selectedCape, () => props.progress.selectedHeadAcc, () => props.progress.selectedFaceAcc], () => {
+watch(
+  [
+    photoBiome,
+    photoPose,
+    photoEmote,
+    photoStyle,
+    () => props.progress.selectedCharacter,
+    () => props.progress.selectedScarf,
+    () => props.progress.selectedHat,
+    () => props.progress.selectedCape,
+    () => props.progress.selectedHeadAcc,
+    () => props.progress.selectedFaceAcc
+  ],
+  () => {
   photoSavedNotice.value = ''
   nextTick(() => redrawPostcard())
 })
@@ -677,6 +736,15 @@ function getLevelTotal(lvl: LevelDefinition, kind: 'star' | 'fish'): number {
 function onVolumeInput(key: keyof AudioSettings, e: Event) {
   const raw = Number((e.target as HTMLInputElement).value)
   emit('updateAudio', { [key]: Math.max(0, Math.min(1, raw / 100)) })
+}
+
+function onTouchOpacityInput(e: Event) {
+  const val = Number((e.target as HTMLInputElement).value)
+  if (!Number.isFinite(val)) return
+  emit('setTouchLayout', {
+    ...props.progress.touchLayout,
+    opacity: Math.max(0, Math.min(1, val / 100))
+  })
 }
 
 function triggerImportClick() {
@@ -1416,7 +1484,7 @@ function handleFileChange(e: Event) {
               Pilih Karakter
             </button>
             <button v-else type="button" class="pixel-btn pixel-btn--ghost char-action-btn" disabled @click.stop>
-              🔒 Selesaikan Misi
+              🔒 {{ getMissionInfo(ch.id).label }}
             </button>
           </div>
         </div>
@@ -1974,6 +2042,22 @@ function handleFileChange(e: Event) {
           </div>
 
           <div class="photo-ctrl-group">
+            <div class="photo-ctrl-label">💬 Gelembung Emote:</div>
+            <div class="photo-chip-grid photo-chip-grid--emotes">
+              <button
+                v-for="em in PHOTO_EMOTES"
+                :key="em.id"
+                type="button"
+                class="style-option-btn photo-chip-btn"
+                :class="{ 'style-option-btn--active': photoEmote === em.id }"
+                @click="photoEmote = em.id"
+              >
+                {{ em.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="photo-ctrl-group">
             <div class="photo-ctrl-label">🎨 Gaya Grafik Kartu Pos:</div>
             <div class="style-switcher-row">
               <button
@@ -2198,31 +2282,42 @@ function handleFileChange(e: Event) {
         </div>
       </div>
 
-      <!-- Mobile Touch Controls Overlay Option -->
+      <!-- Mobile Touch Controls Overlay Option (Floating Joystick + Invisible Zones + Opacity + Layout Editor) -->
       <div class="style-switcher-box style-switcher-box--touch">
         <div class="style-switcher-title">📱 KONTROL LAYAR SENTUH:</div>
-        <div class="style-switcher-row style-switcher-row--three" role="radiogroup" aria-label="Mode Kontrol Sentuh">
+        <div class="style-switcher-row style-switcher-row--four" role="radiogroup" aria-label="Mode Kontrol Sentuh">
           <button
             type="button"
             role="radio"
             class="style-option-btn"
-            :class="{ 'style-option-btn--active': progress.touchControlsMode === 'auto' }"
-            :aria-checked="progress.touchControlsMode === 'auto'"
-            @click="$emit('setTouchControlsMode', 'auto')"
+            :class="{ 'style-option-btn--active': progress.touchControlsMode === 'invisible' }"
+            :aria-checked="progress.touchControlsMode === 'invisible'"
+            @click="$emit('setTouchControlsMode', 'invisible')"
           >
-            <span class="style-radio-mark">{{ progress.touchControlsMode === 'auto' ? '●' : '○' }}</span>
-            <span>Otomatis</span>
+            <span class="style-radio-mark">{{ progress.touchControlsMode === 'invisible' ? '●' : '○' }}</span>
+            <span>Kasat Mata</span>
           </button>
           <button
             type="button"
             role="radio"
             class="style-option-btn"
-            :class="{ 'style-option-btn--active': progress.touchControlsMode === 'on' }"
-            :aria-checked="progress.touchControlsMode === 'on'"
-            @click="$emit('setTouchControlsMode', 'on')"
+            :class="{ 'style-option-btn--active': progress.touchControlsMode === 'translucent' }"
+            :aria-checked="progress.touchControlsMode === 'translucent'"
+            @click="$emit('setTouchControlsMode', 'translucent')"
           >
-            <span class="style-radio-mark">{{ progress.touchControlsMode === 'on' ? '●' : '○' }}</span>
-            <span>Selalu Aktif</span>
+            <span class="style-radio-mark">{{ progress.touchControlsMode === 'translucent' ? '●' : '○' }}</span>
+            <span>Transparan</span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            class="style-option-btn"
+            :class="{ 'style-option-btn--active': progress.touchControlsMode === 'visible' }"
+            :aria-checked="progress.touchControlsMode === 'visible'"
+            @click="$emit('setTouchControlsMode', 'visible')"
+          >
+            <span class="style-radio-mark">{{ progress.touchControlsMode === 'visible' ? '●' : '○' }}</span>
+            <span>Terlihat</span>
           </button>
           <button
             type="button"
@@ -2236,8 +2331,41 @@ function handleFileChange(e: Event) {
             <span>Nonaktif</span>
           </button>
         </div>
+
+        <div class="touch-opacity-row">
+          <div class="slider-head">
+            <span>👁️ Opasitas Tombol Sentuh</span>
+            <span>{{ Math.round(progress.touchLayout.opacity * 100) }}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            :value="Math.round(progress.touchLayout.opacity * 100)"
+            class="pixel-slider"
+            @input="onTouchOpacityInput"
+          />
+        </div>
+
+        <button
+          type="button"
+          class="pixel-btn pixel-btn--secondary touch-customize-btn"
+          @click="$emit('openTouchEditor')"
+        >
+          🎛️ ATUR TOMBOL (POSISI &amp; UKURAN)
+        </button>
+
         <div class="style-switcher-note">
-          Tombol kaca piksel transparan (◀ ▶ di kiri, ⚡ Dash &amp; ▲ Lompat di kanan).
+          {{
+            progress.touchControlsMode === 'invisible'
+              ? 'Kasat Mata (Default HP): Joystick virtual kiri & zona sentuh kanan aktif penuh tanpa kotak penghalang layar!'
+              : progress.touchControlsMode === 'translucent'
+                ? 'Transparan: Joystick melingkar minimal & tombol aksi mengikuti slider opasitas.'
+                : progress.touchControlsMode === 'visible'
+                  ? 'Terlihat: Joystick virtual piksel & tombol aksi tampak jelas di layar.'
+                  : 'Kontrol layar sentuh dinonaktifkan sepenuhnya.'
+          }}
         </div>
       </div>
 
@@ -2594,17 +2722,33 @@ function handleFileChange(e: Event) {
         <span class="sr-result-shards">💎 {{ hud.shardsCollected }}/3</span>
       </div>
 
-      <!-- One-Time Speedrun Rank Coin Reward Breakdown (Smart Tier Roll-Up!) -->
-      <div v-if="hud.lastRankRewardTotal > 0" class="rank-reward-box">
-        <span class="rank-reward-label">🏅 BONUS RANK:</span>
-        <span
-          v-for="item in hud.lastRankRewardBreakdown"
-          :key="item.rank"
-          class="rank-reward-pill"
-        >
-          Rank {{ item.rank }} +{{ item.coins }}🐟
-        </span>
-        <span class="rank-reward-total">= +{{ hud.lastRankRewardTotal }} 🐟!</span>
+      <!-- Rebalanced fishCoins Breakdown (Stars, First Clear, Speedrun Rank, Sweet Forager, Boss Clear) -->
+      <div v-if="hud.lastCoinBreakdown && hud.lastCoinBreakdown.totalCoins > 0" class="coin-breakdown-box">
+        <div class="coin-breakdown-title">🐟 RINCIAN KOIN IKAN DIPEROLEH (+{{ hud.lastCoinBreakdown.totalCoins }} 🐟)</div>
+        <div class="coin-breakdown-pills">
+          <span v-if="hud.lastCoinBreakdown.starsCoins > 0" class="rank-reward-pill">
+            ⭐ Bintang +{{ hud.lastCoinBreakdown.starsCoins }}🐟
+          </span>
+          <span v-if="hud.lastCoinBreakdown.firstClearCoins > 0" class="rank-reward-pill">
+            🏁 First Clear +{{ hud.lastCoinBreakdown.firstClearCoins }}🐟
+          </span>
+          <span v-if="hud.lastCoinBreakdown.bossCoins > 0" class="rank-reward-pill">
+            👑 Boss Clear +{{ hud.lastCoinBreakdown.bossCoins }}🐟
+          </span>
+          <span
+            v-for="item in hud.lastRankRewardBreakdown"
+            :key="item.rank"
+            class="rank-reward-pill"
+          >
+            🏅 Rank {{ item.rank }} +{{ item.coins }}🐟
+          </span>
+          <span v-if="hud.lastCoinBreakdown.foragerCoins > 0" class="rank-reward-pill">
+            🍯 Sweet Forager +{{ hud.lastCoinBreakdown.foragerCoins }}🐟
+          </span>
+          <span v-if="hud.lastCoinBreakdown.threeStarCoins > 0" class="rank-reward-pill">
+            ✨ 3★ Bonus +{{ hud.lastCoinBreakdown.threeStarCoins }}🐟
+          </span>
+        </div>
       </div>
 
       <!-- Time Trial Medal Summary -->
@@ -2730,6 +2874,64 @@ function handleFileChange(e: Event) {
       <button type="button" class="pixel-btn pixel-btn--ghost epilogue-btn" @click="$emit('openTitle')">
         ⌂ Menu Utama
       </button>
+    </div>
+  </div>
+
+  <!-- ====================================================================== -->
+  <!-- 11. INTERACTIVE CHARACTER UNLOCK CELEBRATION SPOTLIGHT OVERLAY -->
+  <!-- ====================================================================== -->
+  <div
+    v-if="celebrationCharDef"
+    class="overlay-backdrop celebration-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Perayaan Karakter Baru Terbuka"
+  >
+    <div class="pixel-panel modal-card celebration-card">
+      <div class="celebration-confetti" aria-hidden="true">
+        <span class="conf-star conf-star--1">★</span>
+        <span class="conf-star conf-star--2">♥</span>
+        <span class="conf-star conf-star--3">✦</span>
+        <span class="conf-star conf-star--4">★</span>
+      </div>
+      <div class="clear-badge">🎉 KARAKTER BARU TERBUKA!</div>
+      <div class="celebration-stage">
+        <div class="celebration-emote-bubble" aria-hidden="true">★ ♥</div>
+        <img
+          v-if="celebrationPreviewUrl"
+          :src="celebrationPreviewUrl"
+          :alt="celebrationCharDef.name"
+          class="celebration-sprite-img"
+        />
+      </div>
+      <h2 class="modal-title">{{ celebrationCharDef.name }}</h2>
+      <p class="modal-sub">{{ celebrationCharDef.description }}</p>
+      <div class="char-perk-badge">✨ {{ celebrationCharDef.perkTitle }}</div>
+      <p class="char-perk-desc-mini">{{ celebrationCharDef.perkDesc }}</p>
+
+      <div class="celebration-actions">
+        <button
+          type="button"
+          class="pixel-btn"
+          @click="$emit('equipCelebration', false)"
+        >
+          🐾 PAKAI SEKARANG
+        </button>
+        <button
+          type="button"
+          class="pixel-btn pixel-btn--secondary"
+          @click="$emit('equipCelebration', true)"
+        >
+          📸 BUKA DI STUDIO FOTO
+        </button>
+        <button
+          type="button"
+          class="pixel-btn pixel-btn--ghost"
+          @click="$emit('dismissCelebration')"
+        >
+          Tutup
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -5187,15 +5389,15 @@ function handleFileChange(e: Event) {
     gap: 6px;
   }
 
-  @media (max-width: 520px) {
-    .char-grid--five,
-    .char-grid--three {
-      grid-template-columns: 1fr;
-    }
-  }
-
   .modal-footer {
     padding-top: 2px;
+  }
+}
+
+@media (max-width: 520px) {
+  .char-grid--five,
+  .char-grid--three {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -5883,6 +6085,147 @@ function handleFileChange(e: Event) {
   .secret-finale-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.coin-breakdown-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 10px;
+  background: rgba(34, 18, 56, 0.88);
+  border: 2px solid #ffd866;
+}
+
+.coin-breakdown-title {
+  font-size: 8.8px;
+  font-weight: 700;
+  color: #ffe475;
+  letter-spacing: 0.04em;
+}
+
+.coin-breakdown-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+}
+
+.photo-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.photo-chip-grid--emotes {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.photo-controls-col {
+  max-height: 58dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 4px;
+}
+
+.celebration-backdrop {
+  z-index: 60;
+  background: radial-gradient(circle at center, rgba(46, 18, 72, 0.72), rgba(10, 4, 24, 0.88));
+}
+
+.celebration-card {
+  position: relative;
+  max-width: 390px;
+  border-color: #ffe466;
+  box-shadow: 0 0 0 2px #1a0b2e, 0 0 28px rgba(255, 224, 102, 0.35);
+}
+
+.celebration-confetti {
+  position: absolute;
+  inset: 8px 12px auto 12px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  font-size: 14px;
+}
+
+.conf-star--1,
+.conf-star--4 {
+  color: #ffe466;
+}
+
+.conf-star--2 {
+  color: #ff8cb8;
+}
+
+.conf-star--3 {
+  color: #8ef0ff;
+}
+
+.celebration-stage {
+  position: relative;
+  margin: 4px auto;
+  width: 92px;
+  height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(255, 228, 128, 0.25), rgba(34, 16, 56, 0.78));
+  border: 2px solid #ffe475;
+}
+
+.celebration-emote-bubble {
+  position: absolute;
+  top: -11px;
+  right: -10px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ff4f8b;
+  background: #fff8ee;
+  border: 2px solid #1a0c2e;
+}
+
+.celebration-sprite-img {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+  animation: celebrationHop 0.9s ease-in-out infinite;
+}
+
+@keyframes celebrationHop {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.celebration-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.style-switcher-row--four {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.touch-opacity-row {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.touch-customize-btn {
+  margin-top: 4px;
+  width: 100%;
+  font-size: 9px;
+  padding: 7px 10px;
 }
 
 .guide-perks-grid {

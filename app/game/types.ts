@@ -14,7 +14,27 @@ export type GameScreen =
   | 'gameOver'
   | 'victory'
 
-export type PostcardPoseId = 'sit' | 'jump' | 'sleep' | 'wave'
+export type PostcardPoseId =
+  | 'sit'
+  | 'jump'
+  | 'sleep'
+  | 'wave'
+  | 'hero'
+  | 'snack'
+  | 'peek'
+  | 'victory'
+
+export type PostcardEmoteId = 'none' | 'heart' | 'star' | 'music' | 'sleep' | 'alert' | 'sweat'
+
+export interface LevelCoinBreakdown {
+  starsCoins: number
+  firstClearCoins: number
+  rankCoins: number
+  foragerCoins: number
+  bossCoins: number
+  threeStarCoins: number
+  totalCoins: number
+}
 
 export type PhotoModePose = 'idle' | 'happyHop' | 'sitting' | 'lookingAtStars'
 
@@ -108,7 +128,28 @@ export type HomeBackdropMode = 'auto' | MainBiomeId
 
 export type GraphicsStyle = 'classic' | 'modern'
 
-export type TouchControlsMode = 'auto' | 'on' | 'off'
+export type TouchControlsMode = 'invisible' | 'translucent' | 'visible' | 'off'
+
+export type TouchZoneId = 'joystick' | 'jump' | 'dash' | 'pulse' | 'aegis'
+
+export interface TouchZoneLayout {
+  /** Center X position as percentage of stage width (0..100) */
+  xPct: number
+  /** Center Y position as percentage of stage height (0..100) */
+  yPct: number
+  /** Zone scale multiplier (0.7 .. 1.5) */
+  scale: number
+}
+
+export interface TouchLayoutConfig {
+  /** Overall opacity (0 .. 1) used for translucent/visible modes and subtle drag feedback */
+  opacity: number
+  /** Joystick horizontal drag radius in px (40 .. 85, default 56) */
+  joystickRadius: number
+  /** Joystick center deadzone in px (default 12) */
+  joystickDeadzone: number
+  zones: Record<TouchZoneId, TouchZoneLayout>
+}
 
 export interface BiomeMeta {
   id: BiomeId
@@ -1015,6 +1056,8 @@ export interface HudSnapshot {
   isNewBestTime: boolean
   lastRankRewardBreakdown: RankRewardBreakdownItem[]
   lastRankRewardTotal: number
+  lastCoinBreakdown: LevelCoinBreakdown
+  celebrationCharId: CharacterId | null
   showSpeedrunTimer: boolean
   shardsCollected: number
   shardStatus: ShardTuple
@@ -1129,6 +1172,7 @@ export interface SaveProgress {
   showSpeedrunTimer: boolean
   graphicsStyle: GraphicsStyle
   touchControlsMode: TouchControlsMode
+  touchLayout: TouchLayoutConfig
   audio: AudioSettings
 }
 
@@ -1149,6 +1193,7 @@ export interface GameSaveSettings {
   ambienceVolume: number
   sfxVolume: number
   touchControlsMode: TouchControlsMode
+  touchLayout: TouchLayoutConfig
 }
 
 export interface GameSavePayload extends SaveProgress {

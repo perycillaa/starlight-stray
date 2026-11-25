@@ -29,6 +29,7 @@ import {
 } from '~/composables/useAchievements'
 import { calculateSpeedrunRank, claimSpeedrunRankRewards, rankOrder } from '~/utils/levelParTimes'
 import { LEVELS } from './levels'
+import { drawPixelEmoteBubble } from './photoStudio'
 import { drawPixelText, measurePixelText } from './pixelFont'
 import {
   getPlayerSpriteSet,
@@ -40,11 +41,13 @@ import {
   MAIN_LEVEL_COUNT,
   clearStoredGameData,
   createDefaultSave,
+  createDefaultTouchLayout,
   exportProgressCode,
   exportProgressJson,
   importProgressJson,
   loadGameData,
   sanitizeProgress,
+  sanitizeTouchLayout,
   saveGameData
 } from './storage'
 import type {
@@ -80,6 +83,7 @@ import type {
   HudSnapshot,
   InputState,
   LanternState,
+  LevelCoinBreakdown,
   LevelDefinition,
   MainBiomeId,
   MovingPlatformState,
@@ -89,6 +93,7 @@ import type {
   PhotoModePose,
   PlatformStyle,
   PlayerState,
+  PostcardEmoteId,
   PowerUpState,
   PowerWireState,
   ProximityCrystalState,
@@ -107,6 +112,7 @@ import type {
   TimeTrialMedal,
   ToastNotice,
   TouchControlsMode,
+  TouchLayoutConfig,
   WispState
 } from './types'
 
@@ -345,6 +351,24 @@ export class MoonpawGameEngine {
   private isNewBestTime = false
   private lastRankRewardBreakdown: RankRewardBreakdownItem[] = []
   private lastRankRewardTotal = 0
+  private lastCoinBreakdown: LevelCoinBreakdown = {
+    starsCoins: 0,
+    firstClearCoins: 0,
+    rankCoins: 0,
+    foragerCoins: 0,
+    bossCoins: 0,
+    threeStarCoins: 0,
+    totalCoins: 0
+  }
+  private celebrationCharId: CharacterId | null = null
+  private playerEmote: PostcardEmoteId = 'none'
+  private playerEmoteTimer = 0
+  private campAmbientEmoteTimer = 2.4
+  private campFriendEmoteIdx = -1
+  private campFriendEmote: PostcardEmoteId = 'none'
+  private campFriendEmoteTimer = 0
+  private returnedFromClear = false
+  private bossArenaAlerted = false
   private touchedEnemyThisLevel = false
   private campReaction: 'none' | 'hop' | 'love' | 'nap' = 'none'
   private campReactionTimer = 0
@@ -778,6 +802,21 @@ export class MoonpawGameEngine {
     this.emitHud()
   }
 
+  public setTouchLayout(next: TouchLayoutConfig): void {
+    this.audio.unlock()
+    this.progress.touchLayout = sanitizeTouchLayout(next)
+    this.persistSave(true)
+    this.emitHud()
+  }
+
+  public resetTouchLayout(): void {
+    this.audio.unlock()
+    this.audio.playUiClick()
+    this.progress.touchLayout = createDefaultTouchLayout()
+    this.persistSave(true)
+    this.emitHud()
+  }
+
   public setShowSpeedrunTimer(enabled: boolean): void {
     if (this.progress.showSpeedrunTimer === enabled) return
     this.audio.unlock()
@@ -1195,7 +1234,67 @@ export class MoonpawGameEngine {
     this.clearAllInputs()
     this.loadLevel(0, false)
     this.placeTitlePose()
+    if (this.returnedFromClear) {
+      this.returnedFromClear = false
+      this.triggerSyncCampHop()
+    }
     this.emitHud()
+  }
+
+  public triggerSyncCampHop(): void {
+    const hopDur = this.progress.reduceMotion ? 0.55 : 1.05
+    this.campReaction = 'hop'
+    this.campReactionTimer = hopDur
+    this.campHopOffset = 0
+    for (const fr of this.campFriends) {
+      fr.reaction = 'hop'
+      fr.reactionTimer = hopDur
+      fr.hopOffset = 0
+    }
+    this.campFriendEmoteIdx = this.campFriends.length > 0 ? 0 : -1
+    this.campFriendEmote = 'star'
+    this.campFriendEmoteTimer = 1.6
+  }
+
+  public dismissCelebration(): void {
+    this.celebrationCharId = null
+    this.audio.playUiClick()
+    this.emitHud()
+  }
+
+  public equipCelebrationChar(openStudio = false): void {
+    const id = this.celebrationCharId
+    this.celebrationCharId = null
+    if (id && this.progress.unlockedCharacters.includes(id)) {
+      this.progress.selectedCharacter = id
+      this.refreshPlayerSprites()
+      this.persistSave(true)
+      this.audio.playCampCharacterVoice(id)
+    }
+    if (openStudio) {
+      this.openPhotoStudio()
+    } else {
+      this.triggerSyncCampHop()
+      this.emitHud()
+    }
+  }
+
+  public triggerManualEmote(): void {
+    if (this.screen !== 'playing') return
+    const p = this.player
+    this.audio.unlock()
+    const pool: PostcardEmoteId[] = ['heart', 'music', 'star']
+    const picked = pool[Math.floor(Math.random() * pool.length)]!
+    this.triggerPlayerEmote(picked, 1.8)
+    this.audio.playCampCharacterVoice(this.progress.selectedCharacter)
+    if (!this.progress.reduceMotion) {
+      this.spawnCollectBurst(p.x + p.w / 2, p.y - 4, '#ffe475', 6)
+    }
+  }
+
+  private triggerPlayerEmote(emote: PostcardEmoteId, duration = 1.6): void {
+    this.playerEmote = emote
+    this.playerEmoteTimer = duration
   }
 
   public openLevelSelect(): void {
@@ -1256,6 +1355,7 @@ export class MoonpawGameEngine {
     this.refreshPlayerSprites()
     this.persistSave(true)
     this.audio.playCampCharacterVoice(id)
+    this.triggerSyncCampHop()
     this.emitHud()
   }
 
@@ -1279,6 +1379,9 @@ export class MoonpawGameEngine {
     this.refreshPlayerSprites()
     this.persistSave(true)
     this.audio.playUnlock()
+    this.audio.playCampCharacterVoice(id)
+    this.celebrationCharId = id
+    this.triggerSyncCampHop()
     this.checkAchievements()
     this.emitHud()
     return true
@@ -1544,6 +1647,8 @@ export class MoonpawGameEngine {
         this.progress.unlockedCharacters.push(ch.id)
         unlockedAny = true
         if (notify) {
+          this.celebrationCharId = ch.id
+          this.audio.playCampCharacterVoice(ch.id)
           this.showToast({
             icon: '🏆',
             label: 'KARAKTER SPESIAL TERBUKA!',
@@ -1680,6 +1785,18 @@ export class MoonpawGameEngine {
     this.isNewBestTime = false
     this.lastRankRewardBreakdown = []
     this.lastRankRewardTotal = 0
+    this.lastCoinBreakdown = {
+      starsCoins: 0,
+      firstClearCoins: 0,
+      rankCoins: 0,
+      foragerCoins: 0,
+      bossCoins: 0,
+      threeStarCoins: 0,
+      totalCoins: 0
+    }
+    this.playerEmote = 'none'
+    this.playerEmoteTimer = 0
+    this.bossArenaAlerted = false
     this.timeTrialElapsedMs = 0
     this.lastTimeTrialMedal = 'none'
     this.isNewTimeRecord = false
@@ -2213,6 +2330,9 @@ export class MoonpawGameEngine {
     } else if (code === 'KeyM') {
       e.preventDefault()
       this.toggleMute()
+    } else if (code === 'KeyE' && this.screen === 'playing') {
+      e.preventDefault()
+      this.triggerManualEmote()
     }
   }
 
@@ -2296,7 +2416,32 @@ export class MoonpawGameEngine {
       }
     }
 
+    if (this.playerEmoteTimer > 0) {
+      this.playerEmoteTimer = Math.max(0, this.playerEmoteTimer - dt)
+      if (this.playerEmoteTimer === 0) {
+        this.playerEmote = 'none'
+      }
+    }
+
     if (this.screen !== 'playing') {
+      if (this.screen === 'title') {
+        if (this.campFriendEmoteTimer > 0) {
+          this.campFriendEmoteTimer = Math.max(0, this.campFriendEmoteTimer - dt)
+          if (this.campFriendEmoteTimer === 0) {
+            this.campFriendEmote = 'none'
+            this.campFriendEmoteIdx = -1
+          }
+        } else if (this.campFriends.length > 0) {
+          this.campAmbientEmoteTimer -= dt
+          if (this.campAmbientEmoteTimer <= 0) {
+            this.campAmbientEmoteTimer = 3.6 + Math.random() * 2.2
+            const pool: PostcardEmoteId[] = ['heart', 'music', 'sleep', 'star']
+            this.campFriendEmoteIdx = Math.floor(Math.random() * this.campFriends.length)
+            this.campFriendEmote = pool[Math.floor(Math.random() * pool.length)]!
+            this.campFriendEmoteTimer = 2.0
+          }
+        }
+      }
       if (this.screen === 'victory') {
         this.epilogueTimer += dt
         this.spawnEpilogueParticles()
@@ -3669,6 +3814,11 @@ export class MoonpawGameEngine {
 
     this.bossWindPushX = res.windPushX
 
+    if (!this.bossArenaAlerted && boss.active) {
+      this.bossArenaAlerted = true
+      this.triggerPlayerEmote('alert', 1.8)
+    }
+
     // Apply collected Arena Battle Item effect!
     if (res.collectedItem) {
       this.applyArenaBattleItem(res.collectedItem)
@@ -3687,12 +3837,14 @@ export class MoonpawGameEngine {
         this.levelScore += 150
         this.totalRunScore += 150
       }
+      this.triggerPlayerEmote('heart', 1.6)
       this.spawnCollectBurst(cx, cy, '#ff7aa8', 12)
       this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '🍓 +1 ♥ STAR BERRY!', color: '#ffb5d4', life: 1.1, maxLife: 1.1 })
     } else if (kind === 'cometCharge') {
       p.cometChargeTimer = 6.0
       p.starlightPulseCooldown = 0
       this.audio.playCandy()
+      this.triggerPlayerEmote('star', 1.6)
       this.spawnCollectBurst(cx, cy, '#ffe466', 14)
       this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '☄️ COMET CHARGE 6s!', color: '#ffe466', life: 1.2, maxLife: 1.2 })
     } else if (kind === 'moonlightFeather') {
@@ -3715,6 +3867,7 @@ export class MoonpawGameEngine {
         p.safeX = cp.x + 1
         p.safeY = cp.y + 6
         this.audio.playCheckpoint()
+        this.triggerPlayerEmote('heart', 1.5)
         this.spawnCollectBurst(cp.x + 7, cp.y + 8, '#ff9ec4', 10)
         this.spawnCollectBurst(cp.x + 7, cp.y + 8, '#ffe680', 10)
         this.floatingTexts.push({
@@ -3741,6 +3894,7 @@ export class MoonpawGameEngine {
         this.incrementDailyQuest('powerup-3', 1)
         if (pu.kind === 'milk') {
           this.audio.playMilk()
+          this.triggerPlayerEmote('heart', 1.5)
           if (p.hearts < p.maxHearts) {
             p.hearts += 1
             this.spawnCollectBurst(pu.x + 5, bobY + 7, '#ff9ec4', 10)
@@ -4051,6 +4205,7 @@ export class MoonpawGameEngine {
       ) {
         sh.collected = true
         this.incrementDailyQuest('collect-shard-1', 1)
+        this.triggerPlayerEmote('star', 1.6)
         const pts = sh.previouslyCollected ? 30 : 60
         this.levelScore += pts
         this.totalRunScore += pts
@@ -4406,17 +4561,22 @@ export class MoonpawGameEngine {
       const alreadyClaimedBonus = Boolean(prevRec?.threeStarBonusClaimed)
       const earnThreeStarBonus = rating === 3 && !alreadyClaimedBonus
       this.justEarnedThreeStarBonus = earnThreeStarBonus
-      let extraStageCoins = 0
-      if (earnThreeStarBonus) {
-        extraStageCoins += 1
-      }
+      this.returnedFromClear = true
+      this.triggerPlayerEmote('music', 1.8)
 
-      // Boss Stage Completion Rewards (+250/+500 coins + Exclusive Boss Cosmetic!)
+      // Rebalanced fishCoins economy:
+      // 1) In-level stars conversion: 1 🐟 per 10 stars collected (capped at 5 🐟 per run)
+      const starsCoins = Math.min(5, Math.floor(starsCollected / 10))
+      // 2) One-time First Clear bonus: +5 🐟 per standard level (Levels 1–12)
+      const firstClearCoins = !alreadyClearedBefore && !this.level.isSecretFinale ? 5 : 0
+      // 3) One-time 3★ bonus: +1 🐟
+      const threeStarCoins = earnThreeStarBonus ? 1 : 0
+      // 4) Boss Stage Rewards: L13 +25 first / +5 replay; L14 +40 first / +8 replay!
+      let bossCoins = 0
       if (this.level.bossConfig) {
         const bCfg = this.level.bossConfig
-        if (!alreadyClearedBefore) {
-          extraStageCoins += bCfg.rewardCoins
-        }
+        const replayBossCoins = this.level.id === 14 ? 8 : 5
+        bossCoins = alreadyClearedBefore ? replayBossCoins : bCfg.rewardCoins
         let unlockedBossCosmetic = false
         if (bCfg.cosmeticSlot === 'head_acc' && !this.progress.ownedHeadAccs.includes(bCfg.cosmeticId as HeadAccId)) {
           this.progress.ownedHeadAccs.push(bCfg.cosmeticId as HeadAccId)
@@ -4433,17 +4593,14 @@ export class MoonpawGameEngine {
           })
         }
       }
+      // 5) Sun Bear Passive — Sweet Forager: clean +1 🐟 flat bonus when >= 15 stars collected!
+      const foragerCoins =
+        this.progress.selectedCharacter === 'bear-sun' && starsCollected >= 15 ? 1 : 0
 
-      // Sun Bear Passive — Sweet Forager: +10% bonus fish coins on level completion!
-      if (this.progress.selectedCharacter === 'bear-sun') {
-        const earnedBase = fishCollected + extraStageCoins
-        const sunBonus = Math.max(1, Math.ceil(earnedBase * 0.1))
-        extraStageCoins += sunBonus
-      }
-
-      if (extraStageCoins > 0) {
-        this.progress.fishBank += extraStageCoins
-        this.progress.totalFishEarned += extraStageCoins
+      const baseStageCoins = starsCoins + firstClearCoins + threeStarCoins + bossCoins + foragerCoins
+      if (baseStageCoins > 0) {
+        this.progress.fishBank += baseStageCoins
+        this.progress.totalFishEarned += baseStageCoins
       }
 
       this.progress.levelRecords[this.level.id] = {
@@ -4535,6 +4692,16 @@ export class MoonpawGameEngine {
       if (rankRewardRes.totalCoins > 0) {
         this.progress.fishBank += rankRewardRes.totalCoins
         this.progress.totalFishEarned += rankRewardRes.totalCoins
+      }
+
+      this.lastCoinBreakdown = {
+        starsCoins,
+        firstClearCoins,
+        rankCoins: rankRewardRes.totalCoins,
+        foragerCoins,
+        bossCoins,
+        threeStarCoins,
+        totalCoins: baseStageCoins + rankRewardRes.totalCoins
       }
 
       // Time Trial / Speedrun record & medal persistence
@@ -5946,6 +6113,11 @@ export class MoonpawGameEngine {
         ctx.drawImage(sprite, dx, dy, size, size)
       }
       this.renderBespokeCampAccent(ctx, fr.id, slot.x, slot.y, isReacting, false)
+      // Periodic cute ambient pixel emote bubble exchanged by lounging Camp Hub friends!
+      if (this.campFriendEmoteTimer > 0 && this.campFriendEmoteIdx === i && this.campFriendEmote !== 'none') {
+        const floatY = this.progress.reduceMotion ? 0 : Math.round(Math.sin(this.worldTime * 4) * 1.5)
+        drawPixelEmoteBubble(ctx, slot.x, dy - 12 + floatY, this.campFriendEmote)
+      }
     }
   }
 
@@ -8372,6 +8544,12 @@ export class MoonpawGameEngine {
       ctx.arc(centerX, centerY, r, 0, Math.PI * 2)
       ctx.stroke()
     }
+
+    // Contextual / Manual In-Game Pixel Emote Speech Bubble above Player!
+    if (this.screen === 'playing' && this.playerEmoteTimer > 0 && this.playerEmote !== 'none') {
+      const floatY = this.progress.reduceMotion ? 0 : Math.round(Math.sin(this.worldTime * 5) * 1.5)
+      drawPixelEmoteBubble(ctx, centerX, Math.round(p.y - 20 + floatY), this.playerEmote)
+    }
   }
 
   private renderParticles(ctx: CanvasRenderingContext2D): void {
@@ -8455,6 +8633,8 @@ export class MoonpawGameEngine {
       isNewBestTime: this.isNewBestTime,
       lastRankRewardBreakdown: this.lastRankRewardBreakdown,
       lastRankRewardTotal: this.lastRankRewardTotal,
+      lastCoinBreakdown: { ...this.lastCoinBreakdown },
+      celebrationCharId: this.celebrationCharId,
       showSpeedrunTimer: this.progress.showSpeedrunTimer,
       shardsCollected: this.shards.filter((s) => s.collected || s.previouslyCollected).length,
       shardStatus: [

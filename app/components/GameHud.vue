@@ -15,6 +15,7 @@ defineEmits<{
   (e: 'togglePause'): void
   (e: 'restart'): void
   (e: 'toggleTouchPad'): void
+  (e: 'triggerEmote'): void
 }>()
 
 const biomeMeta = computed(() => BIOMES[props.hud.biome])
@@ -362,6 +363,16 @@ onBeforeUnmount(() => {
 
       <!-- Box-free Floating Pixel Action Icons -->
       <div class="hud-icon-bar">
+        <button
+          type="button"
+          class="floating-icon-btn"
+          title="Sapa / Emote Cepat (E)"
+          aria-label="Emote Cepat"
+          @click="$emit('triggerEmote')"
+        >
+          <span class="emote-tap-icon" aria-hidden="true">♥</span>
+        </button>
+
         <button
           type="button"
           class="floating-icon-btn hud-touch-toggle"
@@ -893,6 +904,12 @@ onBeforeUnmount(() => {
 .floating-icon-btn--muted {
   color: #b098cc;
   opacity: 0.78;
+}
+
+.emote-tap-icon {
+  font-size: 15px;
+  line-height: 1;
+  color: #ff9ec4;
 }
 
 .buff-pill--frost {

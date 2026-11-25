@@ -74,7 +74,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Langkah Pertama',
     icon: '🐾',
     description: 'Selesaikan Level 1 di Atap Kota Malam dan lewati Gerbang Bulan.',
-    rewardFish: 25,
+    rewardFish: 4,
     stampColor: '#ff9ec4'
   },
   {
@@ -83,7 +83,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Pelari Atap Cepat',
     icon: '⏱️',
     description: 'Selesaikan Level 1 dalam waktu kurang dari 75 detik.',
-    rewardFish: 50,
+    rewardFish: 4,
     stampColor: '#7ee8ff'
   },
   {
@@ -92,7 +92,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Penjelajah Shard',
     icon: '💎',
     description: 'Kumpulkan seluruh 3 Starlight Shards di salah satu level.',
-    rewardFish: 50,
+    rewardFish: 4,
     stampColor: '#b594ff'
   },
   {
@@ -100,8 +100,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     name: 'Starlight Collector',
     subtitle: 'Kolektor 24 Shard',
     icon: '✨',
-    description: 'Kumpulkan semua 24 Starlight Shards di seluruh 8 level.',
-    rewardFish: 300,
+    description: 'Kumpulkan minimal 24 Starlight Shards dari seluruh dunia.',
+    rewardFish: 10,
     stampColor: '#ffe375'
   },
   {
@@ -109,8 +109,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     name: 'Fashionista Stray',
     subtitle: 'Gaya Petualang',
     icon: '🎩',
-    description: 'Miliki minimal 5 item aksesoris berbeda (Syal, Topi, atau Jubah).',
-    rewardFish: 75,
+    description: 'Miliki minimal 5 item aksesoris berbeda (Syal, Topi, Jubah, Kepala, atau Wajah).',
+    rewardFish: 6,
     stampColor: '#ffb2d4'
   },
   {
@@ -119,7 +119,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Skuad Lengkap',
     icon: '🐶',
     description: 'Buka keempat spesies hewan: Kucing, Kelinci, Anjing Putih, & Shiba Inu.',
-    rewardFish: 100,
+    rewardFish: 6,
     stampColor: '#96f2cc'
   },
   {
@@ -128,7 +128,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Petualang Damai',
     icon: '🕊️',
     description: 'Selesaikan 1 level penuh tanpa terkena damage atau menyentuh musuh.',
-    rewardFish: 75,
+    rewardFish: 6,
     stampColor: '#a8f0ff'
   },
   {
@@ -137,7 +137,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Sembilan Nyawa',
     icon: '🌙',
     description: 'Terjatuh dari platform sebanyak 9 kali total — tetap bangkit terus!',
-    rewardFish: 30,
+    rewardFish: 4,
     stampColor: '#ffad75'
   },
   {
@@ -145,8 +145,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     name: 'Swift Paws',
     subtitle: 'Speedrun A/S Penuh',
     icon: '💨',
-    description: 'Raih Rank A atau Rank S pada seluruh 8 level.',
-    rewardFish: 150,
+    description: 'Raih Rank A atau Rank S pada minimal 8 level.',
+    rewardFish: 6,
     stampColor: '#8eeeff'
   },
   {
@@ -155,7 +155,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: '4 Level Rank S',
     icon: '🌟',
     description: 'Raih Rank S pada minimal 4 level berbeda.',
-    rewardFish: 250,
+    rewardFish: 10,
     stampColor: '#ffd84d'
   },
   {
@@ -164,7 +164,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Mastery 8 Rank S',
     icon: '⚡',
     description: 'Raih Rank S pada minimal 8 level untuk membuka Lightning Scarf!',
-    rewardFish: 500,
+    rewardFish: 10,
     stampColor: '#fff066',
     rewardCosmeticLabel: '🧣 Lightning Scarf'
   },
@@ -174,7 +174,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Penakluk Kuil Gerhana',
     icon: '🌘',
     description: 'Kalahkan Umbra Owl di Level 13 (Eclipse Sanctum) untuk membuka Eclipse Halo!',
-    rewardFish: 250,
+    rewardFish: 10,
     stampColor: '#ff6e91',
     rewardCosmeticLabel: '✨ Eclipse Halo'
   },
@@ -184,7 +184,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     subtitle: 'Legenda Inti Astral',
     icon: '🌌',
     description: 'Kalahkan Chronos Leviathan di Level 14 (Astral Core Citadel) untuk Nebula Sovereign Cape!',
-    rewardFish: 500,
+    rewardFish: 10,
     stampColor: '#b594ff',
     rewardCosmeticLabel: '🌌 Nebula Sovereign Cape'
   }

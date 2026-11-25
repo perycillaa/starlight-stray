@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { TouchControlsMode } from '~/game/types'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { createDefaultTouchLayout } from '~/game/storage'
+import type { TouchControlsMode, TouchLayoutConfig, TouchZoneId } from '~/game/types'
 
 export type TouchControlKey = 'left' | 'right' | 'jump' | 'dash' | 'pulse' | 'aegis'
 
 const props = defineProps<{
   mode?: TouchControlsMode
+  layout?: TouchLayoutConfig
+  levelId?: number
   dashReady?: boolean
   dashCharge?: number
   isPaused?: boolean
@@ -24,7 +27,7 @@ const emit = defineEmits<{
 }>()
 
 const isTouchCapableOrCompact = ref(false)
-const dpadRef = ref<HTMLElement | null>(null)
+const layerRef = ref<HTMLElement | null>(null)
 
 function detectTouchViewport() {
   if (typeof window === 'undefined') return
@@ -36,16 +39,66 @@ function detectTouchViewport() {
   isTouchCapableOrCompact.value = hasTouch || isCompactViewport
 }
 
+const activeMode = computed<TouchControlsMode>(() => props.mode ?? 'invisible')
+const cfg = computed<TouchLayoutConfig>(() => props.layout ?? createDefaultTouchLayout())
+
 const isVisible = computed(() => {
-  if (props.mode === 'off') return false
-  if (props.mode === 'on') return true
+  if (activeMode.value === 'off') return false
+  if (activeMode.value === 'translucent' || activeMode.value === 'visible') return true
+  // 'invisible' mode is active automatically on touch devices or compact screens (<900px)
   return isTouchCapableOrCompact.value
 })
 
-// Independent pointer tracking for simultaneous multi-touch:
-// Left thumb can slide smoothly between ◀ and ▶ while right thumb taps Jump (▲) or Dash (⚡).
-const activePointers = new Map<number, TouchControlKey>()
-const dpadPointerIds = new Set<number>()
+const isInvisibleMode = computed(() => activeMode.value === 'invisible')
+const isClassicVisible = computed(() => activeMode.value === 'visible')
+
+const effectiveOpacity = computed(() => {
+  if (isInvisibleMode.value) return 0
+  if (isClassicVisible.value) return Math.max(0.2, Math.min(1, cfg.value.opacity))
+  return Math.max(0, Math.min(1, cfg.value.opacity))
+})
+
+// Brief 2.5s onboarding hint when entering a level in Invisible mode
+const showOnboardingHint = ref(false)
+let onboardingTimer: number | null = null
+
+function triggerOnboardingHint() {
+  if (onboardingTimer !== null) {
+    window.clearTimeout(onboardingTimer)
+    onboardingTimer = null
+  }
+  if (!isVisible.value || !isInvisibleMode.value) {
+    showOnboardingHint.value = false
+    return
+  }
+  showOnboardingHint.value = true
+  onboardingTimer = window.setTimeout(() => {
+    showOnboardingHint.value = false
+    onboardingTimer = null
+  }, 2500)
+}
+
+watch(
+  () => [props.levelId, activeMode.value, isVisible.value] as const,
+  () => {
+    if (typeof window !== 'undefined') {
+      triggerOnboardingHint()
+    }
+  }
+)
+
+// ============================================================================
+// FLOATING VIRTUAL JOYSTICK (Left Control Zone, 12px Deadzone, 40-85px Radius)
+// ============================================================================
+const joystickPointerId = ref<number | null>(null)
+const joyOriginX = ref(0)
+const joyOriginY = ref(0)
+const joyKnobX = ref(0)
+const joyKnobY = ref(0)
+const joyActive = ref(false)
+
+// Independent multi-touch tracking for right-side action tap zones
+const actionPointers = new Map<number, 'jump' | 'dash' | 'pulse' | 'aegis'>()
 
 const pressedState = ref<Record<TouchControlKey, boolean>>({
   left: false,
@@ -56,69 +109,96 @@ const pressedState = ref<Record<TouchControlKey, boolean>>({
   aegis: false
 })
 
-function syncControl(control: TouchControlKey) {
-  let isDown = false
-  for (const mapped of activePointers.values()) {
-    if (mapped === control) {
-      isDown = true
-      break
-    }
-  }
-  if (pressedState.value[control] !== isDown) {
-    pressedState.value[control] = isDown
-    emit('input', control, isDown)
+function setControlPressed(control: TouchControlKey, down: boolean) {
+  if (pressedState.value[control] !== down) {
+    pressedState.value[control] = down
+    emit('input', control, down)
   }
 }
 
-function syncAllDirectional() {
-  syncControl('left')
-  syncControl('right')
+function updateJoystickDirection(clientX: number, clientY: number) {
+  const layer = layerRef.value
+  if (!layer) return
+  const rect = layer.getBoundingClientRect()
+  const localX = clientX - rect.left
+  const localY = clientY - rect.top
+  const dx = localX - joyOriginX.value
+  const dy = localY - joyOriginY.value
+  const radius = cfg.value.joystickRadius
+  const deadzone = cfg.value.joystickDeadzone
+
+  const dist = Math.hypot(dx, dy)
+  if (dist > radius && dist > 0) {
+    joyKnobX.value = (dx / dist) * radius
+    joyKnobY.value = (dy / dist) * radius
+  } else {
+    joyKnobX.value = dx
+    joyKnobY.value = dy
+  }
+
+  if (Math.abs(dx) < deadzone) {
+    setControlPressed('left', false)
+    setControlPressed('right', false)
+  } else if (dx < 0) {
+    setControlPressed('left', true)
+    setControlPressed('right', false)
+  } else {
+    setControlPressed('left', false)
+    setControlPressed('right', true)
+  }
 }
 
-function resolveDpadDirection(clientX: number): 'left' | 'right' | null {
-  const el = dpadRef.value
-  if (!el) return null
-  const rect = el.getBoundingClientRect()
-  if (rect.width <= 0) return null
-  const midX = rect.left + rect.width / 2
-  return clientX < midX ? 'left' : 'right'
-}
-
-function handleDpadPointerDown(e: PointerEvent) {
+function handleJoystickDown(e: PointerEvent) {
   e.preventDefault()
-  const el = dpadRef.value
-  if (el && el.setPointerCapture) {
+  if (joystickPointerId.value !== null) return
+  const target = e.currentTarget as HTMLElement | null
+  if (target && target.setPointerCapture) {
     try {
-      el.setPointerCapture(e.pointerId)
+      target.setPointerCapture(e.pointerId)
     } catch {
       // Ignore if pointer capture is unsupported
     }
   }
-  const dir = resolveDpadDirection(e.clientX)
-  if (!dir) return
-  dpadPointerIds.add(e.pointerId)
-  activePointers.set(e.pointerId, dir)
-  syncAllDirectional()
+  const layer = layerRef.value
+  if (!layer) return
+  const rect = layer.getBoundingClientRect()
+  joystickPointerId.value = e.pointerId
+  joyOriginX.value = e.clientX - rect.left
+  joyOriginY.value = e.clientY - rect.top
+  joyKnobX.value = 0
+  joyKnobY.value = 0
+  joyActive.value = true
+  // Wait until thumb drags beyond deadzone (12px) so initial thumb rest never jitters!
+  setControlPressed('left', false)
+  setControlPressed('right', false)
 }
 
-function handleDpadPointerMove(e: PointerEvent) {
-  if (!dpadPointerIds.has(e.pointerId)) return
+function handleJoystickMove(e: PointerEvent) {
+  if (e.pointerId !== joystickPointerId.value) return
   e.preventDefault()
-  const nextDir = resolveDpadDirection(e.clientX)
-  if (!nextDir) return
-  const prevDir = activePointers.get(e.pointerId)
-  if (prevDir !== nextDir) {
-    activePointers.set(e.pointerId, nextDir)
-    syncAllDirectional()
+  updateJoystickDirection(e.clientX, e.clientY)
+}
+
+function handleJoystickRelease(e: PointerEvent) {
+  if (e.pointerId !== joystickPointerId.value) return
+  e.preventDefault()
+  joystickPointerId.value = null
+  joyActive.value = false
+  joyKnobX.value = 0
+  joyKnobY.value = 0
+  setControlPressed('left', false)
+  setControlPressed('right', false)
+}
+
+function syncActionControl(control: 'jump' | 'dash' | 'pulse' | 'aegis') {
+  let down = false
+  for (const mapped of actionPointers.values()) {
+    if (mapped === control) {
+      down = true
+      break
+    }
   }
-}
-
-function handleDpadPointerRelease(e: PointerEvent) {
-  if (!dpadPointerIds.has(e.pointerId)) return
-  e.preventDefault()
-  dpadPointerIds.delete(e.pointerId)
-  activePointers.delete(e.pointerId)
-  syncAllDirectional()
+  setControlPressed(control, down)
 }
 
 function handleActionPointerDown(control: 'jump' | 'dash' | 'pulse' | 'aegis', e: PointerEvent) {
@@ -131,16 +211,16 @@ function handleActionPointerDown(control: 'jump' | 'dash' | 'pulse' | 'aegis', e
       // Ignore if pointer capture is unsupported
     }
   }
-  activePointers.set(e.pointerId, control)
-  syncControl(control)
+  actionPointers.set(e.pointerId, control)
+  syncActionControl(control)
 }
 
 function handleActionPointerRelease(e: PointerEvent) {
   e.preventDefault()
-  const prev = activePointers.get(e.pointerId)
+  const prev = actionPointers.get(e.pointerId)
   if (!prev) return
-  activePointers.delete(e.pointerId)
-  syncControl(prev)
+  actionPointers.delete(e.pointerId)
+  syncActionControl(prev)
 }
 
 function handlePausePointerDown(e: PointerEvent) {
@@ -150,37 +230,64 @@ function handlePausePointerDown(e: PointerEvent) {
 }
 
 function releaseAll() {
-  activePointers.clear()
-  dpadPointerIds.clear()
+  joystickPointerId.value = null
+  joyActive.value = false
+  joyKnobX.value = 0
+  joyKnobY.value = 0
+  actionPointers.clear()
   for (const key of ['left', 'right', 'jump', 'dash', 'pulse', 'aegis'] as TouchControlKey[]) {
-    if (pressedState.value[key]) {
-      pressedState.value[key] = false
-      emit('input', key, false)
-    }
+    setControlPressed(key, false)
   }
 }
 
-function handleWindowBlurOrHide() {
-  releaseAll()
+function getZoneStyle(zoneId: TouchZoneId, baseW: number, baseH: number) {
+  const z = cfg.value.zones[zoneId]
+  const w = Math.round(baseW * z.scale)
+  const h = Math.round(baseH * z.scale)
+  return {
+    left: `${z.xPct}%`,
+    top: `${z.yPct}%`,
+    width: `${w}px`,
+    height: `${h}px`
+  }
 }
+
+const joystickZoneStyle = computed(() => {
+  const z = cfg.value.zones.joystick
+  const wPct = Math.min(54, Math.max(24, Math.round(38 * z.scale)))
+  const hPct = Math.min(78, Math.max(38, Math.round(60 * z.scale)))
+  return {
+    left: `${z.xPct}%`,
+    top: `${z.yPct}%`,
+    width: `${wPct}%`,
+    height: `${hPct}%`
+  }
+})
+
+const jumpZoneStyle = computed(() => getZoneStyle('jump', 112, 112))
+const dashZoneStyle = computed(() => getZoneStyle('dash', 88, 88))
+const pulseZoneStyle = computed(() => getZoneStyle('pulse', 76, 76))
+const aegisZoneStyle = computed(() => getZoneStyle('aegis', 76, 76))
 
 onMounted(() => {
   detectTouchViewport()
+  triggerOnboardingHint()
   if (typeof window !== 'undefined') {
     window.addEventListener('resize', detectTouchViewport, { passive: true })
     window.addEventListener('orientationchange', detectTouchViewport, { passive: true })
-    window.addEventListener('blur', handleWindowBlurOrHide)
-    document.addEventListener('visibilitychange', handleWindowBlurOrHide)
+    window.addEventListener('blur', releaseAll)
+    document.addEventListener('visibilitychange', releaseAll)
   }
 })
 
 onBeforeUnmount(() => {
+  if (onboardingTimer !== null) window.clearTimeout(onboardingTimer)
   releaseAll()
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', detectTouchViewport)
     window.removeEventListener('orientationchange', detectTouchViewport)
-    window.removeEventListener('blur', handleWindowBlurOrHide)
-    document.removeEventListener('visibilitychange', handleWindowBlurOrHide)
+    window.removeEventListener('blur', releaseAll)
+    document.removeEventListener('visibilitychange', releaseAll)
   }
 })
 </script>
@@ -188,7 +295,12 @@ onBeforeUnmount(() => {
 <template>
   <div
     v-if="isVisible"
+    ref="layerRef"
     class="mobile-touch-layer"
+    :class="[
+      `mobile-touch-layer--${activeMode}`,
+      { 'mobile-touch-layer--onboarding': showOnboardingHint }
+    ]"
     aria-label="Kontrol Sentuh Virtual"
     @contextmenu.prevent
   >
@@ -206,144 +318,218 @@ onBeforeUnmount(() => {
       </svg>
     </button>
 
-    <!-- Bottom Controls Bar: Left Slide-Enabled D-Pad + Right Action Buttons -->
-    <div class="mobile-bottom-bar">
-      <!-- Bottom-Left: Slide-between-directions D-Pad (◀ / ▶) -->
-      <div
-        ref="dpadRef"
-        class="touch-group touch-group--dpad"
-        role="group"
-        aria-label="Tombol Arah Kiri dan Kanan"
-        @pointerdown="handleDpadPointerDown"
-        @pointermove="handleDpadPointerMove"
-        @pointerup="handleDpadPointerRelease"
-        @pointercancel="handleDpadPointerRelease"
-        @lostpointercapture="handleDpadPointerRelease"
-        @contextmenu.prevent
-      >
-        <div
-          class="touch-btn touch-btn--dir"
-          :class="{ 'touch-btn--active': pressedState.left }"
-          role="button"
-          aria-label="Gerak Kiri"
-          :aria-pressed="pressedState.left"
-        >
-          <span class="touch-glyph" aria-hidden="true">◀</span>
-          <span class="touch-label">KIRI</span>
-        </div>
-
-        <div
-          class="touch-btn touch-btn--dir"
-          :class="{ 'touch-btn--active': pressedState.right }"
-          role="button"
-          aria-label="Gerak Kanan"
-          :aria-pressed="pressedState.right"
-        >
-          <span class="touch-glyph" aria-hidden="true">▶</span>
-          <span class="touch-label">KANAN</span>
-        </div>
+    <!-- LEFT: Floating Virtual Joystick Activation Zone (38% x 60% scalable) -->
+    <div
+      class="touch-zone touch-zone--joystick"
+      :style="joystickZoneStyle"
+      role="application"
+      aria-label="Joystick Gerak Kiri dan Kanan"
+      @pointerdown="handleJoystickDown"
+      @pointermove="handleJoystickMove"
+      @pointerup="handleJoystickRelease"
+      @pointercancel="handleJoystickRelease"
+      @lostpointercapture="handleJoystickRelease"
+      @contextmenu.prevent
+    >
+      <!-- Faint 2.5s Onboarding Hint Outline in Invisible Mode -->
+      <div v-if="showOnboardingHint" class="onboarding-outline">
+        <span class="onboarding-tag">◀ JOYSTICK ▶</span>
       </div>
 
-      <!-- Bottom-Right: Boss Skills (✦ Pulse & ◈ Aegis in Levels 13–14) + Dash (⚡) & Jump (▲) -->
+      <!-- Resting Minimal Circular Joystick Indicator (Translucent / Classic Visible modes) -->
       <div
-        class="touch-group touch-group--action"
-        :class="{ 'touch-group--boss-arc': isBossStage }"
-        role="group"
-        aria-label="Tombol Aksi"
+        v-if="!isInvisibleMode && !joyActive"
+        class="joy-ring joy-ring--idle"
+        :style="{
+          width: `${cfg.joystickRadius * 2}px`,
+          height: `${cfg.joystickRadius * 2}px`,
+          opacity: effectiveOpacity
+        }"
       >
-        <div v-if="isBossStage" class="boss-skill-row">
-          <button
-            type="button"
-            class="touch-btn touch-btn--pulse"
-            :class="{
-              'touch-btn--active': pressedState.pulse,
-              'touch-btn--cooldown': pulseReady === false,
-              'touch-btn--comet': cometChargeActive
-            }"
-            aria-label="Starlight Pulse"
-            @pointerdown="handleActionPointerDown('pulse', $event)"
-            @pointerup="handleActionPointerRelease"
-            @pointercancel="handleActionPointerRelease"
-            @lostpointercapture="handleActionPointerRelease"
-            @contextmenu.prevent
-          >
-            <span class="touch-glyph" aria-hidden="true">✦</span>
-            <span class="touch-label">PULSE</span>
-            <span
-              v-if="pulseReady === false"
-              class="dash-cd-bar"
-              :style="{ width: `${Math.round((pulseCharge ?? 0) * 100)}%` }"
-              aria-hidden="true"
-            />
-          </button>
-
-          <button
-            type="button"
-            class="touch-btn touch-btn--aegis"
-            :class="{
-              'touch-btn--active': pressedState.aegis || aegisActive,
-              'touch-btn--cooldown': aegisReady === false && !aegisActive
-            }"
-            aria-label="Astral Aegis"
-            @pointerdown="handleActionPointerDown('aegis', $event)"
-            @pointerup="handleActionPointerRelease"
-            @pointercancel="handleActionPointerRelease"
-            @lostpointercapture="handleActionPointerRelease"
-            @contextmenu.prevent
-          >
-            <span class="touch-glyph" aria-hidden="true">◈</span>
-            <span class="touch-label">AEGIS</span>
-            <span
-              v-if="aegisReady === false && !aegisActive"
-              class="dash-cd-bar"
-              :style="{ width: `${Math.round((aegisCharge ?? 0) * 100)}%` }"
-              aria-hidden="true"
-            />
-          </button>
-        </div>
-
-        <div class="core-action-row">
-          <button
-            type="button"
-            class="touch-btn touch-btn--dash"
-            :class="{
-              'touch-btn--active': pressedState.dash,
-              'touch-btn--cooldown': dashReady === false
-            }"
-            aria-label="Dash Cepat"
-            @pointerdown="handleActionPointerDown('dash', $event)"
-            @pointerup="handleActionPointerRelease"
-            @pointercancel="handleActionPointerRelease"
-            @lostpointercapture="handleActionPointerRelease"
-            @contextmenu.prevent
-          >
-            <span class="touch-glyph" aria-hidden="true">⚡</span>
-            <span class="touch-label">DASH</span>
-            <span
-              v-if="dashReady === false"
-              class="dash-cd-bar"
-              :style="{ width: `${Math.round((dashCharge ?? 0) * 100)}%` }"
-              aria-hidden="true"
-            />
-          </button>
-
-          <button
-            type="button"
-            class="touch-btn touch-btn--jump"
-            :class="{ 'touch-btn--active': pressedState.jump }"
-            aria-label="Lompat"
-            @pointerdown="handleActionPointerDown('jump', $event)"
-            @pointerup="handleActionPointerRelease"
-            @pointercancel="handleActionPointerRelease"
-            @lostpointercapture="handleActionPointerRelease"
-            @contextmenu.prevent
-          >
-            <span class="touch-glyph" aria-hidden="true">▲</span>
-            <span class="touch-label">LOMPAT</span>
-          </button>
-        </div>
+        <span class="joy-dir-tick joy-dir-tick--l">◀</span>
+        <span class="joy-dir-tick joy-dir-tick--r">▶</span>
+        <div class="joy-knob" />
       </div>
     </div>
+
+    <!-- Floating Active Joystick Visual Anchored at Exact Touch Origin -->
+    <template v-if="joyActive">
+      <!-- Invisible Mode: optional ultra-subtle 6px faint thumb-origin dot (hidden if opacity = 0%) -->
+      <div
+        v-if="isInvisibleMode && cfg.opacity > 0"
+        class="joy-invisible-dot"
+        :style="{
+          left: `${joyOriginX}px`,
+          top: `${joyOriginY}px`,
+          opacity: Math.min(0.32, cfg.opacity * 0.4)
+        }"
+        aria-hidden="true"
+      />
+      <!-- Translucent / Classic Visible Mode: Live Floating Joystick Ring + Thumb Knob -->
+      <div
+        v-else-if="!isInvisibleMode"
+        class="joy-ring joy-ring--floating"
+        :class="{
+          'joy-ring--left': pressedState.left,
+          'joy-ring--right': pressedState.right
+        }"
+        :style="{
+          left: `${joyOriginX}px`,
+          top: `${joyOriginY}px`,
+          width: `${cfg.joystickRadius * 2}px`,
+          height: `${cfg.joystickRadius * 2}px`,
+          opacity: effectiveOpacity
+        }"
+        aria-hidden="true"
+      >
+        <span class="joy-dir-tick joy-dir-tick--l" :class="{ 'joy-dir-tick--on': pressedState.left }">◀</span>
+        <span class="joy-dir-tick joy-dir-tick--r" :class="{ 'joy-dir-tick--on': pressedState.right }">▶</span>
+        <div
+          class="joy-knob joy-knob--active"
+          :style="{ transform: `translate(${joyKnobX}px, ${joyKnobY}px)` }"
+        />
+      </div>
+    </template>
+
+    <!-- RIGHT: Generous Jump / Double Jump Tap Zone (112x112 default) -->
+    <button
+      type="button"
+      class="touch-zone touch-zone--action touch-zone--jump"
+      :class="{ 'touch-zone--pressed': pressedState.jump }"
+      :style="jumpZoneStyle"
+      aria-label="Lompat dan Lompat Ganda"
+      @pointerdown="handleActionPointerDown('jump', $event)"
+      @pointerup="handleActionPointerRelease"
+      @pointercancel="handleActionPointerRelease"
+      @lostpointercapture="handleActionPointerRelease"
+      @contextmenu.prevent
+    >
+      <span v-if="showOnboardingHint" class="onboarding-outline">
+        <span class="onboarding-tag">▲ LOMPAT</span>
+      </span>
+      <span
+        v-if="!isInvisibleMode"
+        class="action-disc action-disc--jump"
+        :class="{ 'action-disc--active': pressedState.jump }"
+        :style="{ opacity: effectiveOpacity }"
+      >
+        <span class="touch-glyph" aria-hidden="true">▲</span>
+        <span class="touch-label">LOMPAT</span>
+      </span>
+    </button>
+
+    <!-- RIGHT: Dash Tap Zone (88x88 default) -->
+    <button
+      type="button"
+      class="touch-zone touch-zone--action touch-zone--dash"
+      :class="{
+        'touch-zone--pressed': pressedState.dash,
+        'touch-zone--cooldown': dashReady === false
+      }"
+      :style="dashZoneStyle"
+      aria-label="Dash Cepat"
+      @pointerdown="handleActionPointerDown('dash', $event)"
+      @pointerup="handleActionPointerRelease"
+      @pointercancel="handleActionPointerRelease"
+      @lostpointercapture="handleActionPointerRelease"
+      @contextmenu.prevent
+    >
+      <span v-if="showOnboardingHint" class="onboarding-outline">
+        <span class="onboarding-tag">⚡ DASH</span>
+      </span>
+      <span
+        v-if="!isInvisibleMode"
+        class="action-disc action-disc--dash"
+        :class="{
+          'action-disc--active': pressedState.dash,
+          'action-disc--cd': dashReady === false
+        }"
+        :style="{ opacity: effectiveOpacity }"
+      >
+        <span class="touch-glyph" aria-hidden="true">⚡</span>
+        <span class="touch-label">DASH</span>
+        <span
+          v-if="dashReady === false"
+          class="disc-cd-bar"
+          :style="{ width: `${Math.round((dashCharge ?? 0) * 100)}%` }"
+          aria-hidden="true"
+        />
+      </span>
+    </button>
+
+    <!-- BOSS STAGES (Levels 13 & 14): Starlight Pulse (✦) & Astral Aegis (◈) Tap Zones (76x76 default) -->
+    <template v-if="isBossStage">
+      <button
+        type="button"
+        class="touch-zone touch-zone--action touch-zone--pulse"
+        :class="{ 'touch-zone--pressed': pressedState.pulse }"
+        :style="pulseZoneStyle"
+        aria-label="Starlight Pulse"
+        @pointerdown="handleActionPointerDown('pulse', $event)"
+        @pointerup="handleActionPointerRelease"
+        @pointercancel="handleActionPointerRelease"
+        @lostpointercapture="handleActionPointerRelease"
+        @contextmenu.prevent
+      >
+        <span v-if="showOnboardingHint" class="onboarding-outline">
+          <span class="onboarding-tag">✦ PULSE</span>
+        </span>
+        <span
+          v-if="!isInvisibleMode"
+          class="action-disc action-disc--pulse"
+          :class="{
+            'action-disc--active': pressedState.pulse,
+            'action-disc--cd': pulseReady === false,
+            'action-disc--comet': cometChargeActive
+          }"
+          :style="{ opacity: effectiveOpacity }"
+        >
+          <span class="touch-glyph" aria-hidden="true">✦</span>
+          <span class="touch-label">PULSE</span>
+          <span
+            v-if="pulseReady === false"
+            class="disc-cd-bar"
+            :style="{ width: `${Math.round((pulseCharge ?? 0) * 100)}%` }"
+            aria-hidden="true"
+          />
+        </span>
+      </button>
+
+      <button
+        type="button"
+        class="touch-zone touch-zone--action touch-zone--aegis"
+        :class="{ 'touch-zone--pressed': pressedState.aegis || aegisActive }"
+        :style="aegisZoneStyle"
+        aria-label="Astral Aegis"
+        @pointerdown="handleActionPointerDown('aegis', $event)"
+        @pointerup="handleActionPointerRelease"
+        @pointercancel="handleActionPointerRelease"
+        @lostpointercapture="handleActionPointerRelease"
+        @contextmenu.prevent
+      >
+        <span v-if="showOnboardingHint" class="onboarding-outline">
+          <span class="onboarding-tag">◈ AEGIS</span>
+        </span>
+        <span
+          v-if="!isInvisibleMode"
+          class="action-disc action-disc--aegis"
+          :class="{
+            'action-disc--active': pressedState.aegis || aegisActive,
+            'action-disc--cd': aegisReady === false && !aegisActive
+          }"
+          :style="{ opacity: effectiveOpacity }"
+        >
+          <span class="touch-glyph" aria-hidden="true">◈</span>
+          <span class="touch-label">AEGIS</span>
+          <span
+            v-if="aegisReady === false && !aegisActive"
+            class="disc-cd-bar"
+            :style="{ width: `${Math.round((aegisCharge ?? 0) * 100)}%` }"
+            aria-hidden="true"
+          />
+        </span>
+      </button>
+    </template>
   </div>
 </template>
 
@@ -353,6 +539,7 @@ onBeforeUnmount(() => {
   inset: 0;
   pointer-events: none;
   z-index: 26;
+  overflow: hidden;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -382,10 +569,10 @@ onBeforeUnmount(() => {
     0 3px 0 rgba(16, 7, 28, 0.85);
   pointer-events: auto;
   cursor: pointer;
+  z-index: 30;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  transition: transform 0.06s ease, background-color 0.08s ease;
 }
 
 .mobile-pause-btn:active {
@@ -394,123 +581,222 @@ onBeforeUnmount(() => {
   color: #241033;
 }
 
-.mobile-bottom-bar {
+/* Base Touch Hit-Area Zones */
+.touch-zone {
   position: absolute;
-  inset: auto 0 0 0;
+  transform: translate(-50%, -50%);
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding:
-    10px
-    max(14px, env(safe-area-inset-right))
-    max(14px, env(safe-area-inset-bottom))
-    max(14px, env(safe-area-inset-left));
-  pointer-events: none;
-}
-
-.touch-group {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
   pointer-events: auto;
+  cursor: pointer;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.touch-group--dpad {
-  padding: 4px;
-  border-radius: 2px;
+.touch-zone--joystick {
+  z-index: 26;
 }
 
-.touch-btn {
+.touch-zone--action {
+  z-index: 27;
+}
+
+/* Brief 2.5s Onboarding Hint Outlines (Invisible Mode) */
+.onboarding-outline {
+  position: absolute;
+  inset: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(255, 226, 140, 0.62);
+  border-radius: 14px;
+  background: rgba(28, 12, 46, 0.22);
+  pointer-events: none;
+  animation: onboardingFade 2.5s ease-out forwards;
+}
+
+.onboarding-tag {
+  padding: 3px 7px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff6cf;
+  background: rgba(20, 9, 34, 0.72);
+  border: 1px solid rgba(255, 216, 115, 0.55);
+  text-shadow: 0 1px 0 #140824;
+  white-space: nowrap;
+}
+
+@keyframes onboardingFade {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.92;
+  }
+  72% {
+    opacity: 0.78;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Invisible Mode: Ultra-Subtle 6px Thumb-Origin Dot While Actively Dragging */
+.joy-invisible-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #fff4cc;
+  box-shadow: 0 0 6px rgba(255, 224, 130, 0.55);
+  pointer-events: none;
+  z-index: 28;
+}
+
+/* Translucent & Classic Visible Circular Pixel Joystick */
+.joy-ring {
+  position: relative;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(34, 16, 56, 0.36);
+  border: 2px solid rgba(247, 174, 212, 0.75);
+  box-shadow:
+    inset 0 0 0 2px rgba(20, 8, 36, 0.55),
+    0 3px 10px rgba(10, 4, 22, 0.45);
+  pointer-events: none;
+}
+
+.mobile-touch-layer--visible .joy-ring {
+  background: rgba(42, 20, 68, 0.62);
+  border-width: 3px;
+  border-color: rgba(255, 212, 138, 0.9);
+}
+
+.joy-ring--floating {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 28;
+}
+
+.joy-ring--left,
+.joy-ring--right {
+  border-color: #ffe885;
+}
+
+.joy-dir-tick {
+  position: absolute;
+  font-size: 10px;
+  color: rgba(255, 232, 245, 0.5);
+  pointer-events: none;
+}
+
+.joy-dir-tick--l {
+  left: 8px;
+}
+
+.joy-dir-tick--r {
+  right: 8px;
+}
+
+.joy-dir-tick--on {
+  color: #ffe875;
+  text-shadow: 0 0 8px rgba(255, 224, 102, 0.85);
+}
+
+.joy-knob {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff6e0, #f5a6d0 55%, #8a4ca6 100%);
+  border: 2px solid #fff7e6;
+  box-shadow:
+    0 0 0 2px rgba(22, 8, 38, 0.8),
+    0 3px 6px rgba(0, 0, 0, 0.45);
+  transition: transform 0.03s linear;
+}
+
+.joy-knob--active {
+  background: radial-gradient(circle at 35% 35%, #ffffff, #ffe375 55%, #ff8cb8 100%);
+}
+
+/* Circular Minimal Action Buttons (Translucent & Visible Modes) */
+.action-disc {
   position: relative;
   overflow: hidden;
-  width: 66px;
-  height: 66px;
+  width: 78%;
+  height: 78%;
+  min-width: 48px;
+  min-height: 48px;
+  border-radius: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
   color: #fff6fa;
-  background: rgba(44, 21, 64, 0.52);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 3px solid rgba(247, 168, 202, 0.68);
+  background: rgba(44, 21, 64, 0.46);
+  border: 2px solid rgba(247, 168, 202, 0.78);
   box-shadow:
-    0 0 0 2px rgba(18, 7, 32, 0.74),
-    0 4px 0 rgba(18, 7, 32, 0.78),
-    inset 0 2px 0 rgba(255, 232, 245, 0.24);
-  cursor: pointer;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
+    0 0 0 2px rgba(18, 7, 32, 0.68),
+    0 3px 0 rgba(18, 7, 32, 0.75);
   font-family: inherit;
-  transition: transform 0.05s ease, background-color 0.08s ease, opacity 0.12s ease;
-}
-
-.touch-btn--dir {
   pointer-events: none;
+  transition: transform 0.05s ease, background-color 0.08s ease;
 }
 
-.touch-btn--dash {
-  width: 64px;
-  height: 64px;
+.mobile-touch-layer--visible .action-disc {
+  background: rgba(52, 24, 78, 0.78);
+  border-width: 3px;
+}
+
+.action-disc--jump {
+  color: #fff7cc;
+  border-color: rgba(255, 219, 112, 0.88);
+}
+
+.action-disc--dash {
   color: #ffe98a;
-  background: rgba(94, 42, 108, 0.56);
-  border-color: rgba(255, 179, 216, 0.85);
+  border-color: rgba(255, 179, 216, 0.88);
 }
 
-.touch-group--action {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.boss-skill-row,
-.core-action-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-}
-
-.touch-btn--pulse {
-  min-width: 52px;
-  min-height: 52px;
-  width: 54px;
-  height: 54px;
+.action-disc--pulse {
   color: #a8f4ff;
-  background: rgba(28, 62, 108, 0.68);
   border-color: rgba(132, 232, 255, 0.9);
 }
 
-.touch-btn--comet {
+.action-disc--comet {
   border-color: #ffe466;
-  box-shadow:
-    0 0 0 2px rgba(18, 7, 32, 0.8),
-    0 0 14px rgba(255, 224, 102, 0.7);
+  box-shadow: 0 0 14px rgba(255, 224, 102, 0.72);
 }
 
-.touch-btn--aegis {
-  min-width: 52px;
-  min-height: 52px;
-  width: 54px;
-  height: 54px;
+.action-disc--aegis {
   color: #ffe894;
-  background: rgba(74, 34, 104, 0.68);
   border-color: rgba(255, 214, 112, 0.88);
 }
 
-.touch-btn--cooldown {
-  opacity: 0.44;
-  filter: saturate(0.45);
-  border-color: rgba(164, 134, 194, 0.5);
+.action-disc--cd {
+  filter: saturate(0.45) brightness(0.75);
 }
 
-.dash-cd-bar {
+.action-disc--active {
+  transform: scale(0.92);
+  background: rgba(255, 206, 98, 0.85);
+  color: #241033;
+  border-color: #ffffff;
+}
+
+.disc-cd-bar {
   position: absolute;
   left: 0;
   bottom: 0;
@@ -519,130 +805,17 @@ onBeforeUnmount(() => {
   transition: width 0.06s linear;
 }
 
-.touch-btn--jump {
-  width: 76px;
-  height: 76px;
-  color: #fff7cc;
-  background: rgba(102, 48, 128, 0.58);
-  border-color: rgba(255, 219, 112, 0.84);
-}
-
-.touch-btn--active {
-  transform: translateY(3px) scale(0.96);
-  background: rgba(164, 92, 204, 0.78);
-  border-color: #ffffff;
-  box-shadow:
-    0 0 0 2px rgba(18, 7, 32, 0.8),
-    0 1px 0 rgba(18, 7, 32, 0.85),
-    0 0 14px rgba(255, 179, 216, 0.65);
-}
-
-.touch-btn--dash.touch-btn--active {
-  background: rgba(255, 158, 196, 0.82);
-  color: #241033;
-}
-
-.touch-btn--jump.touch-btn--active {
-  background: rgba(255, 206, 86, 0.82);
-  color: #241033;
-  box-shadow:
-    0 0 0 2px rgba(18, 7, 32, 0.8),
-    0 1px 0 rgba(18, 7, 32, 0.85),
-    0 0 18px rgba(255, 216, 77, 0.7);
-}
-
 .touch-glyph {
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
   text-shadow: 0 2px 0 rgba(16, 7, 28, 0.85);
 }
 
 .touch-label {
-  font-size: 8.5px;
+  font-size: 7.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
-}
-
-/* Compact sizing on short landscape phones */
-@media (orientation: landscape) and (max-height: 500px) {
-  .mobile-bottom-bar {
-    padding:
-      6px
-      max(12px, env(safe-area-inset-right))
-      max(8px, env(safe-area-inset-bottom))
-      max(12px, env(safe-area-inset-left));
-  }
-  .touch-btn {
-    width: 58px;
-    height: 58px;
-  }
-  .touch-btn--dash {
-    width: 56px;
-    height: 56px;
-  }
-  .touch-btn--jump {
-    width: 66px;
-    height: 66px;
-  }
-}
-
-@media (max-width: 480px) {
-  .mobile-bottom-bar {
-    padding:
-      8px
-      max(10px, env(safe-area-inset-right))
-      max(12px, env(safe-area-inset-bottom))
-      max(10px, env(safe-area-inset-left));
-  }
-  .touch-group {
-    gap: 8px;
-  }
-  .touch-btn {
-    width: 58px;
-    height: 58px;
-  }
-  .touch-btn--dash {
-    width: 56px;
-    height: 56px;
-  }
-  .touch-btn--jump {
-    width: 68px;
-    height: 68px;
-  }
-}
-
-/* Portrait Handheld Control Deck: ergonomic thumb buttons anchored cleanly below the big canvas */
-@media (max-width: 768px) and (orientation: portrait) {
-  .mobile-bottom-bar {
-    padding:
-      10px
-      max(14px, env(safe-area-inset-right))
-      max(16px, env(safe-area-inset-bottom))
-      max(14px, env(safe-area-inset-left));
-  }
-  .touch-group {
-    gap: 10px;
-  }
-  .touch-btn {
-    width: 66px;
-    height: 66px;
-    background: rgba(54, 26, 80, 0.88);
-  }
-  .touch-btn--dash {
-    width: 64px;
-    height: 64px;
-    background: rgba(98, 44, 114, 0.9);
-  }
-  .touch-btn--jump {
-    width: 76px;
-    height: 76px;
-    background: rgba(112, 52, 138, 0.92);
-  }
-  .touch-glyph {
-    font-size: 21px;
-  }
-  .touch-label {
-    font-size: 8.5px;
-  }
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(16, 7, 28, 0.9);
 }
 </style>

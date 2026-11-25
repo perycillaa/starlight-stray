@@ -9,6 +9,7 @@ import type {
   GraphicsStyle,
   HatId,
   HeadAccId,
+  PostcardEmoteId,
   PostcardPoseId,
   ScarfColorId
 } from './types'
@@ -16,6 +17,7 @@ import type {
 export interface PostcardOptions {
   biome: BiomeId
   pose: PostcardPoseId
+  emote?: PostcardEmoteId
   style: GraphicsStyle
   characterId: CharacterId
   scarfId: ScarfColorId
@@ -23,6 +25,92 @@ export interface PostcardOptions {
   capeId: CapeId
   headAccId?: HeadAccId
   faceAccId?: FaceAccId
+}
+
+/**
+ * Renders a crisp pixel speech bubble with one of the 6 non-empty pixel emotes.
+ * Reusable in Photo Studio, Celebration Spotlight, Camp Hub, and in-game!
+ */
+export function drawPixelEmoteBubble(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  topY: number,
+  emote: PostcardEmoteId
+): void {
+  if (emote === 'none') return
+  const bw = 17
+  const bh = 13
+  const bx = Math.round(cx - bw / 2)
+  const by = Math.round(topY)
+
+  // Outer pixel outline
+  ctx.fillStyle = '#180c29'
+  ctx.fillRect(bx + 1, by, bw - 2, bh)
+  ctx.fillRect(bx, by + 1, bw, bh - 2)
+  // Speech tail
+  ctx.fillRect(Math.round(cx - 2), by + bh, 4, 2)
+  ctx.fillRect(Math.round(cx - 1), by + bh + 2, 2, 1)
+
+  // Warm cream bubble interior
+  ctx.fillStyle = '#fff8ee'
+  ctx.fillRect(bx + 1, by + 1, bw - 2, bh - 2)
+  ctx.fillStyle = '#f2e0d2'
+  ctx.fillRect(bx + 1, by + bh - 2, bw - 2, 1)
+  ctx.fillStyle = '#fff8ee'
+  ctx.fillRect(Math.round(cx - 1), by + bh - 1, 2, 2)
+
+  const ix = bx + 5
+  const iy = by + 3
+  if (emote === 'heart') {
+    ctx.fillStyle = '#ff578f'
+    ctx.fillRect(ix + 1, iy, 2, 2)
+    ctx.fillRect(ix + 4, iy, 2, 2)
+    ctx.fillRect(ix, iy + 1, 7, 2)
+    ctx.fillRect(ix + 1, iy + 3, 5, 1)
+    ctx.fillRect(ix + 2, iy + 4, 3, 1)
+    ctx.fillRect(ix + 3, iy + 5, 1, 1)
+    ctx.fillStyle = '#ffd9e8'
+    ctx.fillRect(ix + 1, iy + 1, 1, 1)
+  } else if (emote === 'star') {
+    ctx.fillStyle = '#ffb82e'
+    ctx.fillRect(ix + 3, iy, 1, 7)
+    ctx.fillRect(ix, iy + 3, 7, 1)
+    ctx.fillRect(ix + 2, iy + 2, 3, 3)
+    ctx.fillStyle = '#fff5a6'
+    ctx.fillRect(ix + 3, iy + 2, 1, 3)
+    ctx.fillRect(ix + 2, iy + 3, 3, 1)
+  } else if (emote === 'music') {
+    ctx.fillStyle = '#7e52d9'
+    ctx.fillRect(ix + 2, iy, 4, 1)
+    ctx.fillRect(ix + 2, iy + 1, 1, 5)
+    ctx.fillRect(ix + 5, iy + 1, 1, 4)
+    ctx.fillStyle = '#ff72a6'
+    ctx.fillRect(ix, iy + 4, 3, 2)
+    ctx.fillRect(ix + 3, iy + 3, 3, 2)
+  } else if (emote === 'sleep') {
+    ctx.fillStyle = '#4e5ea8'
+    ctx.fillRect(ix, iy + 1, 3, 1)
+    ctx.fillRect(ix + 1, iy + 2, 1, 1)
+    ctx.fillRect(ix, iy + 3, 3, 1)
+    ctx.fillStyle = '#7e90d9'
+    ctx.fillRect(ix + 4, iy, 3, 1)
+    ctx.fillRect(ix + 5, iy + 1, 1, 1)
+    ctx.fillRect(ix + 4, iy + 2, 3, 1)
+  } else if (emote === 'alert') {
+    ctx.fillStyle = '#e8385b'
+    ctx.fillRect(ix + 2, iy, 3, 4)
+    ctx.fillRect(ix + 2, iy + 5, 3, 2)
+    ctx.fillStyle = '#ffe885'
+    ctx.fillRect(ix + 3, iy + 1, 1, 2)
+  } else if (emote === 'sweat') {
+    ctx.fillStyle = '#4cb8ff'
+    ctx.fillRect(ix + 3, iy, 1, 2)
+    ctx.fillRect(ix + 2, iy + 2, 3, 2)
+    ctx.fillRect(ix + 1, iy + 4, 5, 2)
+    ctx.fillRect(ix + 2, iy + 6, 3, 1)
+    ctx.fillStyle = '#e6f8ff'
+    ctx.fillRect(ix + 2, iy + 3, 1, 2)
+  }
 }
 
 export const POSTCARD_BASE_W = 240
@@ -318,24 +406,65 @@ export function renderPostcardBase(opts: PostcardOptions): HTMLCanvasElement {
       drawGlow(ctx, 190, 68, 30, 'rgba(255, 226, 130, 0.32)', 'rgba(200, 152, 62, 0.10)')
       ctx.restore()
     }
-  } else if (opts.biome === 'eclipse' || opts.biome === 'citadel') {
-    const topT = opts.biome === 'eclipse' ? tiles.eclipseTop : tiles.citadelTop
-    const bodyT = opts.biome === 'eclipse' ? tiles.eclipseBody : tiles.citadelBody
+  } else if (opts.biome === 'eclipse') {
+    // Eclipse Sanctum: crimson-violet lunar eclipse & ancient floating ruins!
+    ctx.fillStyle = 'rgba(255, 78, 122, 0.28)'
+    ctx.beginPath()
+    ctx.arc(170, 38, 28, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#ff5e8a'
+    ctx.beginPath()
+    ctx.arc(170, 38, 18, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#1b0617'
+    ctx.beginPath()
+    ctx.arc(170, 38, 15, 0, Math.PI * 2)
+    ctx.fill()
+    // Ancient temple columns & floating ruins
+    ctx.fillStyle = '#331130'
+    ctx.fillRect(22, 52, 12, 46)
+    ctx.fillRect(18, 48, 20, 4)
+    ctx.fillRect(204, 56, 12, 42)
+    ctx.fillRect(200, 52, 20, 4)
+    ctx.fillStyle = '#521d48'
+    ctx.fillRect(46, 68, 24, 6)
+    ctx.fillRect(172, 66, 22, 6)
     for (let tx = 0; tx < W; tx += 16) {
-      ctx.drawImage(topT, tx, floorY)
-      ctx.drawImage(bodyT, tx, floorY + 16)
+      ctx.drawImage(tiles.eclipseTop, tx, floorY)
+      ctx.drawImage(tiles.eclipseBody, tx, floorY + 16)
     }
     if (isModern) {
       ctx.save()
       ctx.globalCompositeOperation = 'lighter'
-      drawGlow(
-        ctx,
-        120,
-        floorY - 24,
-        42,
-        opts.biome === 'eclipse' ? 'rgba(255, 92, 138, 0.30)' : 'rgba(156, 140, 255, 0.34)',
-        'rgba(255, 224, 128, 0.10)'
-      )
+      drawGlow(ctx, 120, floorY - 20, 42, 'rgba(255, 92, 138, 0.30)', 'rgba(255, 212, 118, 0.10)')
+      ctx.restore()
+    }
+  } else if (opts.biome === 'citadel') {
+    // Astral Core Citadel: cosmic star-rings, crystal bridges & swirling nebula!
+    ctx.strokeStyle = 'rgba(164, 146, 255, 0.45)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(120, 54, 38, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(255, 226, 117, 0.36)'
+    ctx.beginPath()
+    ctx.arc(120, 54, 24, 0, Math.PI * 2)
+    ctx.stroke()
+    // Glowing crystal bridge spans
+    ctx.fillStyle = '#5a4ad4'
+    ctx.fillRect(12, 74, 42, 6)
+    ctx.fillRect(186, 74, 42, 6)
+    ctx.fillStyle = '#9ef0ff'
+    ctx.fillRect(12, 74, 42, 2)
+    ctx.fillRect(186, 74, 42, 2)
+    for (let tx = 0; tx < W; tx += 16) {
+      ctx.drawImage(tiles.citadelTop, tx, floorY)
+      ctx.drawImage(tiles.citadelBody, tx, floorY + 16)
+    }
+    if (isModern) {
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      drawGlow(ctx, 120, 56, 46, 'rgba(156, 140, 255, 0.36)', 'rgba(255, 224, 128, 0.14)')
       ctx.restore()
     }
   } else {
@@ -410,23 +539,83 @@ export function renderPostcardBase(opts: PostcardOptions): HTMLCanvasElement {
     sCtx.imageSmoothingEnabled = false
     drawCurledSleepPose(sCtx, 2, 2, dir.sit0, isModern)
     ctx.drawImage(sleepCanvas, 0, 0, 36, 28, heroX - 4, heroY - 4, 72, 56)
+  } else if (opts.pose === 'hero') {
+    // Hero Stance (Berdiri Gagah): confident stance with starlight ground flare!
+    ctx.fillStyle = 'rgba(255, 230, 128, 0.25)'
+    ctx.fillRect(heroX + 4, floorY - 5, 40, 4)
+    ctx.drawImage(dir.dash, 0, 0, 24, 24, heroX, heroY + 1, 48, 48)
+    ctx.fillStyle = '#ffe875'
+    ctx.fillRect(heroX - 4, heroY + 14, 3, 3)
+    ctx.fillRect(heroX + 48, heroY + 10, 3, 3)
+  } else if (opts.pose === 'snack') {
+    // Snack Time (Makan Camilan): cozy seated pose holding a golden honey jar / berry!
+    ctx.drawImage(dir.sit0, 0, 0, 24, 24, heroX, heroY + 2, 48, 48)
+    // Cute pixel snack jar / star berry in front of paws
+    const sx = heroX + 34
+    const sy = floorY - 12
+    ctx.fillStyle = '#180c29'
+    ctx.fillRect(sx - 1, sy - 1, 11, 12)
+    ctx.fillStyle = '#ffb838'
+    ctx.fillRect(sx, sy + 2, 9, 8)
+    ctx.fillStyle = '#fff0a6'
+    ctx.fillRect(sx + 1, sy + 3, 3, 4)
+    ctx.fillStyle = '#ff6b9d'
+    ctx.fillRect(sx + 1, sy, 7, 2)
+    ctx.fillStyle = '#ffe885'
+    ctx.fillRect(sx + 3, sy - 5, 2, 2)
+  } else if (opts.pose === 'peek') {
+    // Shy Peek (Mengintip Malu): cute character peeking over a pixel starlight shrub!
+    ctx.drawImage(dir.idle0, 0, 0, 24, 24, heroX + 2, heroY + 6, 48, 48)
+    // Foreground cozy bush / stone cover
+    ctx.fillStyle = '#1a0c2e'
+    ctx.fillRect(heroX - 2, floorY - 17, 52, 17)
+    ctx.fillStyle = '#2d4d5e'
+    ctx.fillRect(heroX, floorY - 15, 48, 15)
+    ctx.fillStyle = '#4c808f'
+    ctx.fillRect(heroX + 4, floorY - 14, 18, 4)
+    ctx.fillRect(heroX + 26, floorY - 13, 16, 4)
+    ctx.fillStyle = '#ff9ec4'
+    ctx.fillRect(heroX + 10, floorY - 10, 3, 3)
+    ctx.fillRect(heroX + 34, floorY - 9, 3, 3)
+  } else if (opts.pose === 'victory') {
+    // Victory Cheer (Pose Kemenangan): high celebratory hop + confetti stars!
+    ctx.drawImage(dir.jumpUp, 0, 0, 24, 24, heroX, heroY - 12, 48, 48)
+    const confetti: [number, number, string][] = [
+      [heroX - 10, heroY + 4, '#ffe466'],
+      [heroX + 52, heroY + 2, '#ff8cb8'],
+      [heroX - 4, heroY + 24, '#8ef0ff'],
+      [heroX + 48, heroY + 22, '#ffe466'],
+      [heroX + 12, floorY - 8, '#c294ff'],
+      [heroX + 34, floorY - 10, '#ffe885']
+    ]
+    for (const [cx, cy, col] of confetti) {
+      ctx.fillStyle = col
+      ctx.fillRect(cx, cy, 3, 3)
+    }
   } else {
     // 'wave': cheerful pose + warm pixel heart!
     ctx.drawImage(dir.idleSpecial, 0, 0, 24, 24, heroX, heroY + 2, 48, 48)
-    // Cute floating pixel heart above character
-    const hx = heroX + 44
-    const hy = heroY + 4
-    ctx.fillStyle = '#1a0f1d'
-    ctx.fillRect(hx - 1, hy, 9, 7)
-    ctx.fillStyle = '#ff72a6'
-    ctx.fillRect(hx + 1, hy + 1, 2, 2)
-    ctx.fillRect(hx + 4, hy + 1, 2, 2)
-    ctx.fillRect(hx, hy + 2, 7, 2)
-    ctx.fillRect(hx + 1, hy + 4, 5, 1)
-    ctx.fillRect(hx + 2, hy + 5, 3, 1)
-    ctx.fillRect(hx + 3, hy + 6, 1, 1)
-    ctx.fillStyle = '#ffd9ea'
-    ctx.fillRect(hx + 1, hy + 2, 1, 1)
+    if (!opts.emote || opts.emote === 'none') {
+      const hx = heroX + 44
+      const hy = heroY + 4
+      ctx.fillStyle = '#1a0f1d'
+      ctx.fillRect(hx - 1, hy, 9, 7)
+      ctx.fillStyle = '#ff72a6'
+      ctx.fillRect(hx + 1, hy + 1, 2, 2)
+      ctx.fillRect(hx + 4, hy + 1, 2, 2)
+      ctx.fillRect(hx, hy + 2, 7, 2)
+      ctx.fillRect(hx + 1, hy + 4, 5, 1)
+      ctx.fillRect(hx + 2, hy + 5, 3, 1)
+      ctx.fillRect(hx + 3, hy + 6, 1, 1)
+      ctx.fillStyle = '#ffd9ea'
+      ctx.fillRect(hx + 1, hy + 2, 1, 1)
+    }
+  }
+
+  // Optional Pixel Emote Speech Bubble floating cleanly above the character!
+  if (opts.emote && opts.emote !== 'none') {
+    const bubbleY = opts.pose === 'jump' || opts.pose === 'victory' ? Math.max(8, heroY - 22) : Math.max(8, heroY - 12)
+    drawPixelEmoteBubble(ctx, heroX + 24, bubbleY, opts.emote)
   }
 
   // Cute companion NPC perched calmly on right side of postcard
@@ -494,16 +683,16 @@ export function renderPostcardBase(opts: PostcardOptions): HTMLCanvasElement {
   ctx.fillRect(stX + 12, stY + 5, 1, 1)
   ctx.fillRect(stX + 13, stY + 9, 1, 1)
 
-  // Crisp pixel text: Character Name (bottom-left) + STARLIGHT STRAY logo (bottom-right)
+  // Crisp pixel text: Character Name (top-left of footer) & STARLIGHT STRAY (bottom-right) — zero overlap even for long names!
   const charDef = getCharacterById(opts.characterId)
-  const shortName = charDef.name.toUpperCase().slice(0, 16)
-  drawPixelText(ctx, shortName, 9, H - 20, '#fff7e8', {
+  const shortName = charDef.name.toUpperCase().slice(0, 18)
+  drawPixelText(ctx, shortName, 8, H - 23, '#fff7e8', {
     align: 'left',
     scale: 1,
-    letterSpacing: 1,
+    letterSpacing: 0,
     shadowColor: '#0e0618'
   })
-  drawPixelText(ctx, '* STARLIGHT STRAY *', W - 9, H - 15, '#ffe475', {
+  drawPixelText(ctx, '* STARLIGHT STRAY *', W - 8, H - 13, '#ffe475', {
     align: 'right',
     scale: 1,
     letterSpacing: 0,

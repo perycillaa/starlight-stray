@@ -38,11 +38,11 @@ export const LEVEL_PAR_TIMES: Record<number, LevelParTime> = {
   14: { S: 110000, A: 145000, B: 185000 }
 }
 
-/** One-time fish coin bonus per rank tier per level */
+/** One-time fish coin bonus per rank tier per level (rebalanced for 8–30 🐟 shop economy) */
 export const RANK_TIER_REWARDS: Record<RankRewardTier, number> = {
-  B: 20,
-  A: 30,
-  S: 50
+  B: 3,
+  A: 5,
+  S: 8
 }
 
 export function getLevelParTimes(levelId: number): LevelParTime {

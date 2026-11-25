@@ -13,7 +13,8 @@ import type {
   HudSnapshot,
   PhotoModePose,
   ScarfColorId,
-  TouchControlsMode
+  TouchControlsMode,
+  TouchLayoutConfig
 } from '~/game/types'
 import type { TouchControlKey } from '~/components/MobileTouchControls.vue'
 
@@ -47,10 +48,12 @@ const rotateBannerDismissed = ref(false)
 const isTouchOrCompact = ref(false)
 let styleFadeTimeout: number | null = null
 
+const showTouchEditor = ref(false)
+
 const isMobileControlsVisible = computed(() => {
   const mode = progress.value.touchControlsMode
   if (mode === 'off') return false
-  if (mode === 'on') return true
+  if (mode === 'translucent' || mode === 'visible') return true
   return isTouchOrCompact.value
 })
 
@@ -112,6 +115,16 @@ const hud = ref<HudSnapshot>({
   isNewBestTime: false,
   lastRankRewardBreakdown: [],
   lastRankRewardTotal: 0,
+  lastCoinBreakdown: {
+    starsCoins: 0,
+    firstClearCoins: 0,
+    rankCoins: 0,
+    foragerCoins: 0,
+    bossCoins: 0,
+    threeStarCoins: 0,
+    totalCoins: 0
+  },
+  celebrationCharId: null,
   showSpeedrunTimer: progress.value.showSpeedrunTimer,
   shardsCollected: 0,
   shardStatus: [false, false, false],
@@ -309,6 +322,23 @@ function handleSetTouchControlsMode(mode: TouchControlsMode) {
   engine?.setTouchControlsMode(mode)
 }
 
+function handleSetTouchLayout(nextLayout: TouchLayoutConfig) {
+  engine?.setTouchLayout(nextLayout)
+}
+
+function handleOpenTouchEditor() {
+  showTouchEditor.value = true
+}
+
+function handleSaveTouchLayout(nextLayout: TouchLayoutConfig) {
+  engine?.setTouchLayout(nextLayout)
+  showTouchEditor.value = false
+}
+
+function handleCancelTouchEditor() {
+  showTouchEditor.value = false
+}
+
 function handleSetShowSpeedrunTimer(enabled: boolean) {
   engine?.setShowSpeedrunTimer(enabled)
 }
@@ -323,6 +353,18 @@ function handleCycleHomeBackdrop() {
 
 function handleTriggerCampReaction() {
   engine?.triggerCampReaction()
+}
+
+function handleTriggerManualEmote() {
+  engine?.triggerManualEmote()
+}
+
+function handleDismissCelebration() {
+  engine?.dismissCelebration()
+}
+
+function handleEquipCelebration(openStudio = false) {
+  engine?.equipCelebrationChar(openStudio)
 }
 
 function handleOpenPhotoMode() {
@@ -354,7 +396,7 @@ function handleSnapPhotoModePostcard() {
 
 function handleToggleTouchPad() {
   const cur = progress.value.touchControlsMode
-  const next: TouchControlsMode = cur === 'on' ? 'off' : 'on'
+  const next: TouchControlsMode = cur === 'off' ? 'translucent' : 'off'
   engine?.setTouchControlsMode(next)
 }
 
@@ -525,12 +567,13 @@ function handleToggleMute() {
         <GameHud
           v-if="hud.screen === 'playing' || hud.screen === 'paused'"
           :hud="hud"
-          :show-touch-pad="progress.touchControlsMode === 'on'"
+          :show-touch-pad="progress.touchControlsMode !== 'off'"
           :mobile-pause-visible="isMobileControlsVisible && hud.screen === 'playing'"
           @toggle-mute="handleToggleMute"
           @toggle-pause="handleTogglePause"
           @restart="handleRestart"
           @toggle-touch-pad="handleToggleTouchPad"
+          @trigger-emote="handleTriggerManualEmote"
         />
 
         <canvas
@@ -595,10 +638,14 @@ function handleToggleMute() {
           @update-audio="handleUpdateAudio"
           @set-graphics-style="handleSetGraphicsStyle"
           @set-touch-controls-mode="handleSetTouchControlsMode"
+          @set-touch-layout="handleSetTouchLayout"
+          @open-touch-editor="handleOpenTouchEditor"
           @set-show-speedrun-timer="handleSetShowSpeedrunTimer"
           @set-reduce-motion="handleSetReduceMotion"
           @cycle-home-backdrop="handleCycleHomeBackdrop"
           @trigger-camp-reaction="handleTriggerCampReaction"
+          @dismiss-celebration="handleDismissCelebration"
+          @equip-celebration="handleEquipCelebration"
           @open-photo-mode="handleOpenPhotoMode"
           @export-json="handleExportJson"
           @import-json="handleImportJson"
@@ -614,10 +661,12 @@ function handleToggleMute() {
           @toggle-mute="handleToggleMute"
         />
 
-        <!-- Multi-touch Virtual Controls (automatically hidden during Pause, Photo Mode, Stamp Book & all modals) -->
+        <!-- Multi-touch Floating Joystick & Invisible/Translucent Tap Zones -->
         <MobileTouchControls
-          v-if="hud.screen === 'playing'"
+          v-if="hud.screen === 'playing' && !showTouchEditor"
           :mode="progress.touchControlsMode"
+          :layout="progress.touchLayout"
+          :level-id="hud.levelId"
           :dash-ready="hud.dashReady"
           :dash-charge="hud.dashCharge"
           :is-boss-stage="hud.isBossStage"
@@ -629,6 +678,14 @@ function handleToggleMute() {
           :comet-charge-active="hud.cometChargeTimer > 0"
           @input="handleTouchInput"
           @pause="handleTogglePause"
+        />
+
+        <!-- Full-Screen Interactive Custom Touch Control Layout & Size Editor -->
+        <TouchLayoutEditor
+          v-if="showTouchEditor"
+          :layout="progress.touchLayout"
+          @save="handleSaveTouchLayout"
+          @cancel="handleCancelTouchEditor"
         />
 
         <!-- Pause-Menu In-Level Photo Mode & Pixel Postcard Exporter -->
@@ -678,6 +735,8 @@ function handleToggleMute() {
         aria-label="Petunjuk Kontrol Keyboard"
       >
         <span><kbd>A/D</kbd> atau <kbd>←/→</kbd> Gerak</span>
+        <span class="hint-sep">•</span>
+        <span><kbd>E</kbd> Emote ♥</span>
         <span class="hint-sep">•</span>
         <template v-if="hud.isBossStage">
           <span><kbd>C/J</kbd> Starlight Pulse ✦</span>

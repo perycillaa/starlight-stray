@@ -43,7 +43,7 @@ export const CHARACTERS: CharacterDef[] = [
     perkTitle: 'Lincah di Udara',
     perkDesc: 'Kontrol udara lebih lincah & belok lebih cepat.',
     unlockMode: 'regular',
-    cost: 3
+    cost: 10
   },
   {
     id: 'cat-ginger',
@@ -54,7 +54,7 @@ export const CHARACTERS: CharacterDef[] = [
     perkTitle: 'Lincah di Udara',
     perkDesc: 'Kontrol udara lebih lincah & belok lebih cepat.',
     unlockMode: 'regular',
-    cost: 5
+    cost: 14
   },
   {
     id: 'cat-midnight',
@@ -65,7 +65,7 @@ export const CHARACTERS: CharacterDef[] = [
     perkTitle: 'Lincah di Udara',
     perkDesc: 'Kontrol udara lebih lincah & belok lebih cepat.',
     unlockMode: 'regular',
-    cost: 7
+    cost: 18
   },
   {
     id: 'cat-blue',
@@ -76,7 +76,7 @@ export const CHARACTERS: CharacterDef[] = [
     perkTitle: 'Lincah di Udara',
     perkDesc: 'Kontrol udara lebih lincah & belok lebih cepat.',
     unlockMode: 'regular',
-    cost: 9
+    cost: 22
   },
   // New Coin-Purchasable Bear & Fox Characters
   {
@@ -88,7 +88,7 @@ export const CHARACTERS: CharacterDef[] = [
     perkTitle: 'Cakar Kokoh (Sturdy Paws)',
     perkDesc: 'Knockback lebih kecil saat terkena serangan & jarak Dash +10% lebih jauh.',
     unlockMode: 'regular',
-    cost: 10
+    cost: 28
   },
   {
     id: 'fox-brown',
@@ -99,7 +99,7 @@ export const CHARACTERS: CharacterDef[] = [
     perkTitle: 'Lincah Rimba (Forest Agility)',
     perkDesc: 'Kecepatan gerak dasar +6% & pemulihan cooldown Dash 10% lebih cepat.',
     unlockMode: 'regular',
-    cost: 8
+    cost: 24
   },
   {
     id: 'fox-kitsune',
@@ -109,8 +109,10 @@ export const CHARACTERS: CharacterDef[] = [
     description: 'Rubah kuil seputih salju dengan aksen merah-emas di ujung telinga & ekor.',
     perkTitle: 'Keanggunan Kitsune (Kitsune Grace)',
     perkDesc: 'Gravitasi turun 15% lebih lembut di puncak lompatan untuk pendaratan presisi.',
-    unlockMode: 'regular',
-    cost: 12
+    unlockMode: 'mission',
+    cost: 0,
+    missionTitle: 'Penakluk 8 Map',
+    missionDesc: 'Selesaikan minimal 8 level berbeda di Starlight Stray.'
   },
 
   // Special Characters (Unlocked ONLY via Special Missions!)
@@ -160,7 +162,7 @@ export const CHARACTERS: CharacterDef[] = [
     category: 'Beruang',
     description: 'Beruang madu ramping cokelat gelap dengan corak dada emas madu hangat.',
     perkTitle: 'Pencari Madu (Sweet Forager)',
-    perkDesc: 'Radius magnet koin +25% bawaan & +10% bonus koin ikan saat selesai level.',
+    perkDesc: 'Radius magnet koin +25% bawaan & bonus +1 🐟 setiap selesai level (≥15 bintang).',
     unlockMode: 'mission',
     cost: 0,
     missionTitle: 'Sahabat Misi Harian',
@@ -200,7 +202,7 @@ export const SCARF_COLORS: ScarfColorDef[] = [
   {
     id: 'sky',
     name: 'Syal Biru Langit',
-    cost: 2,
+    cost: 8,
     main: '#59c2ff',
     dark: '#2a7ec2',
     light: '#c4ecff',
@@ -211,7 +213,7 @@ export const SCARF_COLORS: ScarfColorDef[] = [
   {
     id: 'gold',
     name: 'Syal Emas Bintang',
-    cost: 3,
+    cost: 10,
     main: '#ffc940',
     dark: '#c78316',
     light: '#fff2a6',
@@ -222,7 +224,7 @@ export const SCARF_COLORS: ScarfColorDef[] = [
   {
     id: 'purple',
     name: 'Syal Ungu Malam',
-    cost: 4,
+    cost: 12,
     main: '#a974ff',
     dark: '#6c3dc2',
     light: '#e2ccff',
@@ -233,7 +235,7 @@ export const SCARF_COLORS: ScarfColorDef[] = [
   {
     id: 'mint',
     name: 'Syal Hijau Mint',
-    cost: 3,
+    cost: 9,
     main: '#5cdba8',
     dark: '#299672',
     light: '#c4fce4',
@@ -244,7 +246,7 @@ export const SCARF_COLORS: ScarfColorDef[] = [
   {
     id: 'ruby',
     name: 'Syal Merah Ruby',
-    cost: 4,
+    cost: 12,
     main: '#e83f5b',
     dark: '#9e1c38',
     light: '#ff9ead',
@@ -303,7 +305,7 @@ export const HATS: HatDef[] = [
     groupName: 'Baret Pelukis',
     colorName: 'Pink Pastel',
     name: 'Baret Pink Pastel',
-    cost: 3,
+    cost: 10,
     primary: '#ff8fb8',
     secondary: '#d95d8e',
     accent: '#ffd6e8',
@@ -316,7 +318,7 @@ export const HATS: HatDef[] = [
     groupName: 'Baret Pelukis',
     colorName: 'Biru Langit',
     name: 'Baret Biru Langit',
-    cost: 3,
+    cost: 10,
     primary: '#6ec4ff',
     secondary: '#3782c7',
     accent: '#c9ebff',
@@ -329,7 +331,7 @@ export const HATS: HatDef[] = [
     groupName: 'Baret Pelukis',
     colorName: 'Krem Hangat',
     name: 'Baret Krem Hangat',
-    cost: 4,
+    cost: 12,
     primary: '#f5d7a8',
     secondary: '#c49660',
     accent: '#fff5e0',
@@ -358,7 +360,7 @@ export const HATS: HatDef[] = [
     groupName: 'Topi Penyihir Malam',
     colorName: 'Ungu Malam',
     name: 'Penyihir Ungu Malam',
-    cost: 5,
+    cost: 16,
     primary: '#63379c',
     secondary: '#411e6e',
     accent: '#ffd85c',
@@ -371,7 +373,7 @@ export const HATS: HatDef[] = [
     groupName: 'Topi Penyihir Malam',
     colorName: 'Hitam Emas',
     name: 'Penyihir Hitam Emas',
-    cost: 6,
+    cost: 18,
     primary: '#2c223d',
     secondary: '#181124',
     accent: '#ffcf40',
@@ -384,7 +386,7 @@ export const HATS: HatDef[] = [
     groupName: 'Topi Penyihir Malam',
     colorName: 'Biru Bintang',
     name: 'Penyihir Biru Bintang',
-    cost: 6,
+    cost: 18,
     primary: '#2a4f9e',
     secondary: '#18316e',
     accent: '#9ee8ff',
@@ -398,7 +400,7 @@ export const HATS: HatDef[] = [
     groupName: 'Jepit Tunas / Bunga',
     colorName: 'Tunas Hijau',
     name: 'Jepit Tunas Hijau',
-    cost: 2,
+    cost: 8,
     primary: '#5fd68c',
     secondary: '#2e995d',
     accent: '#c2ffcf',
@@ -411,7 +413,7 @@ export const HATS: HatDef[] = [
     groupName: 'Jepit Tunas / Bunga',
     colorName: 'Bunga Sakura Pink',
     name: 'Jepit Bunga Sakura',
-    cost: 3,
+    cost: 10,
     primary: '#ff9ec4',
     secondary: '#e06798',
     accent: '#fff2a6',
@@ -425,7 +427,7 @@ export const HATS: HatDef[] = [
     groupName: 'Mahkota Mini',
     colorName: 'Emas Bintang',
     name: 'Mahkota Emas Bintang',
-    cost: 7,
+    cost: 24,
     primary: '#ffd54f',
     secondary: '#d9931c',
     accent: '#fff9cc',
@@ -438,7 +440,7 @@ export const HATS: HatDef[] = [
     groupName: 'Mahkota Mini',
     colorName: 'Perak Bulan',
     name: 'Mahkota Perak Bulan',
-    cost: 7,
+    cost: 24,
     primary: '#dce6f7',
     secondary: '#8da1c4',
     accent: '#9ef0ff',
@@ -487,7 +489,7 @@ export const CAPES: CapeDef[] = [
     groupName: 'Jubah Penjelajah',
     colorName: 'Biru Malam',
     name: 'Jubah Biru Malam',
-    cost: 4,
+    cost: 14,
     primary: '#355499',
     secondary: '#213669',
     accent: '#94c4ff',
@@ -500,7 +502,7 @@ export const CAPES: CapeDef[] = [
     groupName: 'Jubah Penjelajah',
     colorName: 'Hijau Zamrud',
     name: 'Jubah Hijau Zamrud',
-    cost: 4,
+    cost: 14,
     primary: '#2c997a',
     secondary: '#1a6653',
     accent: '#8ef5cf',
@@ -513,7 +515,7 @@ export const CAPES: CapeDef[] = [
     groupName: 'Jubah Penjelajah',
     colorName: 'Cokelat Hangat',
     name: 'Jubah Cokelat Hangat',
-    cost: 4,
+    cost: 16,
     primary: '#9c6244',
     secondary: '#693c28',
     accent: '#e8be96',
@@ -527,7 +529,7 @@ export const CAPES: CapeDef[] = [
     groupName: 'Jubah Kerajaan',
     colorName: 'Merah Marun',
     name: 'Jubah Merah Marun',
-    cost: 6,
+    cost: 20,
     primary: '#a62646',
     secondary: '#6e142c',
     accent: '#ffd85c',
@@ -540,7 +542,7 @@ export const CAPES: CapeDef[] = [
     groupName: 'Jubah Kerajaan',
     colorName: 'Ungu Kerajaan',
     name: 'Jubah Ungu Kerajaan',
-    cost: 6,
+    cost: 22,
     primary: '#7238a8',
     secondary: '#491d75',
     accent: '#ffe169',
@@ -554,7 +556,7 @@ export const CAPES: CapeDef[] = [
     groupName: 'Sayap Peri Kecil',
     colorName: 'Pink Pastel',
     name: 'Sayap Peri Pink',
-    cost: 8,
+    cost: 28,
     primary: '#ffb8da',
     secondary: '#eb78b2',
     accent: '#fff5fa',
@@ -567,7 +569,7 @@ export const CAPES: CapeDef[] = [
     groupName: 'Sayap Peri Kecil',
     colorName: 'Biru Kristal',
     name: 'Sayap Biru Kristal',
-    cost: 8,
+    cost: 30,
     primary: '#9ee8ff',
     secondary: '#54a9e6',
     accent: '#ffffff',
@@ -678,7 +680,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Tunas Daun',
     colorName: 'Hijau Segar',
     name: 'Tunas Daun Hijau',
-    cost: 2,
+    cost: 8,
     primary: '#5fd68c',
     secondary: '#2d9458',
     accent: '#c9ffd9',
@@ -691,7 +693,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Tunas Daun',
     colorName: 'Emas Musim Gugur',
     name: 'Tunas Daun Emas',
-    cost: 4,
+    cost: 10,
     primary: '#ffd55c',
     secondary: '#c98824',
     accent: '#fff6c4',
@@ -704,7 +706,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Jepit Sakura',
     colorName: 'Sakura Pink',
     name: 'Jepit Sakura Pink',
-    cost: 3,
+    cost: 10,
     primary: '#ff9ec9',
     secondary: '#db6398',
     accent: '#fff099',
@@ -717,7 +719,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Jepit Sakura',
     colorName: 'Sakura Putih',
     name: 'Jepit Sakura Putih',
-    cost: 3,
+    cost: 10,
     primary: '#fff2f8',
     secondary: '#d9b0cc',
     accent: '#ffd866',
@@ -730,7 +732,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Tanduk Rusa',
     colorName: 'Cokelat Hangat',
     name: 'Tanduk Rusa Mini',
-    cost: 4,
+    cost: 14,
     primary: '#b37a4c',
     secondary: '#7a4b2b',
     accent: '#e6ba8e',
@@ -743,7 +745,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Tanduk Rusa',
     colorName: 'Kristal Es',
     name: 'Tanduk Rusa Es',
-    cost: 5,
+    cost: 16,
     primary: '#9ee8ff',
     secondary: '#529ec9',
     accent: '#ffffff',
@@ -756,7 +758,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Headphone Lo-Fi',
     colorName: 'Ungu Retro',
     name: 'Headphone Lo-Fi',
-    cost: 5,
+    cost: 18,
     primary: '#8e5ce6',
     secondary: '#55309e',
     accent: '#ff9ec4',
@@ -769,7 +771,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Headphone Lo-Fi',
     colorName: 'Mint Pastel',
     name: 'Headphone Mint Lo-Fi',
-    cost: 5,
+    cost: 18,
     primary: '#5fd6b0',
     secondary: '#2b8a72',
     accent: '#ffe375',
@@ -782,7 +784,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Mahkota Bintang',
     colorName: 'Emas Bintang',
     name: 'Mahkota Bintang',
-    cost: 7,
+    cost: 26,
     primary: '#ffd84d',
     secondary: '#d48d1e',
     accent: '#9ef2ff',
@@ -795,7 +797,7 @@ export const HEAD_ACCS: HeadAccDef[] = [
     groupName: 'Mahkota Bintang',
     colorName: 'Perak Bulan',
     name: 'Mahkota Bulan Perak',
-    cost: 7,
+    cost: 26,
     primary: '#dce8ff',
     secondary: '#8ba2cc',
     accent: '#ffe475',
@@ -843,7 +845,7 @@ export const FACE_ACCS: FaceAccDef[] = [
     groupName: 'Penutup Mata',
     colorName: 'Arang Emas',
     name: 'Penutup Mata Emas',
-    cost: 4,
+    cost: 16,
     primary: '#242030',
     secondary: '#120e1a',
     accent: '#ffd84d',
@@ -856,7 +858,7 @@ export const FACE_ACCS: FaceAccDef[] = [
     groupName: 'Penutup Mata',
     colorName: 'Arang Merah',
     name: 'Penutup Mata Merah',
-    cost: 5,
+    cost: 18,
     primary: '#261b29',
     secondary: '#140c17',
     accent: '#ff5277',
@@ -869,7 +871,7 @@ export const FACE_ACCS: FaceAccDef[] = [
     groupName: 'Kacamata Bulat',
     colorName: 'Hitam Klasik',
     name: 'Kacamata Bulat',
-    cost: 3,
+    cost: 12,
     primary: '#291e38',
     secondary: '#9ce6ff',
     accent: '#ffffff',
@@ -882,7 +884,7 @@ export const FACE_ACCS: FaceAccDef[] = [
     groupName: 'Kacamata Bulat',
     colorName: 'Bingkai Emas',
     name: 'Kacamata Bulat Emas',
-    cost: 4,
+    cost: 14,
     primary: '#e0a938',
     secondary: '#c4f2ff',
     accent: '#fffbe0',
@@ -895,7 +897,7 @@ export const FACE_ACCS: FaceAccDef[] = [
     groupName: 'Plester Pipi',
     colorName: 'Krem Petualang',
     name: 'Plester Pipi Bintang',
-    cost: 2,
+    cost: 8,
     primary: '#ffe0b8',
     secondary: '#d9a473',
     accent: '#fff8eb',
@@ -908,7 +910,7 @@ export const FACE_ACCS: FaceAccDef[] = [
     groupName: 'Plester Pipi',
     colorName: 'Sakura Pink',
     name: 'Plester Pipi Sakura',
-    cost: 3,
+    cost: 9,
     primary: '#ffc2dd',
     secondary: '#e07ca9',
     accent: '#fff5fa',
@@ -1001,6 +1003,18 @@ export function getCharacterMissionProgress(id: CharacterId, progress: SaveProgr
       current: cur,
       target: 6,
       label: done ? `${totalDaily} / 6 Misi Harian ✓` : `${cur} / 6 Misi Harian`
+    }
+  }
+
+  if (id === 'fox-kitsune') {
+    const cleared = Object.values(progress.levelRecords).filter((rec) => rec && rec.rating >= 1).length
+    const cur = Math.min(8, cleared)
+    const done = cleared >= 8
+    return {
+      completed: done,
+      current: cur,
+      target: 8,
+      label: done ? 'SELESAIKAN 8 MAP (8/8) ✓' : `SELESAIKAN 8 MAP (${cur}/8)`
     }
   }
 
