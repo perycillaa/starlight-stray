@@ -4671,6 +4671,13 @@ function handleFileChange(e: Event) {
   color: #f2e2ff;
 }
 
+/* Hide keyboard controls guide on mobile/touch devices — show only on PC desktop */
+@media (pointer: coarse), (hover: none), (max-width: 900px), (max-height: 540px) {
+  .guide-controls-strip {
+    display: none !important;
+  }
+}
+
 .guide-ctrl-title {
   color: #ffe375;
   font-weight: 700;

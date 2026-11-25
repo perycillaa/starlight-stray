@@ -503,38 +503,38 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Portrait Handheld Control Deck: larger ergonomic thumb buttons anchored cleanly below the canvas */
+/* Portrait Handheld Control Deck: ergonomic thumb buttons anchored cleanly below the big canvas */
 @media (max-width: 768px) and (orientation: portrait) {
   .mobile-bottom-bar {
     padding:
-      16px
-      max(16px, env(safe-area-inset-right))
-      max(28px, env(safe-area-inset-bottom))
-      max(16px, env(safe-area-inset-left));
+      10px
+      max(14px, env(safe-area-inset-right))
+      max(16px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
   }
   .touch-group {
-    gap: 12px;
+    gap: 10px;
   }
   .touch-btn {
-    width: 70px;
-    height: 70px;
+    width: 66px;
+    height: 66px;
     background: rgba(54, 26, 80, 0.88);
   }
   .touch-btn--dash {
-    width: 68px;
-    height: 68px;
+    width: 64px;
+    height: 64px;
     background: rgba(98, 44, 114, 0.9);
   }
   .touch-btn--jump {
-    width: 82px;
-    height: 82px;
+    width: 76px;
+    height: 76px;
     background: rgba(112, 52, 138, 0.92);
   }
   .touch-glyph {
-    font-size: 22px;
+    font-size: 21px;
   }
   .touch-label {
-    font-size: 9px;
+    font-size: 8.5px;
   }
 }
 </style>

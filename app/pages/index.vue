@@ -59,6 +59,18 @@ function updateTouchViewportDetection() {
     (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) ||
     window.matchMedia('(pointer: coarse)').matches
   isTouchOrCompact.value = hasTouch || window.innerWidth < 900
+
+  // Keep game canvas pixel aspect synchronized for both ultrawide mobile landscape (zero black bars)
+  // and tall mobile portrait (zoomed-in big pixel playfield filling the screen cleanly!)
+  if (engine) {
+    const isMobileLandscape = window.innerHeight <= 540 && window.innerWidth > window.innerHeight
+    const isMobilePortrait = window.innerWidth <= 768 && window.innerHeight > window.innerWidth
+    if (isMobileLandscape || isMobilePortrait) {
+      engine.setViewportAspect(window.innerWidth, window.innerHeight)
+    } else {
+      engine.setViewportAspect(384, 216)
+    }
+  }
 }
 
 let audioUnlocked = false
@@ -189,6 +201,7 @@ onMounted(() => {
     loadedProgress
   )
   engine.startLoop()
+  updateTouchViewportDetection()
 
   // Non-blocking background sync with TiDB Cloud Serverless
   void loadFromCloud().then((res) => {
@@ -473,7 +486,7 @@ function handleToggleMute() {
       <div
         class="stage-frame"
         :class="{
-          'stage-frame--portrait-title': hud.screen === 'title',
+          'stage-frame--portrait-title': hud.screen !== 'playing' && hud.screen !== 'paused' && hud.screen !== 'photoMode' && hud.screen !== 'levelClear' && hud.screen !== 'gameOver',
           'stage-frame--portrait-play': hud.screen === 'playing' || hud.screen === 'paused'
         }"
       >
@@ -762,7 +775,7 @@ function handleToggleMute() {
   letter-spacing: 0.03em;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 900px) and (min-height: 541px) and (hover: hover) and (pointer: fine) {
   .desktop-hint-bar {
     display: flex;
   }
@@ -846,7 +859,13 @@ function handleToggleMute() {
   .game-canvas {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    aspect-ratio: auto;
+    object-fit: fill;
+  }
+
+  /* In mobile landscape menus/lobby, native ultrawide canvas fills edge-to-edge 1:1 with zero black bars or cropping */
+  .stage-frame--portrait-title .game-canvas {
+    object-fit: fill;
   }
 
   .desktop-hint-bar {
@@ -864,10 +883,12 @@ function handleToggleMute() {
     bottom: auto;
   }
 
-  /* During portrait gameplay, dock the tip pill cleanly in the handheld lower deck below the canvas */
+  /* During portrait gameplay, dock the tip pill cleanly just above the bottom touch deck */
   .portrait-rotate-pill--play {
     top: auto;
-    bottom: calc(max(28px, env(safe-area-inset-bottom)) + 106px);
+    bottom: calc(max(18px, env(safe-area-inset-bottom)) + 90px);
+    padding: 4px 8px;
+    font-size: 7.8px;
   }
 
   .stage-frame {
@@ -894,19 +915,19 @@ function handleToggleMute() {
     flex-shrink: 0;
   }
 
-  /* Portrait Gameplay: handheld console screen framed cleanly below the HUD, above the touch deck */
+  /* Portrait Gameplay: zoomed ~196x216 playfield fills the large central viewport cleanly (~2x bigger!) */
   .stage-frame--portrait-play .game-canvas {
     width: 100vw;
-    height: auto;
-    max-height: 52dvh;
-    aspect-ratio: 16 / 9;
-    object-fit: contain;
+    height: calc(100dvh - 208px);
+    max-height: calc(100dvh - 196px);
+    aspect-ratio: auto;
+    object-fit: cover;
+    object-position: center bottom;
     flex-shrink: 0;
-    margin-top: 8px;
     background: #0d061a;
-    border-top: 3px solid #7d4ca8;
+    border-top: 2px solid #7d4ca8;
     border-bottom: 3px solid #7d4ca8;
-    box-shadow: 0 0 24px rgba(138, 86, 204, 0.32);
+    box-shadow: 0 0 24px rgba(138, 86, 204, 0.34);
   }
 }
 </style>

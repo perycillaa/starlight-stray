@@ -325,6 +325,8 @@ export class MoonpawGameEngine {
   }> = []
   private photoModePose: PhotoModePose = 'idle'
   private photoModeFrame = true
+  private viewW = VIEW_W
+  private desiredWideViewW = VIEW_W
   private cosmeticParticles: CosmeticTrailParticle[] = []
   private cosmeticHatTimer = 0
   private cosmeticCapeTimer = 0
@@ -380,7 +382,8 @@ export class MoonpawGameEngine {
       if (this.screen !== 'title') return
       const rect = this.canvas.getBoundingClientRect()
       if (rect.width <= 0 || rect.height <= 0) return
-      const cx = ((e.clientX - rect.left) / rect.width) * VIEW_W
+      const cx =
+        ((e.clientX - rect.left) / rect.width) * this.viewW - Math.max(0, this.viewW - VIEW_W)
       const cy = ((e.clientY - rect.top) / rect.height) * VIEW_H
       // Primary selected character (enlarged ~1.67x framing on right camp perch)
       const px = this.player.x + this.player.w / 2
@@ -442,6 +445,59 @@ export class MoonpawGameEngine {
     document.removeEventListener('visibilitychange', this.boundVisibilityChange)
     this.canvas.removeEventListener('click', this.boundCanvasClick)
     this.audio.destroy()
+  }
+
+  /**
+   * Adapts internal pixel viewport width for both ultrawide mobile landscape (384..640, zero black bars)
+   * and tall mobile portrait (192..244, ~2x larger sprites filling the portrait play area cleanly).
+   */
+  public setViewportAspect(containerWidth: number, containerHeight: number): void {
+    if (containerWidth <= 0 || containerHeight <= 0) return
+    const ratio = containerWidth / containerHeight
+    const baseRatio = VIEW_W / VIEW_H
+    const isMobilePortrait = containerHeight > containerWidth && containerWidth <= 768
+    const isMobileLandscape = containerWidth > containerHeight && containerHeight <= 540
+
+    if (isMobilePortrait) {
+      // Reserve top HUD (~78px) + bottom thumb control deck (~142px)
+      const availH = Math.max(240, containerHeight - 220)
+      const portraitRatio = containerWidth / availH
+      this.desiredWideViewW = Math.max(192, Math.min(244, Math.round(VIEW_H * portraitRatio)))
+    } else if (isMobileLandscape && ratio > baseRatio + 0.03) {
+      this.desiredWideViewW = Math.max(VIEW_W, Math.min(640, Math.round(VIEW_H * ratio)))
+    } else {
+      this.desiredWideViewW = VIEW_W
+    }
+    this.syncViewportWidthForCurrentScreen()
+  }
+
+  private syncViewportWidthForCurrentScreen(): void {
+    const isMenuOrEnding =
+      this.screen === 'title' ||
+      this.screen === 'levelSelect' ||
+      this.screen === 'characters' ||
+      this.screen === 'shop' ||
+      this.screen === 'achievements' ||
+      this.screen === 'photoStudio' ||
+      this.screen === 'guidebook' ||
+      this.screen === 'settings' ||
+      this.screen === 'victory'
+
+    // In ultrawide landscape, keep full wide canvas even on Lobby/menus (zero black bars!).
+    // In portrait, keep Lobby at 384x216 for clean top-header framing while gameplay uses zoomed portrait viewW.
+    const targetW = isMenuOrEnding
+      ? Math.max(VIEW_W, this.desiredWideViewW)
+      : this.desiredWideViewW
+    if (this.viewW !== targetW || this.canvas.width !== targetW) {
+      this.viewW = targetW
+      this.canvas.width = targetW
+      this.canvas.height = VIEW_H
+      this.ctx.imageSmoothingEnabled = false
+      const maxCamX = Math.max(0, this.level.width - this.viewW)
+      if (this.cameraX > maxCamX) {
+        this.cameraX = maxCamX
+      }
+    }
   }
 
   private persistSave(showIndicator = false): void {
@@ -763,7 +819,7 @@ export class MoonpawGameEngine {
     this.render()
     const scale = 4
     const out = document.createElement('canvas')
-    out.width = VIEW_W * scale
+    out.width = this.viewW * scale
     out.height = VIEW_H * scale
     const octx = out.getContext('2d')!
     octx.imageSmoothingEnabled = false
@@ -1777,9 +1833,9 @@ export class MoonpawGameEngine {
     const rng = createRng(90210)
     const starColors = ['#fffbe6', '#dfd9ff', '#ffe29c', '#b7e0ff', '#ffcce6']
     this.bgStars = []
-    for (let i = 0; i < 96; i++) {
+    for (let i = 0; i < 120; i++) {
       this.bgStars.push({
-        x: Math.floor(rng() * (VIEW_W + 260)),
+        x: Math.floor(rng() * 760),
         y: Math.floor(5 + rng() * 114),
         size: rng() > 0.8 ? 2 : 1,
         cross: rng() > 0.82,
@@ -2615,7 +2671,7 @@ export class MoonpawGameEngine {
       if (this.meteorSpawnTimer <= 0 && this.fallingEventStars.length < 14) {
         this.meteorSpawnTimer = 0.72 + Math.random() * 0.48
         this.fallingEventStars.push({
-          x: this.cameraX + 40 + Math.random() * (VIEW_W - 64),
+          x: this.cameraX + 40 + Math.random() * (this.viewW - 64),
           y: -10,
           vx: 10 + Math.random() * 12,
           vy: 30 + Math.random() * 14,
@@ -2650,7 +2706,7 @@ export class MoonpawGameEngine {
         })
         this.emitHud()
       }
-      if (fs.collected || fs.y > VIEW_H + 14 || fs.x > this.cameraX + VIEW_W + 64) {
+      if (fs.collected || fs.y > VIEW_H + 14 || fs.x > this.cameraX + this.viewW + 64) {
         this.fallingEventStars.splice(i, 1)
       }
     }
@@ -3833,15 +3889,18 @@ export class MoonpawGameEngine {
   }
 
   private updateCamera(dt: number): void {
-    const maxCamX = Math.max(0, this.level.width - VIEW_W)
+    const maxCamX = Math.max(0, this.level.width - this.viewW)
     const playerCenterX = this.player.x + this.player.w / 2
-    const screenAnchorX = this.cameraX + VIEW_W * 0.44
+    const isPortraitView = this.viewW < 280
+    const anchorRatio = isPortraitView ? 0.36 : 0.44
+    const deadzone = isPortraitView ? 10 : CAMERA_DEADZONE_HALF_W
+    const screenAnchorX = this.cameraX + this.viewW * anchorRatio
 
     let targetX = this.cameraX
-    if (playerCenterX > screenAnchorX + CAMERA_DEADZONE_HALF_W) {
-      targetX = playerCenterX - (VIEW_W * 0.44 + CAMERA_DEADZONE_HALF_W)
-    } else if (playerCenterX < screenAnchorX - CAMERA_DEADZONE_HALF_W) {
-      targetX = playerCenterX - (VIEW_W * 0.44 - CAMERA_DEADZONE_HALF_W)
+    if (playerCenterX > screenAnchorX + deadzone) {
+      targetX = playerCenterX - (this.viewW * anchorRatio + deadzone)
+    } else if (playerCenterX < screenAnchorX - deadzone) {
+      targetX = playerCenterX - (this.viewW * anchorRatio - deadzone)
     }
 
     const clampedTargetX = Math.max(0, Math.min(maxCamX, targetX))
@@ -4017,7 +4076,7 @@ export class MoonpawGameEngine {
     // Gentle golden harbor fireflies rising slowly above the moonlit pier
     if (Math.random() < 0.08) {
       this.particles.push({
-        x: 18 + Math.random() * (VIEW_W - 36),
+        x: 18 + Math.random() * (this.viewW - 36),
         y: 120 + Math.random() * 58,
         vx: (Math.random() - 0.5) * 4,
         vy: -2.2 - Math.random() * 3.5,
@@ -4049,7 +4108,7 @@ export class MoonpawGameEngine {
     const isModern = this.progress.graphicsStyle === 'modern'
     if (this.particles.length > (isModern ? 130 : 105)) return
     const camLeft = this.cameraX - 24
-    const camRight = this.cameraX + VIEW_W + 24
+    const camRight = this.cameraX + this.viewW + 24
     const biome = this.level.biome
 
     // Modern 16-Bit extra subtle varied-size glowing night dust & firefly micro-particles
@@ -4063,7 +4122,7 @@ export class MoonpawGameEngine {
               ? '#f2e0ff'
               : '#fff0ba'
       this.particles.push({
-        x: camLeft + Math.random() * (VIEW_W + 48),
+        x: camLeft + Math.random() * (this.viewW + 48),
         y: 20 + Math.random() * 165,
         vx: (Math.random() - 0.5) * 3.0,
         vy: -1.8 - Math.random() * 3.0,
@@ -4079,7 +4138,7 @@ export class MoonpawGameEngine {
     if (biome === 'sakura' && Math.random() < 0.14) {
       // Gently falling pink sakura petals
       this.particles.push({
-        x: camLeft + Math.random() * (VIEW_W + 48),
+        x: camLeft + Math.random() * (this.viewW + 48),
         y: -4,
         vx: -8 - Math.random() * 6,
         vy: 14 + Math.random() * 10,
@@ -4092,7 +4151,7 @@ export class MoonpawGameEngine {
     } else if (biome === 'cloudland' && Math.random() < 0.08) {
       // Calm shimmering pastel crystal star motes
       this.particles.push({
-        x: camLeft + Math.random() * (VIEW_W + 48),
+        x: camLeft + Math.random() * (this.viewW + 48),
         y: 16 + Math.random() * 160,
         vx: (Math.random() - 0.5) * 3,
         vy: -2 - Math.random() * 3,
@@ -4105,7 +4164,7 @@ export class MoonpawGameEngine {
     } else if (biome === 'harbor' && Math.random() < 0.09) {
       // Slow golden fireflies drifting over the harbor pier
       this.particles.push({
-        x: camLeft + Math.random() * (VIEW_W + 48),
+        x: camLeft + Math.random() * (this.viewW + 48),
         y: 78 + Math.random() * 98,
         vx: (Math.random() - 0.5) * 5,
         vy: -2 - Math.random() * 3.5,
@@ -4206,7 +4265,7 @@ export class MoonpawGameEngine {
 
   private updateParticles(dt: number): void {
     const camLeft = this.cameraX - 48
-    const camRight = this.cameraX + VIEW_W + 48
+    const camRight = this.cameraX + this.viewW + 48
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const pt = this.particles[i]!
       pt.x += pt.vx * dt
@@ -4232,7 +4291,7 @@ export class MoonpawGameEngine {
 
   private updateAfterimages(dt: number): void {
     const camLeft = this.cameraX - 48
-    const camRight = this.cameraX + VIEW_W + 48
+    const camRight = this.cameraX + this.viewW + 48
     for (let i = this.afterimages.length - 1; i >= 0; i--) {
       const img = this.afterimages[i]!
       img.life -= dt
@@ -4297,6 +4356,8 @@ export class MoonpawGameEngine {
       this.renderEndingCutscene(ctx)
       return
     }
+
+    this.syncViewportWidthForCurrentScreen()
 
     const isHomeMenuScreen =
       this.screen === 'title' ||
@@ -4372,7 +4433,7 @@ export class MoonpawGameEngine {
     if (this.styleFadeTimer > 0) {
       const fadeAlpha = Math.min(0.45, (this.styleFadeTimer / 0.16) * 0.45)
       ctx.fillStyle = `rgba(10, 5, 22, ${fadeAlpha.toFixed(3)})`
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+      ctx.fillRect(0, 0, this.viewW, VIEW_H)
     }
   }
 
@@ -4399,13 +4460,13 @@ export class MoonpawGameEngine {
     const [c0, c1, c2, c3] = palettes[biome]
     if (!isModern) {
       ctx.fillStyle = c0
-      ctx.fillRect(0, 0, VIEW_W, 56)
+      ctx.fillRect(0, 0, this.viewW, 56)
       ctx.fillStyle = c1
-      ctx.fillRect(0, 56, VIEW_W, 54)
+      ctx.fillRect(0, 56, this.viewW, 54)
       ctx.fillStyle = c2
-      ctx.fillRect(0, 110, VIEW_W, 54)
+      ctx.fillRect(0, 110, this.viewW, 54)
       ctx.fillStyle = c3
-      ctx.fillRect(0, 164, VIEW_W, VIEW_H - 164)
+      ctx.fillRect(0, 164, this.viewW, VIEW_H - 164)
     } else {
       const grad = ctx.createLinearGradient(0, 0, 0, VIEW_H)
       grad.addColorStop(0, c0)
@@ -4413,11 +4474,49 @@ export class MoonpawGameEngine {
       grad.addColorStop(0.7, c2)
       grad.addColorStop(1, c3)
       ctx.fillStyle = grad
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+      ctx.fillRect(0, 0, this.viewW, VIEW_H)
     }
 
-    // Twinkling stars + occasional diagonal shooting star
+    // Twinkling stars + occasional diagonal shooting star across full width
     this.renderStars(ctx, 0)
+
+    // Seamless left-side ambient silhouette extension for ultrawide mobile landscape screens
+    const campShiftX = Math.max(0, this.viewW - VIEW_W)
+    if (campShiftX > 0) {
+      if (biome === 'rooftops') {
+        for (let lx = 0; lx < campShiftX + 150; lx += 34) {
+          const bh = 72 + ((lx * 13) % 44)
+          ctx.fillStyle = (lx / 34) % 2 === 0 ? '#160d2e' : '#1d113b'
+          ctx.fillRect(lx, VIEW_H - bh, 32, bh)
+          for (let wy = VIEW_H - bh + 10; wy < VIEW_H - 22; wy += 12) {
+            for (let wx = lx + 6; wx < lx + 24; wx += 9) {
+              if ((wx + wy) % 3 !== 0) {
+                ctx.fillStyle = '#c49d56'
+                ctx.fillRect(wx, wy, 3, 4)
+              }
+            }
+          }
+        }
+        ctx.fillStyle = '#241338'
+        ctx.fillRect(0, 164, campShiftX + 184, 52)
+        ctx.fillStyle = '#5e2f52'
+        ctx.fillRect(0, 164, campShiftX + 184, 7)
+        ctx.fillStyle = '#8c466e'
+        ctx.fillRect(0, 164, campShiftX + 184, 2)
+      } else if (biome === 'sakura') {
+        ctx.fillStyle = '#1b1640'
+        ctx.fillRect(0, 150, campShiftX + 160, 66)
+      } else if (biome === 'cloudland') {
+        ctx.fillStyle = '#4e2d78'
+        ctx.fillRect(0, 156, campShiftX + 160, 60)
+      } else if (biome === 'harbor') {
+        ctx.fillStyle = '#082530'
+        ctx.fillRect(0, 156, campShiftX + 160, 60)
+      }
+    }
+
+    ctx.save()
+    ctx.translate(campShiftX, 0)
 
     // Biome-specific Sky Moon + Parallax Cloud Bands
     const moonX = biome === 'cloudland' ? 286 : 302
@@ -4593,7 +4692,7 @@ export class MoonpawGameEngine {
 
       // Midground: Layered distant sakura tree silhouettes + traditional pixel Torii Shrine Gate!
       ctx.fillStyle = '#251547'
-      ctx.fillRect(0, 150, VIEW_W, 66)
+      ctx.fillRect(0, 150, this.viewW, 66)
       // Distant dark sakura silhouettes
       ctx.fillStyle = '#331d59'
       ctx.fillRect(172, 116, 46, 26)
@@ -4816,9 +4915,9 @@ export class MoonpawGameEngine {
 
       // Shimmering Harbor Bay Water + Animated Reflections & Ripples beneath pier
       ctx.fillStyle = '#092736'
-      ctx.fillRect(0, 156, VIEW_W, 60)
+      ctx.fillRect(0, 156, this.viewW, 60)
       ctx.fillStyle = '#124052'
-      ctx.fillRect(0, 156, VIEW_W, 4)
+      ctx.fillRect(0, 156, this.viewW, 4)
       for (let i = 0; i < 12; i++) {
         const ry = 162 + i * 4
         const rx = 200 + ((i * 21 + Math.round(Math.sin(t * 1.6 + i) * 4)) % 168)
@@ -4890,12 +4989,13 @@ export class MoonpawGameEngine {
     this.renderCosmeticTrailParticles(ctx)
     this.renderParticles(ctx)
     this.renderFloatingTexts(ctx)
+    ctx.restore()
 
     // Brief gentle transition veil when switching Classic <-> Modern graphics style
     if (this.styleFadeTimer > 0) {
       const fadeAlpha = Math.min(0.45, (this.styleFadeTimer / 0.16) * 0.45)
       ctx.fillStyle = `rgba(10, 5, 22, ${fadeAlpha.toFixed(3)})`
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+      ctx.fillRect(0, 0, this.viewW, VIEW_H)
     }
   }
 
@@ -4930,9 +5030,9 @@ export class MoonpawGameEngine {
     // 1. Serene Twilight-Harbor Night Sky
     if (!isModern) {
       ctx.fillStyle = '#081024'
-      ctx.fillRect(0, 0, VIEW_W, 74)
+      ctx.fillRect(0, 0, this.viewW, 74)
       ctx.fillStyle = '#122442'
-      ctx.fillRect(0, 74, VIEW_W, 64)
+      ctx.fillRect(0, 74, this.viewW, 64)
     } else {
       const skyGrad = ctx.createLinearGradient(0, 0, 0, 138)
       skyGrad.addColorStop(0, '#081024')
@@ -4940,7 +5040,7 @@ export class MoonpawGameEngine {
       skyGrad.addColorStop(0.7, '#1d3c63')
       skyGrad.addColorStop(1, '#2b6182')
       ctx.fillStyle = skyGrad
-      ctx.fillRect(0, 0, VIEW_W, 138)
+      ctx.fillRect(0, 0, this.viewW, 138)
     }
 
     // 2. Twinkling Night Stars & Occasional Shooting Star
@@ -4969,9 +5069,9 @@ export class MoonpawGameEngine {
     // 4. Calm Midnight Ocean + Shimmering Full Moon Water Reflection (gentle 1-2px ripples)
     const seaTop = 136
     ctx.fillStyle = '#092430'
-    ctx.fillRect(0, seaTop, VIEW_W, VIEW_H - seaTop)
+    ctx.fillRect(0, seaTop, this.viewW, VIEW_H - seaTop)
     ctx.fillStyle = '#113a4a'
-    ctx.fillRect(0, seaTop, VIEW_W, 3)
+    ctx.fillRect(0, seaTop, this.viewW, 3)
 
     // Distant horizon silhouette & gentle harbor lighthouse on the left
     const lhX = 44
@@ -5022,7 +5122,7 @@ export class MoonpawGameEngine {
     const tileSet = isModern ? this.sprites.modernTiles : this.sprites.tiles
     // Vertical support pilings extending into water
     ctx.fillStyle = '#291722'
-    for (let px = 16; px < VIEW_W; px += 64) {
+    for (let px = 16; px < this.viewW; px += 64) {
       ctx.fillRect(px, pierY + 12, 8, VIEW_H - (pierY + 12))
       ctx.fillStyle = '#472a36'
       ctx.fillRect(px + 2, pierY + 12, 4, VIEW_H - (pierY + 12))
@@ -5030,7 +5130,7 @@ export class MoonpawGameEngine {
     }
 
     for (let ty = 0; ty < 48; ty += 16) {
-      for (let tx = 0; tx < VIEW_W; tx += 16) {
+      for (let tx = 0; tx < this.viewW; tx += 16) {
         const tile = ty === 0 ? tileSet.harborTop : tileSet.harborBody
         ctx.drawImage(tile, tx, pierY + ty)
       }
@@ -5143,7 +5243,7 @@ export class MoonpawGameEngine {
     if (this.epilogueTimer < 0.7) {
       const fadeAlpha = Math.max(0, 1 - this.epilogueTimer / 0.7)
       ctx.fillStyle = `rgba(10, 5, 22, ${fadeAlpha.toFixed(3)})`
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+      ctx.fillRect(0, 0, this.viewW, VIEW_H)
     }
   }
 
@@ -5153,7 +5253,7 @@ export class MoonpawGameEngine {
 
     // Warm lanterns cast rich additive light pools onto nearby roof tiles, moss & branches!
     for (const lan of this.lanterns) {
-      if (lan.x < camX - 56 || lan.x > camX + VIEW_W + 56) continue
+      if (lan.x < camX - 56 || lan.x > camX + this.viewW + 56) continue
       const lx = Math.round(lan.x + 6 + lan.swayOffset)
       const ly = Math.round(lan.y + 8)
       const pulse = Math.sin(this.worldTime * 1.6 + lx * 0.05) * 0.03
@@ -5182,7 +5282,7 @@ export class MoonpawGameEngine {
 
     // Lit checkpoints additive bloom
     for (const cp of this.checkpoints) {
-      if (!cp.activated || cp.x < camX - 48 || cp.x > camX + VIEW_W + 48) continue
+      if (!cp.activated || cp.x < camX - 48 || cp.x > camX + this.viewW + 48) continue
       this.drawCircularGlow(
         ctx,
         Math.round(cp.x + 7),
@@ -5207,7 +5307,7 @@ export class MoonpawGameEngine {
 
     // Subtle additive starlight halo on visible collectibles & power-ups
     for (const item of this.collectibles) {
-      if (item.collected || item.curX < camX - 20 || item.curX > camX + VIEW_W + 20) continue
+      if (item.collected || item.curX < camX - 20 || item.curX > camX + this.viewW + 20) continue
       const iy = Math.round(item.curY + Math.round(Math.sin(this.worldTime * 1.4 + item.phase) * 1.5))
       this.drawCircularGlow(
         ctx,
@@ -5221,7 +5321,7 @@ export class MoonpawGameEngine {
     }
 
     for (const pu of this.powerUps) {
-      if (pu.collected || pu.x < camX - 20 || pu.x > camX + VIEW_W + 20) continue
+      if (pu.collected || pu.x < camX - 20 || pu.x > camX + this.viewW + 20) continue
       const py = Math.round(pu.y + Math.round(Math.sin(this.worldTime * 1.4 + pu.phase) * 1.5))
       this.drawCircularGlow(
         ctx,
@@ -5242,9 +5342,9 @@ export class MoonpawGameEngine {
     if (!this.isModern) {
       // CLASSIC 8-BIT: Crisp flat 2-band retro dark night sky (zero gradients, zero atmospheric bloom!)
       ctx.fillStyle = bands[0]!
-      ctx.fillRect(0, 0, VIEW_W, 118)
+      ctx.fillRect(0, 0, this.viewW, 118)
       ctx.fillStyle = bands[1]!
-      ctx.fillRect(0, 118, VIEW_W, VIEW_H - 118)
+      ctx.fillRect(0, 118, this.viewW, VIEW_H - 118)
       return
     }
 
@@ -5256,7 +5356,7 @@ export class MoonpawGameEngine {
     grad.addColorStop(0.82, bands[3]!)
     grad.addColorStop(1, bands[4]!)
     ctx.fillStyle = grad
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+    ctx.fillRect(0, 0, this.viewW, VIEW_H)
 
     // Subtle soft twilight nebula / warm horizon glow behind distant silhouettes
     const biome = this.level.biome
@@ -5272,7 +5372,7 @@ export class MoonpawGameEngine {
     hGrad.addColorStop(0, 'rgba(0, 0, 0, 0)')
     hGrad.addColorStop(1, horizonGlow)
     ctx.fillStyle = hGrad
-    ctx.fillRect(0, 110, VIEW_W, VIEW_H - 110)
+    ctx.fillRect(0, 110, this.viewW, VIEW_H - 110)
 
     // Soft pastel starlight nebula pocket in upper sky
     this.drawCircularGlow(
@@ -5288,7 +5388,7 @@ export class MoonpawGameEngine {
     // Rare Night Event: Soft Pink Full Moon atmospheric rose sky wash!
     if (this.nightEvent === 'pinkMoon') {
       ctx.fillStyle = 'rgba(255, 130, 190, 0.18)'
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H)
+      ctx.fillRect(0, 0, this.viewW, VIEW_H)
     }
   }
 
@@ -5296,7 +5396,7 @@ export class MoonpawGameEngine {
     const parallax = Math.round(camX * 0.02)
     const isModern = this.isModern
     for (const st of this.bgStars) {
-      const sx = Math.floor((((st.x - parallax) % (VIEW_W + 40)) + (VIEW_W + 40)) % (VIEW_W + 40) - 20)
+      const sx = Math.floor((((st.x - parallax) % (this.viewW + 40)) + (this.viewW + 40)) % (this.viewW + 40) - 20)
       if (!isModern) {
         // Classic 8-Bit: crisp flat 1px binary retro stars (zero soft alpha pulse)
         ctx.fillStyle = st.size === 2 ? '#fff4b8' : '#b8b0e6'
@@ -5329,7 +5429,8 @@ export class MoonpawGameEngine {
   }
 
   private renderMoon(ctx: CanvasRenderingContext2D, camX: number): void {
-    const moonX = Math.round(304 - camX * 0.025)
+    const rightMargin = this.viewW < 280 ? 58 : 80
+    const moonX = Math.round(this.viewW - rightMargin - camX * 0.025)
     const moonY = 14
     const isPinkMoon = this.nightEvent === 'pinkMoon'
     const isFull = this.level.biome === 'cloudland' || isPinkMoon
@@ -5367,7 +5468,7 @@ export class MoonpawGameEngine {
   }
 
   private renderClouds(ctx: CanvasRenderingContext2D, camX: number): void {
-    const wrapW = VIEW_W + 220
+    const wrapW = this.viewW + 220
     const biome = this.level.biome
     const isModern = this.isModern
 
@@ -5436,9 +5537,11 @@ export class MoonpawGameEngine {
   private renderSakuraBackdrop(ctx: CanvasRenderingContext2D, camX: number): void {
     // Layer 1: Distant indigo mountain silhouettes (0.05x)
     const o1 = Math.round(camX * 0.05)
+    const wrap1 = Math.max(560, this.viewW + 180)
+    const count1 = Math.ceil(wrap1 / 94) + 1
     ctx.fillStyle = '#1b204d'
-    for (let i = 0; i < 6; i++) {
-      const hx = Math.round((((i * 96 - o1) % 560) + 560) % 560 - 70)
+    for (let i = 0; i < count1; i++) {
+      const hx = Math.round((((i * 94 - o1) % wrap1) + wrap1) % wrap1 - 70)
       ctx.fillRect(hx, 152, 88, 64)
       ctx.fillRect(hx + 12, 140, 64, 14)
       ctx.fillRect(hx + 26, 130, 36, 12)
@@ -5446,8 +5549,10 @@ export class MoonpawGameEngine {
 
     // Layer 2: Distant sakura tree canopies + torii shrine gate (0.08x)
     const o2 = Math.round(camX * 0.08)
-    for (let i = 0; i < 6; i++) {
-      const tx = Math.round((((i * 94 - o2) % 564) + 564) % 564 - 60)
+    const wrap2 = Math.max(564, this.viewW + 188)
+    const count2 = Math.ceil(wrap2 / 94) + 1
+    for (let i = 0; i < count2; i++) {
+      const tx = Math.round((((i * 94 - o2) % wrap2) + wrap2) % wrap2 - 60)
       // Trunk
       ctx.fillStyle = '#171738'
       ctx.fillRect(tx + 18, 154, 8, 62)
@@ -5473,8 +5578,10 @@ export class MoonpawGameEngine {
 
     // Layer 3: Closer dark silhouette tree trunks & soft blossom tufts (0.12x)
     const o3 = Math.round(camX * 0.12)
-    for (let i = 0; i < 5; i++) {
-      const nx = Math.round((((i * 116 - o3) % 580) + 580) % 580 - 60)
+    const wrap3 = Math.max(580, this.viewW + 196)
+    const count3 = Math.ceil(wrap3 / 116) + 1
+    for (let i = 0; i < count3; i++) {
+      const nx = Math.round((((i * 116 - o3) % wrap3) + wrap3) % wrap3 - 60)
       ctx.fillStyle = '#120e2b'
       ctx.fillRect(nx + 22, 168, 10, 48)
       ctx.fillStyle = '#1c153d'
@@ -5488,8 +5595,10 @@ export class MoonpawGameEngine {
   private renderCloudlandBackdrop(ctx: CanvasRenderingContext2D, camX: number): void {
     // Layer 1: Distant pastel lavender cloud peaks (0.05x)
     const o1 = Math.round(camX * 0.05)
-    for (let i = 0; i < 6; i++) {
-      const cx = Math.round((((i * 92 - o1) % 552) + 552) % 552 - 60)
+    const wrap1 = Math.max(552, this.viewW + 170)
+    const count1 = Math.ceil(wrap1 / 92) + 1
+    for (let i = 0; i < count1; i++) {
+      const cx = Math.round((((i * 92 - o1) % wrap1) + wrap1) % wrap1 - 60)
       ctx.fillStyle = '#4e2f78'
       ctx.fillRect(cx, 156, 86, 60)
       ctx.fillRect(cx + 12, 144, 62, 14)
@@ -5500,8 +5609,10 @@ export class MoonpawGameEngine {
 
     // Layer 2: Floating dream crystal islands (0.08x)
     const o2 = Math.round(camX * 0.08)
-    for (let i = 0; i < 4; i++) {
-      const ix = Math.round((((i * 134 - o2) % 536) + 536) % 536 - 50)
+    const wrap2 = Math.max(536, this.viewW + 160)
+    const count2 = Math.ceil(wrap2 / 134) + 1
+    for (let i = 0; i < count2; i++) {
+      const ix = Math.round((((i * 134 - o2) % wrap2) + wrap2) % wrap2 - 50)
       const iy = 94 + (i % 2) * 20
       ctx.fillStyle = '#6c4296'
       ctx.fillRect(ix + 4, iy, 36, 8)
@@ -5513,8 +5624,10 @@ export class MoonpawGameEngine {
 
     // Layer 3: Nearer soft cloud bank silhouette at bottom (0.12x)
     const o3 = Math.round(camX * 0.12)
-    for (let i = 0; i < 6; i++) {
-      const cx = Math.round((((i * 88 - o3) % 528) + 528) % 528 - 50)
+    const wrap3 = Math.max(528, this.viewW + 150)
+    const count3 = Math.ceil(wrap3 / 88) + 1
+    for (let i = 0; i < count3; i++) {
+      const cx = Math.round((((i * 88 - o3) % wrap3) + wrap3) % wrap3 - 50)
       ctx.fillStyle = '#381e5c'
       ctx.fillRect(cx, 178, 82, 38)
       ctx.fillRect(cx + 10, 170, 62, 10)
@@ -5526,21 +5639,23 @@ export class MoonpawGameEngine {
   private renderHarborBackdrop(ctx: CanvasRenderingContext2D, camX: number): void {
     // Distant dark emerald-teal sea surface at bottom
     ctx.fillStyle = '#072730'
-    ctx.fillRect(0, 172, VIEW_W, 44)
+    ctx.fillRect(0, 172, this.viewW, 44)
     ctx.fillStyle = '#0c3742'
-    ctx.fillRect(0, 172, VIEW_W, 3)
+    ctx.fillRect(0, 172, this.viewW, 3)
 
     // Modern 16-Bit warm additive glow pools & reflections across the harbor water!
     if (this.isModern) {
       const rippleShift = Math.round(Math.sin(this.worldTime * 1.1) * 1.5)
+      const moonRefX = Math.max(80, this.viewW - (this.viewW < 280 ? 64 : 86))
       ctx.fillStyle = 'rgba(255, 242, 184, 0.34)'
-      ctx.fillRect(298 + rippleShift, 178, 36, 2)
-      ctx.fillRect(306 - rippleShift, 184, 22, 2)
-      ctx.fillRect(310 + rippleShift, 190, 14, 1)
+      ctx.fillRect(moonRefX + rippleShift, 178, 36, 2)
+      ctx.fillRect(moonRefX + 8 - rippleShift, 184, 22, 2)
+      ctx.fillRect(moonRefX + 12 + rippleShift, 190, 14, 1)
 
       const wave1 = Math.round(Math.sin(this.worldTime * 1.25) * 1.5)
       const wave2 = Math.round(Math.cos(this.worldTime * 1.05) * 1.5)
-      for (let i = 0; i < 5; i++) {
+      const refCount = Math.max(5, Math.ceil(this.viewW / 74))
+      for (let i = 0; i < refCount; i++) {
         const rx = 38 + i * 74
         ctx.fillStyle = 'rgba(255, 214, 118, 0.28)'
         ctx.fillRect(rx + wave1, 179 + (i % 2) * 3, 14, 1)
@@ -5608,7 +5723,7 @@ export class MoonpawGameEngine {
   ): void {
     for (const b of buildings) {
       const bx = Math.round((((b.x - offsetX) % wrapW) + wrapW) % wrapW - 60)
-      if (bx + b.w < 0 || bx > VIEW_W) continue
+      if (bx + b.w < 0 || bx > this.viewW) continue
       const by = VIEW_H - b.h
 
       ctx.fillStyle = fill
@@ -5662,7 +5777,7 @@ export class MoonpawGameEngine {
 
   private renderPlatforms(ctx: CanvasRenderingContext2D, camX: number): void {
     for (const plat of this.level.platforms) {
-      if (plat.x + plat.w < camX - 24 || plat.x > camX + VIEW_W + 24) continue
+      if (plat.x + plat.w < camX - 24 || plat.x > camX + this.viewW + 24) continue
 
       const [topTile, bodyTile] = this.getPlatformTiles(plat.style)
 
@@ -5718,7 +5833,7 @@ export class MoonpawGameEngine {
       const boardH = 26
       const sx = Math.max(4, Math.min(this.level.width - boardW - 4, Math.round(sign.x)))
       const sy = Math.round(sign.y)
-      if (sx + boardW < camX - 16 || sx > camX + VIEW_W + 16) continue
+      if (sx + boardW < camX - 16 || sx > camX + this.viewW + 16) continue
 
       const postX = sx + Math.floor(boardW / 2) - 3
 
@@ -5769,7 +5884,7 @@ export class MoonpawGameEngine {
   private renderCritters(ctx: CanvasRenderingContext2D, camX: number): void {
     for (const cr of this.critters) {
       if (cr.gone) continue
-      if (cr.x < camX - 24 || cr.x > camX + VIEW_W + 24) continue
+      if (cr.x < camX - 24 || cr.x > camX + this.viewW + 24) continue
       const cx = Math.round(cr.x)
       const cy = Math.round(cr.y + (cr.state === 'perched' && cr.kind === 'butterfly' ? Math.round(Math.sin(this.worldTime * 3 + cr.phase)) : 0))
       const flap = Math.floor(this.worldTime * (cr.state === 'flying' ? 12 : 3.5) + cr.phase) % 2 === 0
@@ -5814,7 +5929,7 @@ export class MoonpawGameEngine {
     const isModern = this.progress.graphicsStyle === 'modern'
     for (const prop of this.rooftopProps) {
       if (prop.modernOnly && !isModern) continue
-      if (prop.x < camX - 24 || prop.x > camX + VIEW_W + 24) continue
+      if (prop.x < camX - 24 || prop.x > camX + this.viewW + 24) continue
       const sprite = this.sprites.props[prop.kind]
       ctx.drawImage(sprite, Math.round(prop.x), Math.round(prop.y))
     }
@@ -5822,7 +5937,7 @@ export class MoonpawGameEngine {
     // Hanging sakura blossom branches in Modern 16-Bit Mode
     if (isModern && this.sakuraBranches.length > 0) {
       for (const br of this.sakuraBranches) {
-        if (br.x < camX - 24 || br.x > camX + VIEW_W + 24) continue
+        if (br.x < camX - 24 || br.x > camX + this.viewW + 24) continue
         ctx.drawImage(this.sprites.props.sakuraBranch, Math.round(br.x), Math.round(br.y))
       }
     }
@@ -5887,7 +6002,7 @@ export class MoonpawGameEngine {
     const sprite = isStone ? this.sprites.stoneLantern[frame] : this.sprites.lantern[frame]
 
     for (const lan of this.lanterns) {
-      if (lan.x < camX - 42 || lan.x > camX + VIEW_W + 42) continue
+      if (lan.x < camX - 42 || lan.x > camX + this.viewW + 42) continue
       const sway = Math.round(lan.swayOffset)
       const lx = Math.round(lan.x) + sway
       const ly = Math.round(lan.y)
@@ -5917,7 +6032,7 @@ export class MoonpawGameEngine {
 
   private renderPowerWires(ctx: CanvasRenderingContext2D, camX: number): void {
     for (const pw of this.powerWires) {
-      if (pw.x + pw.w < camX - 24 || pw.x > camX + VIEW_W + 24) continue
+      if (pw.x + pw.w < camX - 24 || pw.x > camX + this.viewW + 24) continue
       const x0 = Math.round(pw.x)
       const y0 = Math.round(pw.y)
       const w = Math.round(pw.w)
@@ -5945,7 +6060,7 @@ export class MoonpawGameEngine {
   private renderFragileBranches(ctx: CanvasRenderingContext2D, camX: number): void {
     for (const fb of this.fragileBranches) {
       if (fb.state === 'gone') continue
-      if (fb.x + fb.w < camX - 16 || fb.x > camX + VIEW_W + 16) continue
+      if (fb.x + fb.w < camX - 16 || fb.x > camX + this.viewW + 16) continue
       const jitterX = fb.state === 'shaking' ? (Math.floor(this.worldTime * 22) % 2 === 0 ? -1 : 1) : 0
       const bx = Math.round(fb.x) + jitterX
       const by = Math.round(fb.curY)
@@ -5969,7 +6084,7 @@ export class MoonpawGameEngine {
 
   private renderFloatingBoats(ctx: CanvasRenderingContext2D, camX: number): void {
     for (const bo of this.floatingBoats) {
-      if (bo.curX + bo.w < camX - 24 || bo.curX > camX + VIEW_W + 24) continue
+      if (bo.curX + bo.w < camX - 24 || bo.curX > camX + this.viewW + 24) continue
       const bx = Math.round(bo.curX)
       const by = Math.round(bo.curY)
       const bw = Math.round(bo.w)
@@ -5995,7 +6110,7 @@ export class MoonpawGameEngine {
   private renderWindVortices(ctx: CanvasRenderingContext2D, camX: number): void {
     if (!this.level.windVortices) return
     for (const wv of this.level.windVortices) {
-      if (wv.x + wv.w < camX - 20 || wv.x > camX + VIEW_W + 20) continue
+      if (wv.x + wv.w < camX - 20 || wv.x > camX + this.viewW + 20) continue
       const wx = Math.round(wv.x)
       const wy = Math.round(wv.y)
       // Soft swirling pink sakura wind streaks
@@ -6015,7 +6130,7 @@ export class MoonpawGameEngine {
 
   private renderSteamVents(ctx: CanvasRenderingContext2D, camX: number): void {
     for (const sv of this.steamVents) {
-      if (sv.x < camX - 24 || sv.x > camX + VIEW_W + 24) continue
+      if (sv.x < camX - 24 || sv.x > camX + this.viewW + 24) continue
       const sx = Math.round(sv.x)
       const sy = Math.round(sv.y)
       // Iron vent pipe cap on rooftop
@@ -6045,7 +6160,7 @@ export class MoonpawGameEngine {
 
   private renderSecretAlcoves(ctx: CanvasRenderingContext2D, camX: number): void {
     for (const sa of this.secretAlcoves) {
-      if (sa.x + sa.w < camX - 20 || sa.x > camX + VIEW_W + 20) continue
+      if (sa.x + sa.w < camX - 20 || sa.x > camX + this.viewW + 20) continue
       const sx = Math.round(sa.x)
       const sy = Math.round(sa.y)
       ctx.save()
@@ -6092,14 +6207,14 @@ export class MoonpawGameEngine {
 
     // 1. Sakura Forest Hedgehogs
     for (const hh of this.hedgehogs) {
-      if (hh.defeated || hh.curX < camX - 24 || hh.curX > camX + VIEW_W + 24) continue
+      if (hh.defeated || hh.curX < camX - 24 || hh.curX > camX + this.viewW + 24) continue
       const spr = hh.facing === 1 ? this.sprites.hedgehog.right[stepFrame] : this.sprites.hedgehog.left[stepFrame]
       ctx.drawImage(spr, Math.round(hh.curX), Math.round(hh.y))
     }
 
     // 2. Cloudland Mini Storm Clouds (calm -> bright yellow warning -> crisp electric spark!)
     for (const sc of this.stormClouds) {
-      if (sc.x < camX - 30 || sc.x > camX + VIEW_W + 30) continue
+      if (sc.x < camX - 30 || sc.x > camX + this.viewW + 30) continue
       const sx = Math.round(sc.x)
       const sy = Math.round(sc.y)
       const flash = sc.phase === 'warn' && Math.floor(this.worldTime * 10) % 2 === 0
@@ -6127,7 +6242,7 @@ export class MoonpawGameEngine {
     // 3. Cloudland Swooping Crows
     const crowFrame = Math.floor(this.worldTime * 8) % 2 as 0 | 1
     for (const sw of this.swoopCrows) {
-      if (sw.defeated || sw.curX < camX - 30 || sw.curX > camX + VIEW_W + 30) continue
+      if (sw.defeated || sw.curX < camX - 30 || sw.curX > camX + this.viewW + 30) continue
       const set = sw.dir === 1 ? this.sprites.crow.right : this.sprites.crow.left
       const sx = Math.round(sw.curX)
       const sy = Math.round(sw.curY)
@@ -6143,14 +6258,14 @@ export class MoonpawGameEngine {
     // 4. Harbor Agile Pier Crabs
     const crabFrame = Math.floor(this.worldTime * 8.5) % 2 as 0 | 1
     for (const cr of this.crabs) {
-      if (cr.defeated || cr.curX < camX - 24 || cr.curX > camX + VIEW_W + 24) continue
+      if (cr.defeated || cr.curX < camX - 24 || cr.curX > camX + this.viewW + 24) continue
       ctx.drawImage(this.sprites.crab[crabFrame], Math.round(cr.curX), Math.round(cr.curY))
     }
 
     // 5. Harbor Floating Lantern Wisps
     const wispFrame = Math.floor(this.worldTime * 5) % 2 as 0 | 1
     for (const w of this.wisps) {
-      if (w.defeated || w.x < camX - 24 || w.x > camX + VIEW_W + 24) continue
+      if (w.defeated || w.x < camX - 24 || w.x > camX + this.viewW + 24) continue
       const wx = Math.round(w.x)
       const wy = Math.round(w.curY)
       if (this.isModern) {
@@ -6255,7 +6370,7 @@ export class MoonpawGameEngine {
 
     const rawX = Math.round(anchorX - boxW * 0.72)
     const minX = Math.round(this.cameraX) + 4
-    const maxX = Math.round(this.cameraX) + VIEW_W - boxW - 4
+    const maxX = Math.round(this.cameraX) + this.viewW - boxW - 4
     const bx = Math.max(minX, Math.min(maxX, rawX))
     const by = Math.max(24, Math.round(bottomY - boxH))
 
@@ -6314,7 +6429,7 @@ export class MoonpawGameEngine {
     const bx = Math.round(bell.x)
     const by = Math.round(bell.y)
 
-    if (bx > camX - 60 && bx < camX + VIEW_W + 60) {
+    if (bx > camX - 60 && bx < camX + this.viewW + 60) {
       // Golden Star Ring Bell pedestal & shimmering bell icon
       if (this.starRingState === 'ready' || this.starRingState === 'active') {
         const bob = Math.round(Math.sin(this.worldTime * 2.2) * 1.5)
@@ -6764,22 +6879,22 @@ export class MoonpawGameEngine {
     const biome = BIOMES[this.level.biome]
     // Crisp retro pixel double border around the 384x216 frame
     ctx.fillStyle = 'rgba(18, 9, 34, 0.88)'
-    ctx.fillRect(0, 0, VIEW_W, 14)
-    ctx.fillRect(0, VIEW_H - 16, VIEW_W, 16)
+    ctx.fillRect(0, 0, this.viewW, 14)
+    ctx.fillRect(0, VIEW_H - 16, this.viewW, 16)
     ctx.fillRect(0, 0, 6, VIEW_H)
-    ctx.fillRect(VIEW_W - 6, 0, 6, VIEW_H)
+    ctx.fillRect(this.viewW - 6, 0, 6, VIEW_H)
 
     ctx.strokeStyle = '#ffe082'
     ctx.lineWidth = 1
-    ctx.strokeRect(5.5, 5.5, VIEW_W - 11, VIEW_H - 11)
+    ctx.strokeRect(5.5, 5.5, this.viewW - 11, VIEW_H - 11)
     ctx.strokeStyle = '#ff9ec4'
-    ctx.strokeRect(7.5, 13.5, VIEW_W - 15, VIEW_H - 29)
+    ctx.strokeRect(7.5, 13.5, this.viewW - 15, VIEW_H - 29)
 
     // Header: STARLIGHT STRAY logo + Biome English Name in crisp bitmap pixel font
     drawPixelText(ctx, 'STARLIGHT STRAY', 12, 3, '#ffe885', { scale: 1, shadowColor: '#1a0b28' })
     const biomeLabel = biome.englishName.toUpperCase()
     const bw = measurePixelText(biomeLabel, 1)
-    drawPixelText(ctx, biomeLabel, VIEW_W - 12 - bw, VIEW_H - 12, '#d8f6ff', { scale: 1, shadowColor: '#1a0b28' })
+    drawPixelText(ctx, biomeLabel, this.viewW - 12 - bw, VIEW_H - 12, '#d8f6ff', { scale: 1, shadowColor: '#1a0b28' })
     drawPixelText(ctx, `LVL ${this.level.id}`, 12, VIEW_H - 12, '#ffb8dc', { scale: 1, shadowColor: '#1a0b28' })
   }
 
