@@ -470,16 +470,14 @@ function handleToggleMute() {
 <template>
   <main class="game-shell">
     <div class="game-cabinet">
-      <div class="stage-frame">
-        <canvas
-          ref="canvasRef"
-          class="pixel-canvas game-canvas"
-          width="384"
-          height="216"
-          aria-label="Kanvas Permainan Starlight Stray 2D Pixel Platformer"
-        />
-
-        <!-- Top Retro Kawaii HUD visible during active play / pause -->
+      <div
+        class="stage-frame"
+        :class="{
+          'stage-frame--portrait-title': hud.screen === 'title',
+          'stage-frame--portrait-play': hud.screen === 'playing' || hud.screen === 'paused'
+        }"
+      >
+        <!-- Top Retro Kawaii HUD (in-flow above canvas in portrait gameplay, floating overlay in landscape/desktop) -->
         <GameHud
           v-if="hud.screen === 'playing' || hud.screen === 'paused'"
           :hud="hud"
@@ -491,14 +489,23 @@ function handleToggleMute() {
           @toggle-touch-pad="handleToggleTouchPad"
         />
 
-        <!-- Subtle, Dismissible Portrait Landscape Suggestion Pill (never blocks gameplay!) -->
+        <canvas
+          ref="canvasRef"
+          class="pixel-canvas game-canvas"
+          width="384"
+          height="216"
+          aria-label="Kanvas Permainan Starlight Stray 2D Pixel Platformer"
+        />
+
+        <!-- Subtle, Dismissible Portrait Landscape Suggestion Pill (sits cleanly in lower deck during play, never blocks sky!) -->
         <div
           v-if="!rotateBannerDismissed && (hud.screen === 'title' || hud.screen === 'playing')"
           class="portrait-rotate-pill"
+          :class="hud.screen === 'playing' ? 'portrait-rotate-pill--play' : 'portrait-rotate-pill--title'"
           role="status"
           aria-live="polite"
         >
-          <span>Putar HP ke Landscape untuk pengalaman terbaik 🔄</span>
+          <span>Putar HP ke Landscape untuk layar penuh 🔄</span>
           <button
             type="button"
             class="portrait-rotate-close"
@@ -852,21 +859,54 @@ function handleToggleMute() {
     display: inline-flex;
   }
 
+  .portrait-rotate-pill--title {
+    top: calc(max(8px, env(safe-area-inset-top)) + 42px);
+    bottom: auto;
+  }
+
+  /* During portrait gameplay, dock the tip pill cleanly in the handheld lower deck below the canvas */
+  .portrait-rotate-pill--play {
+    top: auto;
+    bottom: calc(max(28px, env(safe-area-inset-bottom)) + 106px);
+  }
+
   .stage-frame {
     width: 100vw;
     height: 100dvh;
     aspect-ratio: auto;
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: max(46px, calc(env(safe-area-inset-top) + 38px));
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    background:
+      radial-gradient(circle at 50% 72%, rgba(84, 42, 128, 0.28) 0%, rgba(16, 8, 32, 0.96) 72%),
+      linear-gradient(180deg, #1b0d30 0%, #100720 100%);
   }
 
-  .game-canvas {
+  /* Portrait Lobby: zoom cleanly onto the right-side Camp Hub & characters in the upper 42% */
+  .stage-frame--portrait-title .game-canvas {
+    width: 100vw;
+    height: 42dvh;
+    max-height: 42dvh;
+    aspect-ratio: auto;
+    object-fit: cover;
+    object-position: 78% 76%;
+    flex-shrink: 0;
+  }
+
+  /* Portrait Gameplay: handheld console screen framed cleanly below the HUD, above the touch deck */
+  .stage-frame--portrait-play .game-canvas {
     width: 100vw;
     height: auto;
-    max-height: 46dvh;
+    max-height: 52dvh;
     aspect-ratio: 16 / 9;
+    object-fit: contain;
+    flex-shrink: 0;
+    margin-top: 8px;
+    background: #0d061a;
+    border-top: 3px solid #7d4ca8;
+    border-bottom: 3px solid #7d4ca8;
+    box-shadow: 0 0 24px rgba(138, 86, 204, 0.32);
   }
 }
 </style>

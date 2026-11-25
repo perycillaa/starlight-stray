@@ -848,4 +848,35 @@ onBeforeUnmount(() => {
     width: 18px;
   }
 }
+
+/* Portrait Handheld Mode: HUD sits cleanly ABOVE the game canvas (never covering the sky!) */
+@media (max-width: 768px) and (orientation: portrait) {
+  .hud-bar {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #211038 0%, #150926 100%);
+    border-bottom: 2px solid rgba(255, 216, 115, 0.45);
+    padding:
+      max(8px, env(safe-area-inset-top))
+      max(10px, env(safe-area-inset-right))
+      8px
+      max(10px, env(safe-area-inset-left));
+    gap: 6px;
+  }
+  .hud-bar--mobile-pause {
+    padding-right: calc(max(10px, env(safe-area-inset-right)) + 50px);
+  }
+  .hud-left-col {
+    gap: 4px;
+  }
+  .hud-cluster {
+    gap: 5px;
+  }
+  .kawaii-frame {
+    padding: 3px 6px;
+    font-size: 9.5px;
+  }
+}
 </style>

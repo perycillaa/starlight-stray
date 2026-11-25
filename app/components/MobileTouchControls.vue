@@ -502,4 +502,39 @@ onBeforeUnmount(() => {
     height: 68px;
   }
 }
+
+/* Portrait Handheld Control Deck: larger ergonomic thumb buttons anchored cleanly below the canvas */
+@media (max-width: 768px) and (orientation: portrait) {
+  .mobile-bottom-bar {
+    padding:
+      16px
+      max(16px, env(safe-area-inset-right))
+      max(28px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+  }
+  .touch-group {
+    gap: 12px;
+  }
+  .touch-btn {
+    width: 70px;
+    height: 70px;
+    background: rgba(54, 26, 80, 0.88);
+  }
+  .touch-btn--dash {
+    width: 68px;
+    height: 68px;
+    background: rgba(98, 44, 114, 0.9);
+  }
+  .touch-btn--jump {
+    width: 82px;
+    height: 82px;
+    background: rgba(112, 52, 138, 0.92);
+  }
+  .touch-glyph {
+    font-size: 22px;
+  }
+  .touch-label {
+    font-size: 9px;
+  }
+}
 </style>

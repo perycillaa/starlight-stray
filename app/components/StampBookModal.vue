@@ -154,8 +154,9 @@ function getStampSvgPath(id: AchievementId): string {
 
 .stampbook-modal {
   width: min(94%, 640px);
-  max-height: min(85dvh, calc(100% - 8px));
+  max-height: min(90dvh, calc(100% - 8px));
   overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   display: flex;
@@ -169,6 +170,11 @@ function getStampSvgPath(id: AchievementId): string {
     0 12px 32px rgba(0, 0, 0, 0.72),
     inset 0 2px 0 rgba(255, 236, 194, 0.25);
   color: #fff6e8;
+}
+
+.stampbook-modal *,
+.stampbook-modal > * {
+  touch-action: pan-y;
 }
 
 .stampbook-header {
@@ -239,6 +245,23 @@ function getStampSvgPath(id: AchievementId): string {
   max-height: 245px;
   overflow-y: auto;
   padding-right: 3px;
+}
+
+@media (max-width: 960px), (max-height: 580px) {
+  .stampbook-modal > * {
+    flex-shrink: 0;
+  }
+  .stamp-grid {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .stamp-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stamp-card {

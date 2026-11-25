@@ -2451,8 +2451,9 @@ function handleFileChange(e: Event) {
 
 .modal-card {
   width: min(440px, 100%);
-  max-height: min(85dvh, calc(100% - 8px));
+  max-height: min(90dvh, calc(100% - 8px));
   overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   padding: 14px 16px;
@@ -2460,6 +2461,11 @@ function handleFileChange(e: Event) {
   display: flex;
   flex-direction: column;
   gap: 9px;
+}
+
+.modal-card *,
+.modal-card > * {
+  touch-action: pan-y;
 }
 
 .modal-card--title {
@@ -4671,15 +4677,131 @@ function handleFileChange(e: Event) {
 }
 
 /* ============================================================================
+   MOBILE MODAL SCROLL FIX (Fixes Character Select, Accessory Shop, Guidebook,
+   and Level Select being squished to 0px behind the Live Preview on phones!)
+   ============================================================================ */
+@media (max-width: 960px), (max-height: 580px) {
+  .overlay-backdrop {
+    align-items: center;
+    padding:
+      max(6px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(6px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+
+  .modal-card {
+    max-height: min(92dvh, calc(100% - 4px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: 10px 12px;
+    gap: 7px;
+  }
+
+  /* Prevent Flexbox from squishing item grids/scroll areas behind the preview bar! */
+  .modal-card > * {
+    flex-shrink: 0;
+  }
+
+  .char-scroll-area,
+  .shop-item-grid,
+  .guide-worlds-scroll,
+  .guide-grid,
+  .level-grid {
+    max-height: none !important;
+    overflow: visible !important;
+    padding-right: 0 !important;
+  }
+
+  /* Compact Live Preview bar so items & characters appear immediately below it */
+  .shop-preview-bar {
+    flex-direction: row !important;
+    text-align: left !important;
+    padding: 6px 8px;
+    gap: 8px;
+  }
+
+  .live-preview-box {
+    width: 48px;
+    height: 48px;
+  }
+
+  .live-preview-img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .live-preview-details {
+    gap: 3px;
+  }
+
+  .live-preview-name {
+    font-size: 10px;
+  }
+
+  .live-preview-tip,
+  .perk-pill-desc {
+    font-size: 7.5px;
+    line-height: 1.25;
+  }
+
+  .preview-hint-inline {
+    display: none;
+  }
+
+  .equipped-tags {
+    justify-content: flex-start !important;
+    gap: 3px;
+  }
+
+  .eq-tag {
+    font-size: 7.4px;
+    padding: 1px 4px;
+  }
+
+  .shop-tabs {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 4px;
+  }
+
+  .shop-tab-btn {
+    padding: 5px 4px;
+    font-size: 7.8px;
+  }
+
+  .shop-item-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .char-grid--five {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .char-grid--three {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .modal-footer {
+    padding-top: 2px;
+  }
+}
+
+/* ============================================================================
    MOBILE LANDSCAPE OPTIMIZATION (Primary Mobile Play Mode, e.g. 667x375 / 844x390)
    ============================================================================ */
 @media (orientation: landscape) and (max-height: 540px) {
   .home-asymmetric-shell {
+    align-items: flex-start;
     padding:
       max(6px, env(safe-area-inset-top))
       max(12px, env(safe-area-inset-right))
       max(6px, env(safe-area-inset-bottom))
-      max(14px, env(safe-area-inset-left));
+      max(12px, env(safe-area-inset-left));
   }
   .home-floating-bar {
     top: max(6px, env(safe-area-inset-top));
@@ -4701,59 +4823,67 @@ function handleFileChange(e: Event) {
     font-size: 9px;
   }
   .home-left-column {
-    width: clamp(238px, 43%, 340px);
+    width: clamp(232px, 44%, 336px);
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    pointer-events: auto;
+    padding: 2px 4px 12px;
+  }
+  .home-left-column * {
+    touch-action: pan-y;
+  }
+  .crest-emblem-row {
+    gap: 4px;
   }
   .crest-moon-svg {
-    width: 24px;
-    height: 15px;
+    width: 20px;
+    height: 13px;
   }
   .crest-tagline {
-    font-size: 6.2px;
+    font-size: 5.8px;
   }
   .home-crest-title {
-    font-size: clamp(14px, 2.3vw, 19px);
+    font-size: clamp(13px, 2.2vw, 17px);
   }
   .home-chains-row {
-    margin: -2px 0 -5px;
-  }
-  .home-chain-svg {
-    width: 7px;
-    height: 12px;
+    display: none;
   }
   .home-ornamental-panel {
-    padding: 8px 10px 7px;
+    margin-top: 4px;
+    padding: 8px 10px 8px;
     gap: 5px;
   }
   .home-perched-cat {
-    width: 28px;
-    height: 21px;
-    top: -19px;
+    display: none;
   }
   .home-char-header {
-    gap: 7px;
+    gap: 6px;
     padding: 4px 6px;
   }
   .home-avatar-frame {
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
   }
   .home-avatar-img {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
   }
   .home-char-name {
-    font-size: 8.5px;
+    font-size: 8.2px;
   }
   .home-char-biome {
-    font-size: 7px;
+    font-size: 6.8px;
   }
   .home-stat-pill {
-    font-size: 6.6px;
+    font-size: 6.4px;
     padding: 1px 4px;
   }
   .home-cta-btn {
-    padding: 7px 10px;
-    font-size: 10px;
+    padding: 6px 10px;
+    font-size: 9.5px;
   }
   .home-nav-grid {
     gap: 4px;
@@ -4768,8 +4898,8 @@ function handleFileChange(e: Event) {
     height: 12px;
   }
   .home-quest-scroll {
-    margin: 2px -8px -4px;
-    padding: 4px 8px;
+    margin: 2px -2px 0;
+    padding: 5px 8px;
     gap: 3px;
   }
   .home-daily-title {
@@ -4784,25 +4914,16 @@ function handleFileChange(e: Event) {
     bottom: max(6px, env(safe-area-inset-bottom));
     right: max(10px, env(safe-area-inset-right));
   }
-  .modal-card {
-    padding: 10px 12px;
-    gap: 6px;
-    max-height: min(85dvh, calc(100% - 6px));
-  }
 }
 
 /* ============================================================================
-   MOBILE PORTRAIT ADAPTATION (Stacked Camp Preview Top + Menu Panel Bottom)
+   MOBILE PORTRAIT ADAPTATION (Big Zoomed Camp Preview Top 42% + Docked Scrollable Menu Bottom 58%)
    ============================================================================ */
 @media (max-width: 768px) and (orientation: portrait) {
   .home-asymmetric-shell {
     align-items: flex-end;
     justify-content: center;
-    padding:
-      max(8px, env(safe-area-inset-top))
-      max(10px, env(safe-area-inset-right))
-      max(12px, env(safe-area-inset-bottom))
-      max(10px, env(safe-area-inset-left));
+    padding: 0;
   }
   .home-floating-bar {
     top: max(6px, env(safe-area-inset-top));
@@ -4818,33 +4939,67 @@ function handleFileChange(e: Event) {
     font-size: 8.5px;
   }
   .home-left-column {
-    width: min(100%, 380px);
-    max-height: 55dvh;
+    width: 100%;
+    max-width: 100%;
+    height: 58dvh;
+    max-height: 58dvh;
     overflow-y: auto;
+    overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
     pointer-events: auto;
+    background: linear-gradient(180deg, rgba(25, 11, 44, 0.96) 0%, #130724 100%);
+    border-top: 3px solid #ffd873;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.65);
+    padding:
+      10px
+      max(12px, env(safe-area-inset-right))
+      max(18px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
+    gap: 6px;
+  }
+  .home-left-column * {
+    touch-action: pan-y;
+  }
+  .home-floating-crest {
+    padding-bottom: 4px;
   }
   .home-crest-title {
-    font-size: clamp(16px, 5vw, 22px);
+    font-size: clamp(17px, 5.4vw, 23px);
   }
-  .home-chains-row {
+  .home-chains-row,
+  .home-perched-cat {
     display: none;
   }
   .home-ornamental-panel {
-    padding: 10px 12px;
-    gap: 7px;
+    padding: 12px;
+    gap: 9px;
+  }
+  .home-cta-btn {
+    padding: 11px 14px;
+    font-size: 12px;
+  }
+  .home-nav-btn {
+    padding: 9px 8px;
+    font-size: 8.5px;
   }
   .home-quest-scroll {
-    margin: 2px -4px -2px;
-    padding: 6px 10px;
-  }
-  .home-perched-cat {
-    width: 30px;
-    height: 22px;
-    top: -20px;
+    margin: 4px 0 0;
+    padding: 8px 10px;
   }
   .home-camp-hint {
+    display: none;
+  }
+
+  /* Portrait modals: comfortable 2-column grids for Shop & Characters */
+  .shop-item-grid,
+  .char-grid--five {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .char-grid--three {
+    grid-template-columns: 1fr;
+  }
+  .shop-switch-char-btn {
     display: none;
   }
 }
@@ -5252,7 +5407,6 @@ function handleFileChange(e: Event) {
   }
   .char-grid--three,
   .ach-grid,
-  .shop-tabs,
   .photo-studio-layout,
   .guide-grid,
   .guide-perks-grid,
@@ -5260,13 +5414,6 @@ function handleFileChange(e: Event) {
   .guide-special-grid,
   .guide-world-grid {
     grid-template-columns: 1fr;
-  }
-  .shop-preview-bar {
-    flex-direction: column;
-    text-align: center;
-  }
-  .equipped-tags {
-    justify-content: center;
   }
   .title-hero {
     flex-direction: column;
