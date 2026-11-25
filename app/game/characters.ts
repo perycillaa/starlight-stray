@@ -18,19 +18,23 @@ import type {
 } from './types'
 
 // ============================================================================
-// 8 ANIMAL CHARACTERS (5 Regular Fish-Buyable Cats + 3 Special Mission Animals)
+// 13 ANIMAL CHARACTERS (7 Regular Fish-Buyable + 6 Special Mission Animals)
+// Every single character has its own unique passive — even within the same species!
+// Special Mission characters grant upgraded multi-effect signature passives.
 // ============================================================================
 
 export const CHARACTERS: CharacterDef[] = [
-  // Regular Characters (Unlocked by Golden Fish)
+  // Regular Characters (Unlocked by Golden Fish / Free Starter)
   {
     id: 'cat-mochi',
     name: 'Kucing Putih Mochi',
     species: 'cat',
     category: 'Kucing',
     description: 'Bulu putih bersih lembut dengan pipi merah muda yang manis.',
-    perkTitle: 'Lincah di Udara',
-    perkDesc: 'Kontrol udara lebih lincah & belok lebih cepat.',
+    perkTitle: 'Langkah Awan (Soft Paws)',
+    perkDesc: 'Kontrol udara +12% lebih lincah & toleransi lompat tepi (Coyote Time) +35%.',
+    perkDetail:
+      'Kecepatan belok di udara +12% lebih responsif ditambah waktu Coyote Time +35% lebih lama agar lompatan dari ujung pijakan selalu aman & presisi.',
     unlockMode: 'regular',
     cost: 0
   },
@@ -40,8 +44,10 @@ export const CHARACTERS: CharacterDef[] = [
     species: 'cat',
     category: 'Kucing',
     description: 'Kucing belang tiga dengan corak oranye hangat dan cokelat tua.',
-    perkTitle: 'Lincah di Udara',
-    perkDesc: 'Kontrol udara lebih lincah & belok lebih cepat.',
+    perkTitle: 'Insting Kombo (Tri-Color Flow)',
+    perkDesc: 'Durasi kombo bintang +35% (3.4 dtk) & skor setiap bintang +15% lebih besar.',
+    perkDetail:
+      'Jendela waktu Kombo Bintang diperpanjang dari 2.5 detik menjadi 3.4 detik, serta seluruh Bintang & Bintang Besar memberi bonus +15% skor.',
     unlockMode: 'regular',
     cost: 10
   },
@@ -51,8 +57,10 @@ export const CHARACTERS: CharacterDef[] = [
     species: 'cat',
     category: 'Kucing',
     description: 'Ginger Tabby berbulu oranye keemasan ceria dengan garis lembut.',
-    perkTitle: 'Lincah di Udara',
-    perkDesc: 'Kontrol udara lebih lincah & belok lebih cepat.',
+    perkTitle: 'Semangat Oren (Zoomies)',
+    perkDesc: 'Kecepatan lari dasar +8% lebih kencang & kontrol udara tetap gesit (+8%).',
+    perkDetail:
+      'Berlari di daratan 8% lebih cepat dari karakter standar (sangat cocok untuk Speedrun Rank S!) sekaligus mempertahankan kontrol udara +8%.',
     unlockMode: 'regular',
     cost: 14
   },
@@ -62,8 +70,10 @@ export const CHARACTERS: CharacterDef[] = [
     species: 'cat',
     category: 'Kucing',
     description: 'Midnight Cat berbulu hitam keunguan pekat bermata emas bersinar.',
-    perkTitle: 'Lincah di Udara',
-    perkDesc: 'Kontrol udara lebih lincah & belok lebih cepat.',
+    perkTitle: 'Langkah Bayangan (Shadow Step)',
+    perkDesc: 'Durasi kebal setelah terkena serangan +45% (2.2 dtk) & jarak Dash +8%.',
+    perkDetail:
+      'Saat terkena serangan musuh/rintangan, fase kebal (invulnerability) bertahan 45% lebih lama (2.2 dtk) sehingga aman menghindar, ditambah jarak Dash +8%.',
     unlockMode: 'regular',
     cost: 18
   },
@@ -73,12 +83,14 @@ export const CHARACTERS: CharacterDef[] = [
     species: 'cat',
     category: 'Kucing',
     description: 'Russian Blue berbulu abu-abu kebiruan pastel yang tenang.',
-    perkTitle: 'Lincah di Udara',
-    perkDesc: 'Kontrol udara lebih lincah & belok lebih cepat.',
+    perkTitle: 'Harmoni Langit (Serene Aura)',
+    perkDesc: 'Durasi semua Power-Up berwaktu (Bulu, Magnet, Mochi, Permen, dll.) +20% lebih awet.',
+    perkDetail:
+      'Memperpanjang seluruh efek Power-Up berbasis durasi sebesar +20% (termasuk item eksklusif tiap map & item buff arena Boss).',
     unlockMode: 'regular',
     cost: 22
   },
-  // New Coin-Purchasable Bear & Fox Characters
+  // Regular Bear & Fox Characters (Unlocked by Golden Fish)
   {
     id: 'bear-black',
     name: 'Beruang Hitam',
@@ -86,7 +98,9 @@ export const CHARACTERS: CharacterDef[] = [
     category: 'Beruang',
     description: 'Beruang hitam pekat bertelinga bulat dengan tanda bulan sabit krem di dada.',
     perkTitle: 'Cakar Kokoh (Sturdy Paws)',
-    perkDesc: 'Knockback lebih kecil saat terkena serangan & jarak Dash +10% lebih jauh.',
+    perkDesc: 'Knockback berkurang 38% saat terkena serangan & jarak Dash +10% lebih jauh.',
+    perkDetail:
+      'Tubuh kokoh mengurangi hentakan knockback hingga 38% agar tidak mudah jatuh ke jurang saat tersenggol, ditambah jangkauan Dash +10%.',
     unlockMode: 'regular',
     cost: 28
   },
@@ -97,33 +111,41 @@ export const CHARACTERS: CharacterDef[] = [
     category: 'Rubah',
     description: 'Rubah cokelat hangat bertelinga runcing dan ekor lebat berujung putih.',
     perkTitle: 'Lincah Rimba (Forest Agility)',
-    perkDesc: 'Kecepatan gerak dasar +6% & pemulihan cooldown Dash 10% lebih cepat.',
+    perkDesc: 'Kecepatan gerak dasar +6% & pemulihan cooldown Dash 12% lebih cepat.',
+    perkDetail:
+      'Kaki lincah hutan memberi tambahan kecepatan gerak +6% serta mempersingkat cooldown Dash sebesar 12% untuk manuver cepat antar pijakan.',
     unlockMode: 'regular',
     cost: 24
   },
+
+  // ============================================================================
+  // 6 SPECIAL MISSION CHARACTERS (Upgraded Multi-Effect Signature Passives!)
+  // ============================================================================
   {
     id: 'fox-kitsune',
     name: 'Rubah Jepang (Kitsune)',
     species: 'fox',
     category: 'Rubah',
     description: 'Rubah kuil seputih salju dengan aksen merah-emas di ujung telinga & ekor.',
-    perkTitle: 'Keanggunan Kitsune (Kitsune Grace)',
-    perkDesc: 'Gravitasi turun 15% lebih lembut di puncak lompatan untuk pendaratan presisi.',
+    perkTitle: '★ Berkah Kitsune (Kitsune Spirit)',
+    perkDesc: 'Melayang halus -18% gravitasi puncak + 2× Air-Dash di udara + Pulse Boss 15% lebih cepat.',
+    perkDetail:
+      'Pasif Spesial Rubah Kuil: gravitasi turun 18% lebih lembut untuk pendaratan presisi, bisa melakukan hingga 2× Air-Dash sebelum mendarat, dan cooldown Starlight Pulse di Boss Fight 15% lebih cepat!',
     unlockMode: 'mission',
     cost: 0,
     missionTitle: 'Penakluk 8 Map',
     missionDesc: 'Selesaikan minimal 8 level berbeda di Starlight Stray.'
   },
-
-  // Special Characters (Unlocked ONLY via Special Missions!)
   {
     id: 'bunny-starlight',
     name: 'Kelinci Putih',
     species: 'bunny',
     category: 'Kelinci',
     description: 'Starlight Bunny bertelinga panjang lentur dan ekor pom-pom bulat.',
-    perkTitle: 'Lompatan Tinggi +10%',
-    perkDesc: 'Lompatan dasar +10% lebih tinggi dari hewan lain.',
+    perkTitle: '★ Lompatan Bulan (Lunar Leap)',
+    perkDesc: 'Lompatan dasar +10% & Double Jump +8% lebih tinggi + mendarat ringan saat tahan Lompat.',
+    perkDetail:
+      'Pasif Spesial Kelinci Bintang: lompatan pertama +10% lebih tinggi, Double Jump +8% lebih tinggi, dan menahan tombol Lompat saat turun otomatis memperlambat jatuh secara lembut!',
     unlockMode: 'mission',
     cost: 0,
     missionTitle: 'Kolektor Ikan Malam',
@@ -135,8 +157,10 @@ export const CHARACTERS: CharacterDef[] = [
     species: 'shiba',
     category: 'Anjing',
     description: 'Bulu tan keemasan, pipi & perut krim khas Shiba, ekor melingkar.',
-    perkTitle: 'Dash Jauh & Kebal Angin',
-    perkDesc: 'Jarak Dash lebih jauh & tahan dorongan pusaran angin.',
+    perkTitle: '★ Kilat Shiba (Windbreaker Dash)',
+    perkDesc: 'Jarak Dash +20% lebih jauh, cooldown Dash -15% lebih cepat, & kebal penuh pusaran angin.',
+    perkDetail:
+      'Pasif Spesial Shiba Inu: Dash meluncur +20% lebih jauh dengan cooldown 15% lebih singkat, serta kebal penuh terhadap pusaran angin Hutan Sakura maupun badai angin Boss Umbra Owl!',
     unlockMode: 'mission',
     cost: 0,
     missionTitle: 'Penjelajah 4 Dunia',
@@ -148,8 +172,10 @@ export const CHARACTERS: CharacterDef[] = [
     species: 'samoyed',
     category: 'Anjing',
     description: 'Samoyed/Maltese berbulu mengembang, telinga bulat, dan ekor melengkung.',
-    perkTitle: 'Dash Jauh & Kebal Angin',
-    perkDesc: 'Jarak Dash lebih jauh & tahan dorongan pusaran angin.',
+    perkTitle: '★ Pelindung Salju (Fluffy Guardian)',
+    perkDesc: 'Mulai setiap level dengan 4 Hati Maksimal (+1 ❤️ Max HP) & kebal dorongan angin.',
+    perkDetail:
+      'Pasif Spesial Samoyed (berbeda dari Shiba Inu!): memulai setiap map & pertarungan Boss dengan 4 Hati penuh (bukan 3), kebal dorongan angin, dan sangat tangguh di stage tersulit!',
     unlockMode: 'mission',
     cost: 0,
     missionTitle: 'Juara Mercusuar Bintang',
@@ -161,8 +187,10 @@ export const CHARACTERS: CharacterDef[] = [
     species: 'bear',
     category: 'Beruang',
     description: 'Beruang madu ramping cokelat gelap dengan corak dada emas madu hangat.',
-    perkTitle: 'Pencari Madu (Sweet Forager)',
-    perkDesc: 'Radius magnet koin +25% bawaan & bonus +1 🐟 setiap selesai level (≥15 bintang).',
+    perkTitle: '★ Pencari Madu Emas (Golden Forager)',
+    perkDesc: 'Magnet koin/bintang bawaan +35%, bonus +1 🐟 per level (≥15 ⭐), & durasi buff +15%.',
+    perkDetail:
+      'Pasif Spesial Beruang Madu: memiliki magnet koin & bintang permanen (+35% radius), bonus +1 🐟 setiap menyelesaikan map (≥15 bintang), serta seluruh Power-Up bertahan +15% lebih lama!',
     unlockMode: 'mission',
     cost: 0,
     missionTitle: 'Sahabat Misi Harian',
@@ -174,8 +202,10 @@ export const CHARACTERS: CharacterDef[] = [
     species: 'bear',
     category: 'Beruang',
     description: 'Beruang arktik seputih salju dengan bayangan biru es lembut yang hangat.',
-    perkTitle: 'Ketahanan Arktik (Arctic Resilience)',
-    perkDesc: 'Mulai setiap level dengan 1 Perisai Es gratis (tidak merusak Pacifist Run).',
+    perkTitle: '★ Benteng Arktik (Arctic Aegis)',
+    perkDesc: 'Perisai Es gratis di awal & regenerasi tiap Pos Lentera + Astral Aegis Boss +0.35 dtk.',
+    perkDetail:
+      'Pasif Spesial Beruang Kutub: memulai level dengan 1 Perisai Es gratis (tidak merusak Pacifist Run), otomatis pulih saat menyentuh Pos Lentera (Checkpoint), dan perisai Astral Aegis di Boss Fight bertahan +0.35 dtk lebih lama!',
     unlockMode: 'mission',
     cost: 0,
     missionTitle: 'Penjelajah Bintang Kutub',

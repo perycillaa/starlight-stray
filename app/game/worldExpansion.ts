@@ -161,10 +161,14 @@ function buildCavernLevel(variant: 9 | 10): LevelDefinition {
   ]
 
   const powerUps: PowerUpDef[] = [
-    { x: 368, y: 132, kind: 'bell' },
+    { x: 316, y: 132, kind: 'crystalElixir' },
+    { x: 778, y: 136, kind: 'bell' },
     { x: 1280, y: 132, kind: 'bubble' },
+    { x: 1800, y: 128, kind: 'crystalElixir' },
     { x: 2096, y: 120, kind: 'milk' },
-    { x: 2864, y: 126, kind: 'feather' },
+    { x: 2592, y: 112, kind: 'feather' },
+    { x: 2864, y: 126, kind: 'crystalElixir' },
+    { x: 3384, y: 128, kind: 'milk' },
     { x: 3616, y: 116, kind: 'mooncake' }
   ]
 
@@ -331,10 +335,14 @@ function buildObservatoryLevel(variant: 11 | 12): LevelDefinition {
   ]
 
   const powerUps: PowerUpDef[] = [
-    { x: 296, y: 128, kind: 'yarn' },
+    { x: 296, y: 128, kind: 'chronoGear' },
+    { x: 912, y: 130, kind: 'yarn' },
     { x: 1236, y: 118, kind: 'bubble' },
+    { x: 1940, y: 116, kind: 'chronoGear' },
     { x: 2292, y: 124, kind: 'milk' },
     { x: 2956, y: 126, kind: 'candy' },
+    { x: 3304, y: 112, kind: 'chronoGear' },
+    { x: 3648, y: 124, kind: 'milk' },
     { x: 3964, y: 114, kind: 'mooncake' }
   ]
 
@@ -411,7 +419,7 @@ const LEVEL_13_ECLIPSE: LevelDefinition = {
   isSecretFinale: true,
   name: 'Eclipse Sanctum',
   subtitle: 'Boss Rahasia I • Umbra Owl',
-  description: 'Reruntuhan bulan merah gerhana! Gunakan Starlight Pulse [C/J] & Astral Aegis [V/K] untuk menaklukkan Umbra Owl.',
+  description: 'Reruntuhan bulan merah gerhana! Gunakan 4 Skill Boss: Pulse [C/J], Aegis [V/K], Nova [Q/U], & Lunar Mend [H/L] melawan Umbra Owl.',
   width: 1280,
   height: 216,
   spawn: { x: 28, y: 140 },
@@ -437,7 +445,9 @@ const LEVEL_13_ECLIPSE: LevelDefinition = {
   checkpoints: [{ x: 676, y: 126 }],
   arenaBattleItems: [
     { x: 476, y: 116, kind: 'moonlightFeather' },
-    { x: 716, y: 126, kind: 'starBerry' }
+    { x: 716, y: 126, kind: 'starNectar' },
+    { x: 912, y: 142, kind: 'starBerry' },
+    { x: 1180, y: 142, kind: 'eclipseShard' }
   ],
   bossConfig: {
     kind: 'umbra-owl',
@@ -475,7 +485,11 @@ const LEVEL_13_ECLIPSE: LevelDefinition = {
     { x: 572, y: 124, kind: 'star' },
     { x: 654, y: 126, kind: 'fish' }
   ],
-  powerUps: [],
+  powerUps: [
+    { x: 280, y: 130, kind: 'bubble' },
+    { x: 634, y: 126, kind: 'milk' },
+    { x: 1044, y: 144, kind: 'starNectar' }
+  ],
   puddles: [],
   crows: [],
   lanterns: [
@@ -493,7 +507,7 @@ const LEVEL_14_CITADEL: LevelDefinition = {
   isSecretFinale: true,
   name: 'Astral Core Citadel',
   subtitle: 'Boss Rahasia II • Chronos Leviathan',
-  description: 'Benteng kosmik bintang! Hadapi Chronos Leviathan dalam 3 fase overdrive & serang Core Expose!',
+  description: 'Benteng kosmik bintang! Hadapi Chronos Leviathan dengan 4 Skill Boss: Pulse [C/J], Aegis [V/K], Nova [Q/U], & Lunar Mend [H/L]!',
   width: 1360,
   height: 216,
   spawn: { x: 28, y: 140 },
@@ -523,7 +537,9 @@ const LEVEL_14_CITADEL: LevelDefinition = {
   checkpoints: [{ x: 744, y: 124 }],
   arenaBattleItems: [
     { x: 516, y: 114, kind: 'cometCharge' },
-    { x: 786, y: 124, kind: 'starBerry' }
+    { x: 786, y: 124, kind: 'starNectar' },
+    { x: 956, y: 94, kind: 'eclipseShard' },
+    { x: 1260, y: 94, kind: 'starBerry' }
   ],
   bossConfig: {
     kind: 'chronos-leviathan',
@@ -561,7 +577,11 @@ const LEVEL_14_CITADEL: LevelDefinition = {
     { x: 628, y: 122, kind: 'star' },
     { x: 718, y: 124, kind: 'fish' }
   ],
-  powerUps: [],
+  powerUps: [
+    { x: 296, y: 128, kind: 'bubble' },
+    { x: 700, y: 124, kind: 'milk' },
+    { x: 1112, y: 144, kind: 'starNectar' }
+  ],
   puddles: [],
   crows: [],
   lanterns: [

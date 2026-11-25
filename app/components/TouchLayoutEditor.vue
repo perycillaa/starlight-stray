@@ -23,10 +23,12 @@ const ZONE_META: Record<TouchZoneId, { label: string; icon: string; baseW: numbe
   jump: { label: 'LOMPAT', icon: '▲', baseW: 112, baseH: 112 },
   dash: { label: 'DASH', icon: '⚡', baseW: 88, baseH: 88 },
   pulse: { label: 'BOSS PULSE', icon: '✦', baseW: 76, baseH: 76 },
-  aegis: { label: 'BOSS AEGIS', icon: '◈', baseW: 76, baseH: 76 }
+  aegis: { label: 'BOSS AEGIS', icon: '◈', baseW: 76, baseH: 76 },
+  nova: { label: 'BOSS NOVA', icon: '☄', baseW: 72, baseH: 72 },
+  mend: { label: 'BOSS MEND', icon: '♥', baseW: 72, baseH: 72 }
 }
 
-const ALL_ZONE_IDS: TouchZoneId[] = ['joystick', 'jump', 'dash', 'pulse', 'aegis']
+const ALL_ZONE_IDS: TouchZoneId[] = ['joystick', 'jump', 'dash', 'pulse', 'aegis', 'nova', 'mend']
 
 const activeZoneObj = computed(() => draft.value.zones[selectedZone.value])
 const activeZoneMeta = computed(() => ZONE_META[selectedZone.value])

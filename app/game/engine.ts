@@ -135,6 +135,12 @@ const YARN_DURATION = 10.0
 const MOCHI_DURATION = 8.0
 const CANDY_DURATION = 7.0
 const PEARL_DURATION = 10.0
+const CRYSTAL_ELIXIR_DURATION = 9.0
+const CHRONO_GEAR_DURATION = 8.0
+const ECLIPSE_SHARD_DURATION = 7.0
+const STARFALL_NOVA_COOLDOWN = 7.5
+const LUNAR_MEND_COOLDOWN = 16.0
+const LUNAR_MEND_MAX_USES = 2
 const PEARL_FISH_RADIUS = 96
 const JUMP_VY = -224
 const DOUBLE_JUMP_VY = -208
@@ -322,16 +328,22 @@ export class MoonpawGameEngine {
   private keyDash = false
   private keyPulse = false
   private keyAegis = false
+  private keyNova = false
+  private keyMend = false
   private touchLeft = false
   private touchRight = false
   private touchJump = false
   private touchDash = false
   private touchPulse = false
   private touchAegis = false
+  private touchNova = false
+  private touchMend = false
   private prevJumpHeld = false
   private prevDashHeld = false
   private prevPulseHeld = false
   private prevAegisHeld = false
+  private prevNovaHeld = false
+  private prevMendHeld = false
   private input: InputState = {
     left: false,
     right: false,
@@ -340,7 +352,9 @@ export class MoonpawGameEngine {
     dashHeld: false,
     dashJustPressed: false,
     pulseJustPressed: false,
-    aegisJustPressed: false
+    aegisJustPressed: false,
+    novaJustPressed: false,
+    mendJustPressed: false
   }
 
   private autoSavePulse = 0
@@ -1614,7 +1628,7 @@ export class MoonpawGameEngine {
   }
 
   public setTouchInput(
-    control: 'left' | 'right' | 'jump' | 'dash' | 'pulse' | 'aegis',
+    control: 'left' | 'right' | 'jump' | 'dash' | 'pulse' | 'aegis' | 'nova' | 'mend',
     pressed: boolean
   ): void {
     this.audio.unlock()
@@ -1624,6 +1638,8 @@ export class MoonpawGameEngine {
     if (control === 'dash') this.touchDash = pressed
     if (control === 'pulse') this.touchPulse = pressed
     if (control === 'aegis') this.touchAegis = pressed
+    if (control === 'nova') this.touchNova = pressed
+    if (control === 'mend') this.touchMend = pressed
   }
 
   // ============================================================================
@@ -1699,6 +1715,7 @@ export class MoonpawGameEngine {
   // ============================================================================
 
   private createInitialPlayer(lvl: LevelDefinition): PlayerState {
+    const startHearts = this.progress.selectedCharacter === 'dog-samoyed' ? 4 : 3
     return {
       x: lvl.spawn.x,
       y: lvl.spawn.y,
@@ -1715,6 +1732,7 @@ export class MoonpawGameEngine {
       dashTimer: 0,
       dashCooldownTimer: 0,
       airDashUsed: false,
+      airDashCount: 0,
       afterimageSpawnTimer: 0,
       featherTimer: 0,
       magnetTimer: 0,
@@ -1725,14 +1743,20 @@ export class MoonpawGameEngine {
       mochiTimer: 0,
       candyTimer: 0,
       pearlTimer: 0,
+      crystalElixirTimer: 0,
+      chronoGearTimer: 0,
+      eclipseShardTimer: 0,
       cometChargeTimer: 0,
       moonlightFeatherTimer: 0,
       starlightPulseCooldown: 0,
       astralAegisTimer: 0,
       astralAegisCooldown: 0,
+      starfallNovaCooldown: 0,
+      lunarMendCooldown: 0,
+      lunarMendUsesLeft: LUNAR_MEND_MAX_USES,
       idleDuration: 0,
-      hearts: 3,
-      maxHearts: 3,
+      hearts: startHearts,
+      maxHearts: startHearts,
       invincibleTimer: 0,
       animTimer: 0,
       blinkTimer: 2.5,
@@ -2304,6 +2328,12 @@ export class MoonpawGameEngine {
     if (code === 'KeyV' || (this.bossController && code === 'KeyK')) {
       this.keyAegis = true
     }
+    if (code === 'KeyQ' || code === 'KeyU') {
+      this.keyNova = true
+    }
+    if (code === 'KeyH' || code === 'KeyL') {
+      this.keyMend = true
+    }
 
     if (code === 'KeyP' || code === 'Escape') {
       if (this.screen === 'photoMode') {
@@ -2352,6 +2382,12 @@ export class MoonpawGameEngine {
     if (code === 'KeyV' || code === 'KeyK') {
       this.keyAegis = false
     }
+    if (code === 'KeyQ' || code === 'KeyU') {
+      this.keyNova = false
+    }
+    if (code === 'KeyH' || code === 'KeyL') {
+      this.keyMend = false
+    }
   }
 
   private clearAllInputs(): void {
@@ -2361,16 +2397,22 @@ export class MoonpawGameEngine {
     this.keyDash = false
     this.keyPulse = false
     this.keyAegis = false
+    this.keyNova = false
+    this.keyMend = false
     this.touchLeft = false
     this.touchRight = false
     this.touchJump = false
     this.touchDash = false
     this.touchPulse = false
     this.touchAegis = false
+    this.touchNova = false
+    this.touchMend = false
     this.prevJumpHeld = false
     this.prevDashHeld = false
     this.prevPulseHeld = false
     this.prevAegisHeld = false
+    this.prevNovaHeld = false
+    this.prevMendHeld = false
   }
 
   private sampleInputs(): void {
@@ -2378,6 +2420,8 @@ export class MoonpawGameEngine {
     const dashHeld = this.keyDash || this.touchDash
     const pulseHeld = this.keyPulse || this.touchPulse
     const aegisHeld = this.keyAegis || this.touchAegis
+    const novaHeld = this.keyNova || this.touchNova
+    const mendHeld = this.keyMend || this.touchMend
     this.input = {
       left: this.keyLeft || this.touchLeft,
       right: this.keyRight || this.touchRight,
@@ -2386,12 +2430,16 @@ export class MoonpawGameEngine {
       dashHeld,
       dashJustPressed: dashHeld && !this.prevDashHeld,
       pulseJustPressed: pulseHeld && !this.prevPulseHeld,
-      aegisJustPressed: aegisHeld && !this.prevAegisHeld
+      aegisJustPressed: aegisHeld && !this.prevAegisHeld,
+      novaJustPressed: novaHeld && !this.prevNovaHeld,
+      mendJustPressed: mendHeld && !this.prevMendHeld
     }
     this.prevJumpHeld = jumpHeld
     this.prevDashHeld = dashHeld
     this.prevPulseHeld = pulseHeld
     this.prevAegisHeld = aegisHeld
+    this.prevNovaHeld = novaHeld
+    this.prevMendHeld = mendHeld
   }
 
   // ============================================================================
@@ -2559,11 +2607,16 @@ export class MoonpawGameEngine {
       this.player.mochiTimer > 0 ||
       this.player.candyTimer > 0 ||
       this.player.pearlTimer > 0 ||
+      this.player.crystalElixirTimer > 0 ||
+      this.player.chronoGearTimer > 0 ||
+      this.player.eclipseShardTimer > 0 ||
       this.player.cometChargeTimer > 0 ||
       this.player.moonlightFeatherTimer > 0 ||
       this.player.starlightPulseCooldown > 0 ||
       this.player.astralAegisTimer > 0 ||
       this.player.astralAegisCooldown > 0 ||
+      this.player.starfallNovaCooldown > 0 ||
+      this.player.lunarMendCooldown > 0 ||
       Boolean(this.bossController)
 
     this.hudSyncTimer += dt
@@ -2585,8 +2638,16 @@ export class MoonpawGameEngine {
     // Rainbow Star Candy removes cooldown & allows unlimited Air-Dash!
     if (p.candyTimer > 0) return true
     if (p.dashCooldownTimer > 0) return false
-    if (!p.onGround && p.airDashUsed) return false
+    const maxAirDashes = this.progress.selectedCharacter === 'fox-kitsune' ? 2 : 1
+    if (!p.onGround && p.airDashCount >= maxAirDashes) return false
     return true
+  }
+
+  private getBuffDurationMultiplier(): number {
+    const charId = this.progress.selectedCharacter
+    if (charId === 'cat-blue') return 1.2 // Kucing Abu-Abu: +20% durasi semua power-up!
+    if (charId === 'bear-sun') return 1.15 // Beruang Madu (Spesial): +15% durasi semua power-up!
+    return 1.0
   }
 
   private updateShootingStar(dt: number): void {
@@ -2791,9 +2852,11 @@ export class MoonpawGameEngine {
     }
     const pCx = this.player.x + this.player.w / 2
     const pCy = this.player.y + this.player.h / 2
+    const crystalBoost = this.player.crystalElixirTimer > 0
     for (const cr of this.proximityCrystals) {
       const dist = Math.hypot(pCx - cr.x, pCy - cr.y)
-      const targetGlow = dist < cr.radius ? Math.max(0.25, 1 - dist / cr.radius) : 0.14
+      const effRadius = crystalBoost ? Math.max(cr.radius * 2.4, 260) : cr.radius
+      const targetGlow = crystalBoost && dist < effRadius ? 1.0 : dist < effRadius ? Math.max(0.25, 1 - dist / effRadius) : 0.14
       cr.glow += (targetGlow - cr.glow) * Math.min(1, dt * 4.5)
     }
 
@@ -3208,37 +3271,60 @@ export class MoonpawGameEngine {
     if (p.mochiTimer > 0) p.mochiTimer = Math.max(0, p.mochiTimer - dt)
     if (p.candyTimer > 0) p.candyTimer = Math.max(0, p.candyTimer - dt)
     if (p.pearlTimer > 0) p.pearlTimer = Math.max(0, p.pearlTimer - dt)
+    if (p.crystalElixirTimer > 0) p.crystalElixirTimer = Math.max(0, p.crystalElixirTimer - dt)
+    if (p.chronoGearTimer > 0) p.chronoGearTimer = Math.max(0, p.chronoGearTimer - dt)
+    if (p.eclipseShardTimer > 0) p.eclipseShardTimer = Math.max(0, p.eclipseShardTimer - dt)
     if (p.cometChargeTimer > 0) p.cometChargeTimer = Math.max(0, p.cometChargeTimer - dt)
     if (p.moonlightFeatherTimer > 0) p.moonlightFeatherTimer = Math.max(0, p.moonlightFeatherTimer - dt)
     if (p.starlightPulseCooldown > 0) p.starlightPulseCooldown = Math.max(0, p.starlightPulseCooldown - dt)
     if (p.astralAegisTimer > 0) p.astralAegisTimer = Math.max(0, p.astralAegisTimer - dt)
     if (p.astralAegisCooldown > 0) p.astralAegisCooldown = Math.max(0, p.astralAegisCooldown - dt)
+    if (p.starfallNovaCooldown > 0) p.starfallNovaCooldown = Math.max(0, p.starfallNovaCooldown - dt)
+    if (p.lunarMendCooldown > 0) p.lunarMendCooldown = Math.max(0, p.lunarMendCooldown - dt)
     if (this.knockbackTimer > 0) this.knockbackTimer = Math.max(0, this.knockbackTimer - dt)
     if (this.landingTimer > 0) this.landingTimer = Math.max(0, this.landingTimer - dt)
     this.wasOnGround = p.onGround
 
-    // Signature Animal Perks (Original 4 + 5 Balanced New Bear & Fox Passive Traits!)
+    // 13 Individual Unique Character Passives (7 Regular + 6 Upgraded Special Mission Traits!)
     const selectedCharId = this.progress.selectedCharacter
-    const activeSpecies = getCharacterById(selectedCharId).species
-    const isCat = activeSpecies === 'cat'
-    const isBunny = activeSpecies === 'bunny'
-    const isDog = activeSpecies === 'shiba' || activeSpecies === 'samoyed'
+    const isCatMochi = selectedCharId === 'cat-mochi'
+    const isCatGinger = selectedCharId === 'cat-ginger'
+    const isCatMidnight = selectedCharId === 'cat-midnight'
+    const isBunny = selectedCharId === 'bunny-starlight'
+    const isShiba = selectedCharId === 'dog-shiba'
+    const isSamoyed = selectedCharId === 'dog-samoyed'
+    const isWindImmune = isShiba || isSamoyed
     const isBlackBear = selectedCharId === 'bear-black'
     const isBrownFox = selectedCharId === 'fox-brown'
     const isKitsune = selectedCharId === 'fox-kitsune'
 
     // Yarn Ball OR Moonlight Feather unlocks Triple Jump!
     p.maxJumps = p.yarnTimer > 0 || p.moonlightFeatherTimer > 0 ? 3 : 2
-    const yarnSpeed = p.yarnTimer > 0 ? MOVE_SPEED * 1.18 : MOVE_SPEED
-    const foxSpeed = isBrownFox ? yarnSpeed * 1.06 : yarnSpeed // Brown Fox: +6% base movement speed!
-    const effectiveMoveSpeed = isCat && !p.onGround ? Math.round(foxSpeed * 1.12) : Math.round(foxSpeed)
-    const effectiveJumpVy = isBunny ? Math.round(JUMP_VY * 1.05) : JUMP_VY
-    const effectiveDashDuration = isDog
-      ? DASH_DURATION * 1.18
+    let baseSpeed = MOVE_SPEED
+    if (p.yarnTimer > 0) baseSpeed *= 1.18
+    if (p.crystalElixirTimer > 0) baseSpeed *= 1.1 // Crystal Elixir: +10% movement speed!
+    if (isCatGinger) baseSpeed *= 1.08 // Kucing Oren (Zoomies): +8% speed!
+    if (isBrownFox) baseSpeed *= 1.06 // Rubah Cokelat: +6% speed!
+    const airSpeedMult = isCatMochi ? 1.12 : isCatGinger ? 1.08 : 1.0
+    const effectiveMoveSpeed = !p.onGround ? Math.round(baseSpeed * airSpeedMult) : Math.round(baseSpeed)
+    const effectiveJumpVy = isBunny ? Math.round(JUMP_VY * 1.065) : JUMP_VY // Kelinci Putih (Spesial): +10%+ jump height!
+    const effectiveDoubleJumpVy = isBunny ? Math.round(DOUBLE_JUMP_VY * 1.045) : DOUBLE_JUMP_VY
+    const effectiveCoyoteTime = isCatMochi ? COYOTE_TIME * 1.35 : COYOTE_TIME
+    const effectiveDashDuration = isShiba
+      ? DASH_DURATION * 1.2 // Shiba Inu (Spesial): +20% dash distance!
       : isBlackBear
-        ? DASH_DURATION * 1.1 // Black Bear: +10% dash distance!
-        : DASH_DURATION
-    const effectiveDashCooldown = isBrownFox ? DASH_COOLDOWN * 0.9 : DASH_COOLDOWN // Brown Fox: 10% faster dash recovery!
+        ? DASH_DURATION * 1.1 // Beruang Hitam: +10% dash distance!
+        : isCatMidnight
+          ? DASH_DURATION * 1.08 // Kucing Hitam Malam: +8% dash distance!
+          : DASH_DURATION
+    let effectiveDashCooldown = isShiba
+      ? DASH_COOLDOWN * 0.85 // Shiba Inu (Spesial): -15% dash cooldown!
+      : isBrownFox
+        ? DASH_COOLDOWN * 0.88 // Rubah Cokelat: -12% dash cooldown!
+        : DASH_COOLDOWN
+    if (p.chronoGearTimer > 0) {
+      effectiveDashCooldown *= 0.5 // Roda Waktu Emas: -50% dash cooldown!
+    }
 
     if (p.onGround && p.standingMovingPlatformIdx >= 0 && p.dashTimer <= 0) {
       const mp = this.movingPlatforms[p.standingMovingPlatformIdx]
@@ -3272,9 +3358,9 @@ export class MoonpawGameEngine {
       }
     }
 
-    // Sakura Petal Wind Vortex + Umbra Owl Boss Wind Gust
-    let windPushX = p.dashTimer <= 0 ? this.bossWindPushX : 0
-    if (p.dashTimer <= 0 && !isDog && this.level.windVortices) {
+    // Sakura Petal Wind Vortex + Umbra Owl Boss Wind Gust (Shiba Inu & Samoyed are wind immune!)
+    let windPushX = p.dashTimer <= 0 && !isWindImmune ? this.bossWindPushX : 0
+    if (p.dashTimer <= 0 && !isWindImmune && this.level.windVortices) {
       for (const wv of this.level.windVortices) {
         if (this.aabbOverlap(p.x, p.y, p.w, p.h, wv.x, wv.y, wv.w, wv.h)) {
           windPushX += wv.pushX
@@ -3323,7 +3409,8 @@ export class MoonpawGameEngine {
       this.knockbackTimer = 0
       p.idleDuration = 0
       if (!p.onGround && p.candyTimer <= 0) {
-        p.airDashUsed = true
+        p.airDashCount += 1
+        p.airDashUsed = p.airDashCount >= (isKitsune ? 2 : 1)
       }
       p.vx = p.facing * DASH_SPEED
       p.vy = 0
@@ -3373,9 +3460,10 @@ export class MoonpawGameEngine {
       }
 
       if (p.onGround) {
-        p.coyoteTimer = COYOTE_TIME
+        p.coyoteTimer = effectiveCoyoteTime
         p.jumpsUsed = 0
         p.airDashUsed = false
+        p.airDashCount = 0
       } else {
         p.coyoteTimer = Math.max(0, p.coyoteTimer - dt)
       }
@@ -3395,7 +3483,7 @@ export class MoonpawGameEngine {
           this.spawnJumpDust(p.x + p.w / 2, p.y + p.h)
         } else if (p.jumpsUsed < p.maxJumps) {
           // Midair jump: if player walked off a ledge and coyote time expired, consume the missed ground jump cleanly
-          p.vy = DOUBLE_JUMP_VY
+          p.vy = effectiveDoubleJumpVy
           p.onGround = false
           p.standingMovingPlatformIdx = -1
           p.jumpBufferTimer = 0
@@ -3411,10 +3499,12 @@ export class MoonpawGameEngine {
         p.vy *= Math.pow(JUMP_CUT_MULT, dt * 16)
       }
 
-      // Gravity + Kitsune Grace (-15% apex/downward float) + Observatory Low-G + Rooftops Updrafts!
+      // Gravity + Kitsune Spirit (-18% float) + Bunny Lunar Soft-Fall + Chrono Gear (-22%) + Observatory Low-G!
       const isGliding = (p.featherTimer > 0 || p.mochiTimer > 0) && !p.onGround && p.vy > 0 && this.input.jumpHeld
-      const kitsuneScale = isKitsune && !p.onGround && p.vy > -85 ? 0.85 : 1
-      const effGravity = GRAVITY * zoneGravityScale * kitsuneScale
+      const kitsuneScale = isKitsune && !p.onGround && p.vy > -85 ? 0.82 : 1
+      const bunnySoftFall = isBunny && !p.onGround && p.vy > 0 && this.input.jumpHeld ? 0.78 : 1
+      const chronoScale = p.chronoGearTimer > 0 ? 0.78 : 1
+      const effGravity = GRAVITY * zoneGravityScale * kitsuneScale * bunnySoftFall * chronoScale
       if (insideUpdraftLift !== null) {
         p.vy = Math.max(insideUpdraftLift, p.vy - 520 * dt)
         p.onGround = false
@@ -3434,7 +3524,10 @@ export class MoonpawGameEngine {
           })
         }
       } else {
-        const fallCap = zoneGravityScale < 0.9 ? MAX_FALL_SPEED * 0.72 : MAX_FALL_SPEED
+        const fallCap =
+          zoneGravityScale < 0.9 || bunnySoftFall < 1 || chronoScale < 1
+            ? MAX_FALL_SPEED * 0.72
+            : MAX_FALL_SPEED
         p.vy = Math.min(fallCap, p.vy + effGravity * dt)
       }
     }
@@ -3501,6 +3594,7 @@ export class MoonpawGameEngine {
         p.coyoteTimer = 0
         p.jumpsUsed = 0
         p.airDashUsed = false
+        p.airDashCount = 0
         bc.squishTimer = 0.24
         this.audio.playBounce()
         this.spawnBouncePuffs(bc.x + bc.w / 2, bc.y + 4)
@@ -3523,6 +3617,7 @@ export class MoonpawGameEngine {
         p.coyoteTimer = 0
         p.jumpsUsed = 0
         p.airDashUsed = false
+        p.airDashCount = 0
         pw.sag = 6
         pw.sagVel = 24
         this.audio.playWireBounce()
@@ -3645,7 +3740,7 @@ export class MoonpawGameEngine {
       }
     }
 
-    // Cavern Elastic Glow-Mushrooms (high bouncy bioluminescent caps!)
+    // Cavern Elastic Glow-Mushrooms (high bouncy bioluminescent caps; Crystal Elixir boosts +14% height!)
     for (const gm of this.glowMushrooms) {
       if (
         p.vy >= 0 &&
@@ -3655,11 +3750,13 @@ export class MoonpawGameEngine {
         p.y + p.h >= gm.y + 1
       ) {
         p.y = gm.y + 1 - p.h
-        p.vy = gm.bounceVy ?? -296
+        const baseBounce = gm.bounceVy ?? -296
+        p.vy = p.crystalElixirTimer > 0 ? Math.round(baseBounce * 1.07) : baseBounce
         p.onGround = false
         p.coyoteTimer = 0
         p.jumpsUsed = 0
         p.airDashUsed = false
+        p.airDashCount = 0
         gm.squishTimer = 0.26
         this.audio.playBounce()
         this.spawnCollectBurst(gm.x + gm.w / 2, gm.y + 4, gm.tint === 'violet' ? '#cfa6ff' : '#76f7eb', 10)
@@ -3721,25 +3818,28 @@ export class MoonpawGameEngine {
       return
     }
     const p = this.player
+    const skillCdMult = p.eclipseShardTimer > 0 ? 0.6 : 1.0
+    const kitsunePulseMult = this.progress.selectedCharacter === 'fox-kitsune' ? 0.85 : 1.0
+    const bonusBossDmg = p.eclipseShardTimer > 0 ? 1 : 0
 
-    // Combat Skill 1: Starlight Pulse (C / J or ✦ button, 1.2s cooldown; 0s & 3-way spread during Comet Charge!)
+    // Combat Skill 1: Starlight Pulse (C / J or ✦ button, 1.2s CD; 0.14s & 3-way spread during Comet Charge!)
     if (this.input.pulseJustPressed) {
       const hasComet = p.cometChargeTimer > 0
       if (hasComet || p.starlightPulseCooldown <= 0) {
         const px = p.x + p.w / 2 + p.facing * 8
         const py = p.y + p.h / 2
-        boss.firePlayerPulse(px, py, p.facing, hasComet)
-        p.starlightPulseCooldown = hasComet ? 0.14 : 1.2
+        boss.firePlayerPulse(px, py, p.facing, hasComet, bonusBossDmg)
+        p.starlightPulseCooldown = hasComet ? 0.14 : 1.2 * skillCdMult * kitsunePulseMult
         this.audio.playStarlightPulse(hasComet)
-        this.spawnCollectBurst(px, py, hasComet ? '#ff9ed2' : '#8ef0ff', 4)
+        this.spawnCollectBurst(px, py, bonusBossDmg > 0 ? '#ff6b9d' : hasComet ? '#ff9ed2' : '#8ef0ff', 4)
         this.emitHud()
       }
     }
 
-    // Combat Skill 2: Astral Aegis (V / K or ◈ button, 5.0s cooldown, 1.2s barrier!)
+    // Combat Skill 2: Astral Aegis (V / K or ◈ button, 5.0s CD, 1.2s barrier; Polar Bear +0.35s!)
     if (this.input.aegisJustPressed && p.astralAegisCooldown <= 0) {
-      p.astralAegisTimer = 1.2
-      p.astralAegisCooldown = 5.0
+      p.astralAegisTimer = this.progress.selectedCharacter === 'bear-polar' ? 1.55 : 1.2
+      p.astralAegisCooldown = 5.0 * skillCdMult
       this.audio.playAstralAegis(false)
       this.spawnCollectBurst(p.x + p.w / 2, p.y + p.h / 2, '#b8e8ff', 8)
       this.floatingTexts.push({
@@ -3754,12 +3854,12 @@ export class MoonpawGameEngine {
       this.emitHud()
     }
 
-    const res = boss.update(dt, p, this.progress.reduceMotion, {
-      onDamagePlayer: (kvx, kvy) => {
+    const bossCallbacks = {
+      onDamagePlayer: (kvx: number, kvy: number) => {
         this.touchedEnemyThisLevel = true
         this.damagePlayer(kvx, kvy)
       },
-      onAegisBlock: (bx, by) => {
+      onAegisBlock: (bx: number, by: number) => {
         // Successful block restores Starlight Pulse cooldown immediately!
         p.starlightPulseCooldown = 0
         this.audio.playAstralAegis(true)
@@ -3775,7 +3875,7 @@ export class MoonpawGameEngine {
         })
         this.emitHud()
       },
-      onBossHit: (hx, hy, dmg, critical, deflected) => {
+      onBossHit: (hx: number, hy: number, dmg: number, critical: boolean, deflected: boolean) => {
         this.spawnCollectBurst(hx, hy, critical ? '#ffe466' : '#a8efff', critical ? 12 : 7)
         this.floatingTexts.push({
           x: hx,
@@ -3791,7 +3891,7 @@ export class MoonpawGameEngine {
       onBossPhaseChange: () => {
         this.emitHud()
       },
-      onBossDefeated: (dx, dy) => {
+      onBossDefeated: (dx: number, dy: number) => {
         this.spawnCollectBurst(dx, dy, '#ffe466', 24)
         this.spawnCollectBurst(dx, dy, '#ff8cb8', 18)
         this.floatingTexts.push({
@@ -3805,12 +3905,73 @@ export class MoonpawGameEngine {
         })
         this.emitHud()
       },
-      onPlayBossSfx: (kind) => this.audio.playBossSfx(kind),
-      onSpawnParticle: (sx, sy, color, count) => this.spawnCollectBurst(sx, sy, color, count),
-      onFloatingText: (tx, ty, text, color) => {
+      onPlayBossSfx: (kind: 'cue' | 'beam' | 'swoop' | 'deflect' | 'hit' | 'phase' | 'defeat') =>
+        this.audio.playBossSfx(kind),
+      onSpawnParticle: (sx: number, sy: number, color: string, count: number) =>
+        this.spawnCollectBurst(sx, sy, color, count),
+      onFloatingText: (tx: number, ty: number, text: string, color: string) => {
         this.floatingTexts.push({ x: tx, y: ty, vy: -16, text, color, life: 1.2, maxLife: 1.2 })
       }
-    })
+    }
+
+    // Combat Skill 3: Starfall Nova (Q / U or ☄ button, 7.5s CD — clears nearby projectiles + fires 3 homing stars!)
+    if (this.input.novaJustPressed && p.starfallNovaCooldown <= 0) {
+      p.starfallNovaCooldown = STARFALL_NOVA_COOLDOWN * skillCdMult
+      const px = p.x + p.w / 2
+      const py = p.y + p.h / 2
+      boss.triggerStarfallNova(px, py, bonusBossDmg, bossCallbacks)
+      this.audio.playStarlightPulse(true)
+      this.spawnCollectBurst(px, py, '#ffe466', 14)
+      this.floatingTexts.push({
+        x: px,
+        y: p.y - 8,
+        vy: -18,
+        text: '☄️ STARFALL NOVA!',
+        color: '#ffe875',
+        life: 1.0,
+        maxLife: 1.0
+      })
+      this.emitHud()
+    }
+
+    // Combat Skill 4: Lunar Mend (H / L or ♥ button, 16s CD, 2 uses per Boss Fight — heals +1 ♥ & clears nearby threats!)
+    if (this.input.mendJustPressed && p.lunarMendCooldown <= 0 && p.lunarMendUsesLeft > 0) {
+      p.lunarMendUsesLeft -= 1
+      p.lunarMendCooldown = LUNAR_MEND_COOLDOWN * skillCdMult
+      const px = p.x + p.w / 2
+      const py = p.y + p.h / 2
+      boss.clearProjectilesNear(px, py, 74, bossCallbacks)
+      p.invincibleTimer = Math.max(p.invincibleTimer, 1.0)
+      this.audio.playMilk()
+      this.triggerPlayerEmote('heart', 1.6)
+      this.spawnCollectBurst(px, py, '#8ef5c8', 14)
+      if (p.hearts < p.maxHearts) {
+        p.hearts += 1
+        this.floatingTexts.push({
+          x: px,
+          y: p.y - 8,
+          vy: -18,
+          text: `💚 LUNAR MEND +1 ♥ (${p.lunarMendUsesLeft}x)`,
+          color: '#9ef5c8',
+          life: 1.2,
+          maxLife: 1.2
+        })
+      } else {
+        p.hasBubbleShield = true
+        this.floatingTexts.push({
+          x: px,
+          y: p.y - 8,
+          vy: -18,
+          text: `🫧 PERISAI MEND (${p.lunarMendUsesLeft}x)`,
+          color: '#b8f0ff',
+          life: 1.2,
+          maxLife: 1.2
+        })
+      }
+      this.emitHud()
+    }
+
+    const res = boss.update(dt, p, this.progress.reduceMotion, bossCallbacks)
 
     this.bossWindPushX = res.windPushX
 
@@ -3829,6 +3990,7 @@ export class MoonpawGameEngine {
     const p = this.player
     const cx = p.x + p.w / 2
     const cy = p.y
+    const buffMult = this.getBuffDurationMultiplier()
     if (kind === 'starBerry') {
       this.audio.playMilk()
       if (p.hearts < p.maxHearts) {
@@ -3840,18 +4002,39 @@ export class MoonpawGameEngine {
       this.triggerPlayerEmote('heart', 1.6)
       this.spawnCollectBurst(cx, cy, '#ff7aa8', 12)
       this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '🍓 +1 ♥ STAR BERRY!', color: '#ffb5d4', life: 1.1, maxLife: 1.1 })
+    } else if (kind === 'starNectar') {
+      this.audio.playMilk()
+      this.triggerPlayerEmote('heart', 1.8)
+      p.invincibleTimer = Math.max(p.invincibleTimer, 2.5)
+      this.spawnCollectBurst(cx, cy, '#ff78a8', 16)
+      if (p.hearts < p.maxHearts) {
+        p.hearts = Math.min(p.maxHearts, p.hearts + 2)
+        this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '🧪 NEKTAR +2 ♥!', color: '#ff9ec4', life: 1.3, maxLife: 1.3 })
+      } else {
+        p.hasBubbleShield = true
+        this.levelScore += 200
+        this.totalRunScore += 200
+        this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '🧪 PERISAI +200!', color: '#ffe475', life: 1.3, maxLife: 1.3 })
+      }
+    } else if (kind === 'eclipseShard') {
+      p.eclipseShardTimer = ECLIPSE_SHARD_DURATION * buffMult
+      p.starlightPulseCooldown = 0
+      this.audio.playCandy()
+      this.triggerPlayerEmote('star', 1.6)
+      this.spawnCollectBurst(cx, cy, '#ff5c8a', 14)
+      this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '🌘 GERHANA +1 DMG!', color: '#ff8cb2', life: 1.25, maxLife: 1.25 })
     } else if (kind === 'cometCharge') {
-      p.cometChargeTimer = 6.0
+      p.cometChargeTimer = 6.0 * buffMult
       p.starlightPulseCooldown = 0
       this.audio.playCandy()
       this.triggerPlayerEmote('star', 1.6)
       this.spawnCollectBurst(cx, cy, '#ffe466', 14)
-      this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '☄️ COMET CHARGE 6s!', color: '#ffe466', life: 1.2, maxLife: 1.2 })
+      this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '☄️ COMET CHARGE!', color: '#ffe466', life: 1.2, maxLife: 1.2 })
     } else if (kind === 'moonlightFeather') {
-      p.moonlightFeatherTimer = 10.0
+      p.moonlightFeatherTimer = 10.0 * buffMult
       this.audio.playFeather()
       this.spawnCollectBurst(cx, cy, '#9ef0ff', 14)
-      this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '🌙 TRIPLE JUMP 10s!', color: '#b8f3ff', life: 1.2, maxLife: 1.2 })
+      this.floatingTexts.push({ x: cx, y: cy - 6, vy: -18, text: '🌙 TRIPLE JUMP!', color: '#b8f3ff', life: 1.2, maxLife: 1.2 })
     }
     this.emitHud()
   }
@@ -3866,18 +4049,23 @@ export class MoonpawGameEngine {
         this.activeCheckpointIdx = i
         p.safeX = cp.x + 1
         p.safeY = cp.y + 6
+        // Polar Bear Special Passive: regenerates Frost Shield on every Star Lantern Checkpoint!
+        const restoredFrost = this.progress.selectedCharacter === 'bear-polar' && !p.hasFrostShield
+        if (restoredFrost) {
+          p.hasFrostShield = true
+        }
         this.audio.playCheckpoint()
         this.triggerPlayerEmote('heart', 1.5)
         this.spawnCollectBurst(cp.x + 7, cp.y + 8, '#ff9ec4', 10)
-        this.spawnCollectBurst(cp.x + 7, cp.y + 8, '#ffe680', 10)
+        this.spawnCollectBurst(cp.x + 7, cp.y + 8, restoredFrost ? '#a8f2ff' : '#ffe680', 10)
         this.floatingTexts.push({
           x: cp.x + 7,
           y: cp.y - 4,
           vy: -18,
-          text: 'POS LENTERA!',
-          color: '#ffe894',
-          life: 1.2,
-          maxLife: 1.2
+          text: restoredFrost ? 'POS LENTERA + ❄️ FROST!' : 'POS LENTERA!',
+          color: restoredFrost ? '#b8f7ff' : '#ffe894',
+          life: 1.25,
+          maxLife: 1.25
         })
         this.emitHud()
       }
@@ -3923,7 +4111,7 @@ export class MoonpawGameEngine {
             })
           }
         } else if (pu.kind === 'feather') {
-          p.featherTimer = FEATHER_DURATION
+          p.featherTimer = FEATHER_DURATION * this.getBuffDurationMultiplier()
           this.audio.playFeather()
           this.spawnCollectBurst(pu.x + 6, bobY + 6, '#e2b8ff', 10)
           this.floatingTexts.push({
@@ -3936,7 +4124,7 @@ export class MoonpawGameEngine {
             maxLife: 1.1
           })
         } else if (pu.kind === 'bell') {
-          p.magnetTimer = MAGNET_DURATION
+          p.magnetTimer = MAGNET_DURATION * this.getBuffDurationMultiplier()
           this.audio.playBell()
           this.spawnCollectBurst(pu.x + 6, bobY + 6, '#ffe26b', 12)
           this.floatingTexts.push({
@@ -3962,7 +4150,7 @@ export class MoonpawGameEngine {
             maxLife: 1.1
           })
         } else if (pu.kind === 'mooncake') {
-          p.mooncakeTimer = MOONCAKE_DURATION
+          p.mooncakeTimer = MOONCAKE_DURATION * this.getBuffDurationMultiplier()
           this.audio.playMooncake()
           this.spawnCollectBurst(pu.x + 7, bobY + 7, '#ffd85c', 14)
           this.floatingTexts.push({
@@ -3975,7 +4163,7 @@ export class MoonpawGameEngine {
             maxLife: 1.15
           })
         } else if (pu.kind === 'yarn') {
-          p.yarnTimer = YARN_DURATION
+          p.yarnTimer = YARN_DURATION * this.getBuffDurationMultiplier()
           this.audio.playYarn()
           this.spawnCollectBurst(pu.x + 6, bobY + 6, '#d4b3ff', 12)
           this.floatingTexts.push({
@@ -3988,7 +4176,7 @@ export class MoonpawGameEngine {
             maxLife: 1.15
           })
         } else if (pu.kind === 'mochi') {
-          p.mochiTimer = MOCHI_DURATION
+          p.mochiTimer = MOCHI_DURATION * this.getBuffDurationMultiplier()
           this.audio.playMochi()
           this.spawnCollectBurst(pu.x + 6, bobY + 6, '#ffb5d8', 12)
           this.floatingTexts.push({
@@ -4001,9 +4189,10 @@ export class MoonpawGameEngine {
             maxLife: 1.15
           })
         } else if (pu.kind === 'candy') {
-          p.candyTimer = CANDY_DURATION
+          p.candyTimer = CANDY_DURATION * this.getBuffDurationMultiplier()
           p.dashCooldownTimer = 0
           p.airDashUsed = false
+          p.airDashCount = 0
           this.audio.playCandy()
           this.spawnCollectBurst(pu.x + 6, bobY + 6, '#9ef5cf', 14)
           this.floatingTexts.push({
@@ -4016,7 +4205,7 @@ export class MoonpawGameEngine {
             maxLife: 1.15
           })
         } else if (pu.kind === 'pearl') {
-          p.pearlTimer = PEARL_DURATION
+          p.pearlTimer = PEARL_DURATION * this.getBuffDurationMultiplier()
           this.audio.playPearl()
           this.spawnCollectBurst(pu.x + 6, bobY + 6, '#b8f0ff', 12)
           this.floatingTexts.push({
@@ -4027,6 +4216,78 @@ export class MoonpawGameEngine {
             color: '#d4f6ff',
             life: 1.15,
             maxLife: 1.15
+          })
+        } else if (pu.kind === 'crystalElixir') {
+          p.crystalElixirTimer = CRYSTAL_ELIXIR_DURATION * this.getBuffDurationMultiplier()
+          this.audio.playPearl()
+          this.spawnCollectBurst(pu.x + 6, bobY + 6, '#76f7eb', 14)
+          this.floatingTexts.push({
+            x: pu.x + 6,
+            y: bobY - 3,
+            vy: -20,
+            text: 'KRISTAL SPORA!',
+            color: '#a8fff7',
+            life: 1.2,
+            maxLife: 1.2
+          })
+        } else if (pu.kind === 'chronoGear') {
+          p.chronoGearTimer = CHRONO_GEAR_DURATION * this.getBuffDurationMultiplier()
+          p.dashCooldownTimer = 0
+          this.audio.playBell()
+          this.spawnCollectBurst(pu.x + 6, bobY + 6, '#ffe475', 14)
+          this.floatingTexts.push({
+            x: pu.x + 6,
+            y: bobY - 3,
+            vy: -20,
+            text: 'RODA WAKTU!',
+            color: '#fff0a6',
+            life: 1.2,
+            maxLife: 1.2
+          })
+        } else if (pu.kind === 'starNectar') {
+          this.audio.playMilk()
+          this.triggerPlayerEmote('heart', 1.8)
+          p.invincibleTimer = Math.max(p.invincibleTimer, 2.5)
+          this.spawnCollectBurst(pu.x + 6, bobY + 6, '#ff7aa8', 16)
+          if (p.hearts < p.maxHearts) {
+            p.hearts = Math.min(p.maxHearts, p.hearts + 2)
+            this.floatingTexts.push({
+              x: pu.x + 6,
+              y: bobY - 3,
+              vy: -20,
+              text: 'NEKTAR +2 ♥!',
+              color: '#ff9ec4',
+              life: 1.3,
+              maxLife: 1.3
+            })
+          } else {
+            p.hasBubbleShield = true
+            this.levelScore += 200
+            this.totalRunScore += 200
+            this.updateHighScoreIfNeeded()
+            this.floatingTexts.push({
+              x: pu.x + 6,
+              y: bobY - 3,
+              vy: -20,
+              text: 'PERISAI +200!',
+              color: '#ffe885',
+              life: 1.3,
+              maxLife: 1.3
+            })
+          }
+        } else if (pu.kind === 'eclipseShard') {
+          p.eclipseShardTimer = ECLIPSE_SHARD_DURATION * this.getBuffDurationMultiplier()
+          p.starlightPulseCooldown = 0
+          this.audio.playCandy()
+          this.spawnCollectBurst(pu.x + 6, bobY + 6, '#ff5c8a', 14)
+          this.floatingTexts.push({
+            x: pu.x + 6,
+            y: bobY - 3,
+            vy: -20,
+            text: 'GERHANA +1 DMG!',
+            color: '#ff8cb2',
+            life: 1.25,
+            maxLife: 1.25
           })
         }
         this.emitHud()
@@ -4043,7 +4304,7 @@ export class MoonpawGameEngine {
     for (const item of this.collectibles) {
       if (item.collected) continue
 
-      // Golden Bell pulls Stars & Fish; Moonlit Pearl pulls Golden Fish; Sun Bear has built-in +25% magnet radius!
+      // Golden Bell pulls Stars & Fish; Moonlit Pearl pulls Golden Fish; Sun Bear (Special) has +35% permanent magnet!
       const isSunBear = this.progress.selectedCharacter === 'bear-sun'
       const shouldPull =
         p.magnetTimer > 0 || (p.pearlTimer > 0 && item.kind === 'fish') || isSunBear
@@ -4053,8 +4314,8 @@ export class MoonpawGameEngine {
             ? MAGNET_RADIUS
             : p.pearlTimer > 0 && item.kind === 'fish'
               ? PEARL_FISH_RADIUS
-              : 26
-        const radius = isSunBear ? Math.round(baseRadius * 1.25) : baseRadius
+              : 32
+        const radius = isSunBear ? Math.round(baseRadius * 1.35) : baseRadius
         const dx = px - (item.curX + 6)
         const dy = py - (item.curY + 6)
         const dist = Math.hypot(dx, dy)
@@ -4105,8 +4366,10 @@ export class MoonpawGameEngine {
           })
           this.checkAchievements()
         } else if (item.kind === 'bigStar') {
-          const baseBig = p.mochiTimer > 0 ? 200 : 100
-          const pts = this.nightEvent === 'pinkMoon' ? Math.round(baseBig * 1.25) : baseBig
+          let bigPts = p.mochiTimer > 0 ? 200 : 100
+          if (p.chronoGearTimer > 0) bigPts = Math.round(bigPts * 1.5)
+          if (this.progress.selectedCharacter === 'cat-calico') bigPts = Math.round(bigPts * 1.15)
+          const pts = this.nightEvent === 'pinkMoon' ? Math.round(bigPts * 1.25) : bigPts
           this.levelScore += pts
           this.totalRunScore += pts
           this.audio.playBigStar()
@@ -4127,16 +4390,19 @@ export class MoonpawGameEngine {
             maxLife: 1.15
           })
         } else {
-          // Star Chain Combo (< 2.5s window -> x2..x5) + Pink Full Moon (+25% Star Bonus!)
+          // Star Chain Combo (Calico gets +35% longer combo window & +15% star score; Chrono Gear +50%!)
+          const isCalico = this.progress.selectedCharacter === 'cat-calico'
           if (this.starComboTimer > 0) {
             this.starComboCount += 1
           } else {
             this.starComboCount = 1
           }
-          this.starComboTimer = STAR_COMBO_WINDOW
+          this.starComboTimer = isCalico ? STAR_COMBO_WINDOW * 1.35 : STAR_COMBO_WINDOW
           const comboMult = Math.min(5, this.starComboCount)
           const isStarDouble = p.mochiTimer > 0
-          const basePts = (isStarDouble ? 20 : 10) * comboMult
+          let basePts = (isStarDouble ? 20 : 10) * comboMult
+          if (p.chronoGearTimer > 0) basePts = Math.round(basePts * 1.5)
+          if (isCalico) basePts = Math.round(basePts * 1.15)
           const pts = this.nightEvent === 'pinkMoon' ? Math.round(basePts * 1.25) : basePts
           this.levelScore += pts
           this.totalRunScore += pts
@@ -4438,12 +4704,13 @@ export class MoonpawGameEngine {
       return
     }
 
-    // Black Bear Passive — Sturdy Paws: reduced knockback on taking damage!
+    // Black Bear Passive — Sturdy Paws: reduced knockback; Midnight Cat Passive: +45% invincibility!
     const knockScale = this.progress.selectedCharacter === 'bear-black' ? 0.62 : 1.0
+    const invincScale = this.progress.selectedCharacter === 'cat-midnight' ? 1.45 : 1.0
 
     p.hearts = Math.max(0, p.hearts - 1)
     this.tookDamageThisLevel = true
-    p.invincibleTimer = INVINCIBLE_DURATION
+    p.invincibleTimer = INVINCIBLE_DURATION * invincScale
     p.dashTimer = 0
     p.coyoteTimer = 0
     p.vx = knockVx * knockScale
@@ -8661,7 +8928,10 @@ export class MoonpawGameEngine {
       checkpointReached: this.activeCheckpointIdx >= 0,
       starComboCount: this.starComboCount,
       starComboTimer: this.starComboTimer,
-      starComboMax: STAR_COMBO_WINDOW,
+      starComboMax:
+        this.progress.selectedCharacter === 'cat-calico'
+          ? STAR_COMBO_WINDOW * 1.35
+          : STAR_COMBO_WINDOW,
       starRingActive: this.starRingState === 'active',
       starRingCollected: this.starRingStars.filter((s) => s.collected).length,
       starRingTotal: this.starRingStars.length || 8,
@@ -8696,11 +8966,17 @@ export class MoonpawGameEngine {
       candyTimer: this.player.candyTimer,
       candyMax: CANDY_DURATION,
       pearlTimer: this.player.pearlTimer,
-      pearlMax: PEARL_DURATION,
+      pearlMax: PEARL_DURATION * this.getBuffDurationMultiplier(),
+      crystalElixirTimer: this.player.crystalElixirTimer,
+      crystalElixirMax: CRYSTAL_ELIXIR_DURATION * this.getBuffDurationMultiplier(),
+      chronoGearTimer: this.player.chronoGearTimer,
+      chronoGearMax: CHRONO_GEAR_DURATION * this.getBuffDurationMultiplier(),
+      eclipseShardTimer: this.player.eclipseShardTimer,
+      eclipseShardMax: ECLIPSE_SHARD_DURATION * this.getBuffDurationMultiplier(),
       cometChargeTimer: this.player.cometChargeTimer,
-      cometChargeMax: 6.0,
+      cometChargeMax: 6.0 * this.getBuffDurationMultiplier(),
       moonlightFeatherTimer: this.player.moonlightFeatherTimer,
-      moonlightFeatherMax: 10.0,
+      moonlightFeatherMax: 10.0 * this.getBuffDurationMultiplier(),
       isBossStage: Boolean(this.bossController),
       bossActive: Boolean(this.bossController?.active),
       bossDefeated: Boolean(this.bossController?.defeated),
@@ -8718,6 +8994,17 @@ export class MoonpawGameEngine {
       aegisReady: this.player.astralAegisCooldown <= 0,
       aegisCharge: Math.max(0, Math.min(1, 1 - this.player.astralAegisCooldown / 5.0)),
       aegisActive: this.player.astralAegisTimer > 0,
+      novaReady: this.player.starfallNovaCooldown <= 0,
+      novaCharge: Math.max(
+        0,
+        Math.min(1, 1 - this.player.starfallNovaCooldown / STARFALL_NOVA_COOLDOWN)
+      ),
+      mendReady: this.player.lunarMendUsesLeft > 0 && this.player.lunarMendCooldown <= 0,
+      mendCharge:
+        this.player.lunarMendUsesLeft <= 0
+          ? 0
+          : Math.max(0, Math.min(1, 1 - this.player.lunarMendCooldown / LUNAR_MEND_COOLDOWN)),
+      mendUsesLeft: this.player.lunarMendUsesLeft,
       hurtPulseCount: this.hurtPulseCount,
       recentToast: this.recentToast,
       autoSavePulse: this.autoSavePulse

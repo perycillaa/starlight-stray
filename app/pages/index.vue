@@ -168,6 +168,12 @@ const hud = ref<HudSnapshot>({
   candyMax: 7,
   pearlTimer: 0,
   pearlMax: 10,
+  crystalElixirTimer: 0,
+  crystalElixirMax: 9,
+  chronoGearTimer: 0,
+  chronoGearMax: 8,
+  eclipseShardTimer: 0,
+  eclipseShardMax: 7,
   cometChargeTimer: 0,
   cometChargeMax: 6,
   moonlightFeatherTimer: 0,
@@ -186,6 +192,11 @@ const hud = ref<HudSnapshot>({
   aegisReady: true,
   aegisCharge: 1,
   aegisActive: false,
+  novaReady: true,
+  novaCharge: 1,
+  mendReady: true,
+  mendCharge: 1,
+  mendUsesLeft: 2,
   hurtPulseCount: 0,
   recentToast: null,
   starRingActive: false,
@@ -675,6 +686,11 @@ function handleToggleMute() {
           :aegis-ready="hud.aegisReady"
           :aegis-charge="hud.aegisCharge"
           :aegis-active="hud.aegisActive"
+          :nova-ready="hud.novaReady"
+          :nova-charge="hud.novaCharge"
+          :mend-ready="hud.mendReady"
+          :mend-charge="hud.mendCharge"
+          :mend-uses-left="hud.mendUsesLeft"
           :comet-charge-active="hud.cometChargeTimer > 0"
           @input="handleTouchInput"
           @pause="handleTogglePause"

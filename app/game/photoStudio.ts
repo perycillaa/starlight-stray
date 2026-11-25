@@ -563,20 +563,34 @@ export function renderPostcardBase(opts: PostcardOptions): HTMLCanvasElement {
     ctx.fillRect(sx + 1, sy, 7, 2)
     ctx.fillStyle = '#ffe885'
     ctx.fillRect(sx + 3, sy - 5, 2, 2)
-  } else if (opts.pose === 'peek') {
-    // Shy Peek (Mengintip Malu): cute character peeking over a pixel starlight shrub!
-    ctx.drawImage(dir.idle0, 0, 0, 24, 24, heroX + 2, heroY + 6, 48, 48)
-    // Foreground cozy bush / stone cover
-    ctx.fillStyle = '#1a0c2e'
-    ctx.fillRect(heroX - 2, floorY - 17, 52, 17)
-    ctx.fillStyle = '#2d4d5e'
-    ctx.fillRect(heroX, floorY - 15, 48, 15)
-    ctx.fillStyle = '#4c808f'
-    ctx.fillRect(heroX + 4, floorY - 14, 18, 4)
-    ctx.fillRect(heroX + 26, floorY - 13, 16, 4)
-    ctx.fillStyle = '#ff9ec4'
-    ctx.fillRect(heroX + 10, floorY - 10, 3, 3)
-    ctx.fillRect(heroX + 34, floorY - 9, 3, 3)
+  } else if (opts.pose === 'chase') {
+    // Star Chaser (Mengejar Bintang): lively running stride chasing a glowing floating star!
+    // Crisp stardust & speed streaks behind running paws
+    ctx.fillStyle = 'rgba(255, 244, 214, 0.72)'
+    ctx.fillRect(heroX - 15, floorY - 7, 7, 2)
+    ctx.fillRect(heroX - 10, floorY - 12, 5, 2)
+    ctx.fillStyle = '#ffe875'
+    ctx.fillRect(heroX - 13, floorY - 16, 2, 2)
+    ctx.fillRect(heroX - 6, floorY - 6, 2, 2)
+    ctx.fillStyle = '#ffb8dc'
+    ctx.fillRect(heroX - 18, floorY - 10, 2, 2)
+
+    // Unobstructed running hero sprite at 2x crisp integer scale
+    ctx.drawImage(dir.run1, 0, 0, 24, 24, heroX - 4, heroY + 1, 48, 48)
+
+    // Floating golden star ahead of outstretched paws
+    const starX = heroX + 46
+    const starY = heroY + 14
+    if (isModern) {
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      drawGlow(ctx, starX + 6, starY + 6, 16, 'rgba(255, 246, 176, 0.42)', 'rgba(255, 206, 120, 0.14)')
+      ctx.restore()
+    }
+    ctx.drawImage(sprites.star[0], starX, starY)
+    ctx.fillStyle = '#fff6bd'
+    ctx.fillRect(starX - 3, starY - 2, 2, 2)
+    ctx.fillRect(starX + 12, starY + 9, 2, 2)
   } else if (opts.pose === 'victory') {
     // Victory Cheer (Pose Kemenangan): high celebratory hop + confetti stars!
     ctx.drawImage(dir.jumpUp, 0, 0, 24, 24, heroX, heroY - 12, 48, 48)

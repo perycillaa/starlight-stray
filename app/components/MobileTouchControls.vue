@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createDefaultTouchLayout } from '~/game/storage'
 import type { TouchControlsMode, TouchLayoutConfig, TouchZoneId } from '~/game/types'
 
-export type TouchControlKey = 'left' | 'right' | 'jump' | 'dash' | 'pulse' | 'aegis'
+export type TouchControlKey = 'left' | 'right' | 'jump' | 'dash' | 'pulse' | 'aegis' | 'nova' | 'mend'
 
 const props = defineProps<{
   mode?: TouchControlsMode
@@ -18,6 +18,11 @@ const props = defineProps<{
   aegisReady?: boolean
   aegisCharge?: number
   aegisActive?: boolean
+  novaReady?: boolean
+  novaCharge?: number
+  mendReady?: boolean
+  mendCharge?: number
+  mendUsesLeft?: number
   cometChargeActive?: boolean
 }>()
 
@@ -98,7 +103,7 @@ const joyKnobY = ref(0)
 const joyActive = ref(false)
 
 // Independent multi-touch tracking for right-side action tap zones
-const actionPointers = new Map<number, 'jump' | 'dash' | 'pulse' | 'aegis'>()
+const actionPointers = new Map<number, 'jump' | 'dash' | 'pulse' | 'aegis' | 'nova' | 'mend'>()
 
 const pressedState = ref<Record<TouchControlKey, boolean>>({
   left: false,
@@ -106,7 +111,9 @@ const pressedState = ref<Record<TouchControlKey, boolean>>({
   jump: false,
   dash: false,
   pulse: false,
-  aegis: false
+  aegis: false,
+  nova: false,
+  mend: false
 })
 
 function setControlPressed(control: TouchControlKey, down: boolean) {
@@ -190,7 +197,7 @@ function handleJoystickRelease(e: PointerEvent) {
   setControlPressed('right', false)
 }
 
-function syncActionControl(control: 'jump' | 'dash' | 'pulse' | 'aegis') {
+function syncActionControl(control: 'jump' | 'dash' | 'pulse' | 'aegis' | 'nova' | 'mend') {
   let down = false
   for (const mapped of actionPointers.values()) {
     if (mapped === control) {
@@ -201,7 +208,10 @@ function syncActionControl(control: 'jump' | 'dash' | 'pulse' | 'aegis') {
   setControlPressed(control, down)
 }
 
-function handleActionPointerDown(control: 'jump' | 'dash' | 'pulse' | 'aegis', e: PointerEvent) {
+function handleActionPointerDown(
+  control: 'jump' | 'dash' | 'pulse' | 'aegis' | 'nova' | 'mend',
+  e: PointerEvent
+) {
   e.preventDefault()
   const target = e.currentTarget as HTMLElement | null
   if (target && target.setPointerCapture) {
@@ -235,7 +245,7 @@ function releaseAll() {
   joyKnobX.value = 0
   joyKnobY.value = 0
   actionPointers.clear()
-  for (const key of ['left', 'right', 'jump', 'dash', 'pulse', 'aegis'] as TouchControlKey[]) {
+  for (const key of ['left', 'right', 'jump', 'dash', 'pulse', 'aegis', 'nova', 'mend'] as TouchControlKey[]) {
     setControlPressed(key, false)
   }
 }
@@ -268,6 +278,8 @@ const jumpZoneStyle = computed(() => getZoneStyle('jump', 112, 112))
 const dashZoneStyle = computed(() => getZoneStyle('dash', 88, 88))
 const pulseZoneStyle = computed(() => getZoneStyle('pulse', 76, 76))
 const aegisZoneStyle = computed(() => getZoneStyle('aegis', 76, 76))
+const novaZoneStyle = computed(() => getZoneStyle('nova', 72, 72))
+const mendZoneStyle = computed(() => getZoneStyle('mend', 72, 72))
 
 onMounted(() => {
   detectTouchViewport()
@@ -529,6 +541,76 @@ onBeforeUnmount(() => {
           />
         </span>
       </button>
+
+      <button
+        type="button"
+        class="touch-zone touch-zone--action touch-zone--nova"
+        :class="{ 'touch-zone--pressed': pressedState.nova }"
+        :style="novaZoneStyle"
+        aria-label="Starfall Nova"
+        @pointerdown="handleActionPointerDown('nova', $event)"
+        @pointerup="handleActionPointerRelease"
+        @pointercancel="handleActionPointerRelease"
+        @lostpointercapture="handleActionPointerRelease"
+        @contextmenu.prevent
+      >
+        <span v-if="showOnboardingHint" class="onboarding-outline">
+          <span class="onboarding-tag">☄ NOVA</span>
+        </span>
+        <span
+          v-if="!isInvisibleMode"
+          class="action-disc action-disc--nova"
+          :class="{
+            'action-disc--active': pressedState.nova,
+            'action-disc--cd': novaReady === false
+          }"
+          :style="{ opacity: effectiveOpacity }"
+        >
+          <span class="touch-glyph" aria-hidden="true">☄</span>
+          <span class="touch-label">NOVA</span>
+          <span
+            v-if="novaReady === false"
+            class="disc-cd-bar"
+            :style="{ width: `${Math.round((novaCharge ?? 0) * 100)}%` }"
+            aria-hidden="true"
+          />
+        </span>
+      </button>
+
+      <button
+        type="button"
+        class="touch-zone touch-zone--action touch-zone--mend"
+        :class="{ 'touch-zone--pressed': pressedState.mend }"
+        :style="mendZoneStyle"
+        aria-label="Lunar Mend Penyembuh"
+        @pointerdown="handleActionPointerDown('mend', $event)"
+        @pointerup="handleActionPointerRelease"
+        @pointercancel="handleActionPointerRelease"
+        @lostpointercapture="handleActionPointerRelease"
+        @contextmenu.prevent
+      >
+        <span v-if="showOnboardingHint" class="onboarding-outline">
+          <span class="onboarding-tag">♥ MEND</span>
+        </span>
+        <span
+          v-if="!isInvisibleMode"
+          class="action-disc action-disc--mend"
+          :class="{
+            'action-disc--active': pressedState.mend,
+            'action-disc--cd': mendReady === false
+          }"
+          :style="{ opacity: effectiveOpacity }"
+        >
+          <span class="touch-glyph" aria-hidden="true">♥</span>
+          <span class="touch-label">MEND {{ mendUsesLeft ?? 0 }}</span>
+          <span
+            v-if="mendReady === false && (mendUsesLeft ?? 0) > 0"
+            class="disc-cd-bar"
+            :style="{ width: `${Math.round((mendCharge ?? 0) * 100)}%` }"
+            aria-hidden="true"
+          />
+        </span>
+      </button>
     </template>
   </div>
 </template>
@@ -783,6 +865,16 @@ onBeforeUnmount(() => {
 .action-disc--aegis {
   color: #ffe894;
   border-color: rgba(255, 214, 112, 0.88);
+}
+
+.action-disc--nova {
+  color: #ffbe75;
+  border-color: rgba(255, 162, 102, 0.9);
+}
+
+.action-disc--mend {
+  color: #9ef5c8;
+  border-color: rgba(126, 240, 184, 0.9);
 }
 
 .action-disc--cd {

@@ -13,6 +13,8 @@ export interface PlayerPulseShot {
   vy: number
   life: number
   isSpread?: boolean
+  homing?: boolean
+  bonusDmg?: number
 }
 
 export interface BossProjectile {
@@ -82,6 +84,7 @@ export class BossEncounterController {
   public animTime = 0
 
   public playerShots: PlayerPulseShot[] = []
+  public novaWaves: { x: number; y: number; r: number; maxR: number; life: number; maxLife: number }[] = []
   public bossProjectiles: BossProjectile[] = []
   public beams: BossBeamHazard[] = []
   public arenaItems: ArenaBattleItemState[] = []
@@ -106,7 +109,7 @@ export class BossEncounterController {
     return this.config.kind
   }
 
-  public firePlayerPulse(px: number, py: number, facing: 1 | -1, spread: boolean): void {
+  public firePlayerPulse(px: number, py: number, facing: 1 | -1, spread: boolean, bonusDmg = 0): void {
     const speed = 228
     if (spread) {
       const angles = [-0.2, 0, 0.2]
@@ -117,7 +120,8 @@ export class BossEncounterController {
           vx: Math.cos(a) * speed * facing,
           vy: Math.sin(a) * speed,
           life: 1.5,
-          isSpread: true
+          isSpread: true,
+          bonusDmg
         })
       }
     } else {
@@ -126,8 +130,69 @@ export class BossEncounterController {
         y: py,
         vx: speed * facing,
         vy: 0,
-        life: 1.5
+        life: 1.5,
+        bonusDmg
       })
+    }
+  }
+
+  /**
+   * Combat Skill 3 — Starfall Nova: circular shockwave clears nearby boss projectiles,
+   * auto-deflects golden orbs, and launches 3 homing starbolts toward the boss!
+   */
+  public triggerStarfallNova(px: number, py: number, bonusDmg: number, cb: BossCallbacks): number {
+    this.novaWaves.push({ x: px, y: py, r: 10, maxR: 84, life: 0.36, maxLife: 0.36 })
+    let cleared = 0
+    for (let i = this.bossProjectiles.length - 1; i >= 0; i--) {
+      const bp = this.bossProjectiles[i]!
+      const dx = bp.x - px
+      const dy = bp.y - py
+      if (dx * dx + dy * dy <= 84 * 84) {
+        if (bp.deflectable && !bp.deflected) {
+          bp.deflected = true
+          const ang = Math.atan2(this.y + this.h / 2 - bp.y, this.x + this.w / 2 - bp.x)
+          bp.vx = Math.cos(ang) * 220
+          bp.vy = Math.sin(ang) * 220
+          bp.life = 2.4
+          cb.onPlayBossSfx('deflect')
+          cb.onSpawnParticle(bp.x, bp.y, '#ffe875', 8)
+        } else if (!bp.deflected) {
+          cb.onSpawnParticle(bp.x, bp.y, '#c89eff', 4)
+          this.bossProjectiles.splice(i, 1)
+          cleared += 1
+        }
+      }
+    }
+    // Launch 3 graceful homing starbolts
+    const angles = [-2.2, -1.57, -0.94]
+    for (const a of angles) {
+      this.playerShots.push({
+        x: px,
+        y: py - 4,
+        vx: Math.cos(a) * 140,
+        vy: Math.sin(a) * 140,
+        life: 2.2,
+        homing: true,
+        bonusDmg
+      })
+    }
+    return cleared
+  }
+
+  /**
+   * Combat Skill 4 — Lunar Mend: gently clears immediate incoming projectiles around player during heal!
+   */
+  public clearProjectilesNear(px: number, py: number, radius: number, cb: BossCallbacks): void {
+    this.novaWaves.push({ x: px, y: py, r: 8, maxR: radius, life: 0.32, maxLife: 0.32 })
+    for (let i = this.bossProjectiles.length - 1; i >= 0; i--) {
+      const bp = this.bossProjectiles[i]!
+      if (bp.deflected) continue
+      const dx = bp.x - px
+      const dy = bp.y - py
+      if (dx * dx + dy * dy <= radius * radius) {
+        cb.onSpawnParticle(bp.x, bp.y, '#9ef5c8', 5)
+        this.bossProjectiles.splice(i, 1)
+      }
     }
   }
 
@@ -177,10 +242,10 @@ export class BossEncounterController {
       return { windPushX: 0, collectedItem }
     }
 
-    // Periodically spawn arena battle items during fight (capped at 2 active in arena)
+    // Periodically spawn arena battle items during fight (capped at 2 active in arena, prioritizing healing when hurt!)
     this.itemSpawnTimer -= dt
     if (this.itemSpawnTimer <= 0) {
-      this.itemSpawnTimer = 10.5
+      this.itemSpawnTimer = 9.0
       const activeArenaCount = this.arenaItems.filter(
         (it) => !it.collected && it.x >= this.config.arenaMinX
       ).length
@@ -189,8 +254,10 @@ export class BossEncounterController {
           this.config.arenaItemSpots[Math.floor(Math.random() * this.config.arenaItemSpots.length)]!
         const pool: ArenaBattleItemKind[] =
           player.hearts <= 1
-            ? ['starBerry', 'starBerry', 'cometCharge', 'moonlightFeather']
-            : ['starBerry', 'cometCharge', 'moonlightFeather']
+            ? ['starNectar', 'starBerry', 'starBerry', 'eclipseShard']
+            : player.hearts <= 2
+              ? ['starBerry', 'starNectar', 'cometCharge', 'eclipseShard', 'moonlightFeather']
+              : ['starBerry', 'cometCharge', 'moonlightFeather', 'eclipseShard']
         const kind = pool[Math.floor(Math.random() * pool.length)]!
         this.arenaItems.push({
           id: this.nextItemId++,
@@ -526,8 +593,28 @@ export class BossEncounterController {
   }
 
   private updatePlayerShots(dt: number, cb: BossCallbacks): void {
+    for (let i = this.novaWaves.length - 1; i >= 0; i--) {
+      const nw = this.novaWaves[i]!
+      nw.life -= dt
+      const t = 1 - Math.max(0, nw.life / nw.maxLife)
+      nw.r = 10 + (nw.maxR - 10) * t
+      if (nw.life <= 0) this.novaWaves.splice(i, 1)
+    }
+
     for (let i = this.playerShots.length - 1; i >= 0; i--) {
       const s = this.playerShots[i]!
+      if (s.homing && this.active && !this.defeated) {
+        const tx = this.x + this.w / 2
+        const ty = this.y + this.h / 2
+        const dx = tx - s.x
+        const dy = ty - s.y
+        const dist = Math.hypot(dx, dy) || 1
+        const desiredVx = (dx / dist) * 205
+        const desiredVy = (dy / dist) * 205
+        const steer = Math.min(1, dt * 6.5)
+        s.vx += (desiredVx - s.vx) * steer
+        s.vy += (desiredVy - s.vy) * steer
+      }
       s.x += s.vx * dt
       s.y += s.vy * dt
       s.life -= dt
@@ -566,8 +653,8 @@ export class BossEncounterController {
       ) {
         consumed = true
         const isCrit = this.coreExposed
-        const dmg = isCrit ? 2 : 1
-        this.damageBoss(dmg, s.x, s.y, isCrit, false, cb)
+        const dmg = (isCrit ? 2 : 1) + (s.bonusDmg ?? 0)
+        this.damageBoss(dmg, s.x, s.y, isCrit || (s.bonusDmg ?? 0) > 0, false, cb)
       }
 
       if (consumed || s.life <= 0 || s.x < 0 || s.x > this.config.arenaMaxX + 120) {
@@ -705,6 +792,24 @@ export class BossEncounterController {
         ctx.fillRect(ix + 3, iy + 4, 3, 2)
         ctx.fillStyle = '#6cf2b4'
         ctx.fillRect(ix + 4, iy + 1, 4, 2)
+      } else if (item.kind === 'starNectar') {
+        // Luminous Pink-Gold Healing Elixir Flask (+2 ♥!)
+        ctx.fillStyle = '#ffe475'
+        ctx.fillRect(ix + 4, iy + 1, 4, 2)
+        ctx.fillStyle = '#ff4f86'
+        ctx.fillRect(ix + 2, iy + 3, 8, 8)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(ix + 4, iy + 5, 4, 2)
+        ctx.fillRect(ix + 5, iy + 4, 2, 4)
+      } else if (item.kind === 'eclipseShard') {
+        // Crimson-Gold Eclipse Power Crystal (-40% Boss Skill CD & +1 DMG!)
+        ctx.fillStyle = '#ff4778'
+        ctx.fillRect(ix + 4, iy + 1, 4, 10)
+        ctx.fillRect(ix + 2, iy + 3, 8, 6)
+        ctx.fillStyle = '#ffd859'
+        ctx.fillRect(ix + 5, iy + 3, 2, 6)
+        ctx.fillStyle = '#fffbe0'
+        ctx.fillRect(ix + 5, iy + 4, 2, 2)
       } else if (item.kind === 'cometCharge') {
         ctx.fillStyle = '#ffe266'
         ctx.fillRect(ix + 3, iy + 2, 6, 8)
@@ -720,6 +825,23 @@ export class BossEncounterController {
         ctx.fillStyle = '#d9b5ff'
         ctx.fillRect(ix + 2, iy + 6, 2, 3)
       }
+    }
+
+    // 1B. Render Starfall Nova & Lunar Mend Shockwaves
+    for (const nw of this.novaWaves) {
+      const alpha = Math.max(0, nw.life / nw.maxLife)
+      ctx.save()
+      ctx.strokeStyle = `rgba(255, 226, 128, ${alpha * 0.85})`
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(Math.round(nw.x), Math.round(nw.y), Math.round(nw.r), 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.strokeStyle = `rgba(176, 240, 255, ${alpha * 0.55})`
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.arc(Math.round(nw.x), Math.round(nw.y), Math.max(2, Math.round(nw.r - 4)), 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
     }
 
     // 2. Render Horizontal Wind Gust visual (Umbra Owl Phase 2)
@@ -814,14 +936,21 @@ export class BossEncounterController {
       }
     }
 
-    // 5. Render Player Starlight Pulse Shots
+    // 5. Render Player Starlight Pulse & Starfall Nova Homing Shots
     for (const s of this.playerShots) {
       const sx = Math.round(s.x)
       const sy = Math.round(s.y)
-      ctx.fillStyle = s.isSpread ? '#ff9ed2' : '#7ee8ff'
-      ctx.fillRect(sx - 5, sy - 3, 10, 6)
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(sx - 3, sy - 1, 6, 2)
+      if (s.homing) {
+        ctx.fillStyle = '#ffe466'
+        ctx.fillRect(sx - 4, sy - 4, 8, 8)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(sx - 2, sy - 2, 4, 4)
+      } else {
+        ctx.fillStyle = s.bonusDmg ? '#ff6996' : s.isSpread ? '#ff9ed2' : '#7ee8ff'
+        ctx.fillRect(sx - 5, sy - 3, 10, 6)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(sx - 3, sy - 1, 6, 2)
+      }
     }
 
     // 6. Render Boss Projectiles

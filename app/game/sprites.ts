@@ -65,6 +65,10 @@ export interface SpriteBank {
     mochi: HTMLCanvasElement
     candy: HTMLCanvasElement
     pearl: HTMLCanvasElement
+    crystalElixir: HTMLCanvasElement
+    chronoGear: HTMLCanvasElement
+    starNectar: HTMLCanvasElement
+    eclipseShard: HTMLCanvasElement
   }
   crow: {
     right: [HTMLCanvasElement, HTMLCanvasElement]
@@ -4000,6 +4004,104 @@ const PEARL_PALETTE: Record<string, string> = {
   d: '#644a8a'
 }
 
+// Map 5 Exclusive: Crystal Spore Elixir (12x12)
+const CRYSTAL_ELIXIR_GRID = [
+  '....oooo....',
+  '....oyyo....',
+  '....oooo....',
+  '...ooccoo...',
+  '..occwwcco..',
+  '.occlllccpo.',
+  '.occlllccpo.',
+  '.ooccccppoo.',
+  '..ooccppoo..',
+  '...oooooo...',
+  '............',
+  '............'
+]
+
+const CRYSTAL_ELIXIR_PALETTE: Record<string, string> = {
+  o: '#131d36',
+  y: '#ffe685',
+  c: '#4be8dc',
+  l: '#a8fff7',
+  w: '#ffffff',
+  p: '#b88cff'
+}
+
+// Map 6 Exclusive: Golden Chrono Gear (12x12)
+const CHRONO_GEAR_GRID = [
+  '....oooo....',
+  '..ooyyyyoo..',
+  '.oyywwwwyyo.',
+  'ooywbbbbwyoo',
+  'oywbllllbwyo',
+  'oywblwwlbwyo',
+  'oywbllllbwyo',
+  'ooywbbbbwyoo',
+  '.oyyddddyyo.',
+  '..ooyyyyoo..',
+  '....oooo....',
+  '............'
+]
+
+const CHRONO_GEAR_PALETTE: Record<string, string> = {
+  o: '#1f1638',
+  y: '#ffd452',
+  d: '#c7831e',
+  w: '#fff9d6',
+  b: '#5472d9',
+  l: '#9cecff'
+}
+
+// Boss Fight Healing Relic: Star Nectar Flask (12x12)
+const STAR_NECTAR_GRID = [
+  '....oooo....',
+  '....oggo....',
+  '..oooggooo..',
+  '.opppwwpppo.',
+  'oppwwhhwwppo',
+  'opphhhhhhppo',
+  'opphhwwhhppo',
+  '.opphhhhppo.',
+  '..ooppppoo..',
+  '...oooooo...',
+  '............',
+  '............'
+]
+
+const STAR_NECTAR_PALETTE: Record<string, string> = {
+  o: '#240c2b',
+  g: '#ffe475',
+  p: '#ff8cb8',
+  h: '#ff427b',
+  w: '#ffffff'
+}
+
+// Boss Fight Power Relic: Eclipse Shard (12x12)
+const ECLIPSE_SHARD_GRID = [
+  '.....oo.....',
+  '....orro....',
+  '...orggro...',
+  '..orgwwgro..',
+  '.orrgwwgrro.',
+  '.orrrggrrro.',
+  '.oprrggrppo.',
+  '..oprrrrpo..',
+  '...oprrpo...',
+  '....oppo....',
+  '.....oo.....',
+  '............'
+]
+
+const ECLIPSE_SHARD_PALETTE: Record<string, string> = {
+  o: '#1c071b',
+  r: '#ff4778',
+  p: '#8c2259',
+  g: '#ffd859',
+  w: '#fffbe0'
+}
+
 // ============================================================================
 // BIOME 2 STONE LANTERN + BIOME TILES (Sakura, Cloudland, Harbor)
 // ============================================================================
@@ -4712,7 +4814,11 @@ export function getSpriteBank(): SpriteBank {
       yarn: bakeGrid(YARN_GRID, YARN_PALETTE),
       mochi: bakeGrid(MOCHI_GRID, MOCHI_PALETTE),
       candy: bakeGrid(CANDY_GRID, CANDY_PALETTE),
-      pearl: bakeGrid(PEARL_GRID, PEARL_PALETTE)
+      pearl: bakeGrid(PEARL_GRID, PEARL_PALETTE),
+      crystalElixir: bakeGrid(CRYSTAL_ELIXIR_GRID, CRYSTAL_ELIXIR_PALETTE),
+      chronoGear: bakeGrid(CHRONO_GEAR_GRID, CHRONO_GEAR_PALETTE),
+      starNectar: bakeGrid(STAR_NECTAR_GRID, STAR_NECTAR_PALETTE),
+      eclipseShard: bakeGrid(ECLIPSE_SHARD_GRID, ECLIPSE_SHARD_PALETTE)
     },
     crow: {
       right: [crow0, crow1],

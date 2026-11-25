@@ -119,7 +119,9 @@ export function createDefaultTouchLayout(): TouchLayoutConfig {
       jump: { xPct: 87, yPct: 81, scale: 1.0 },
       dash: { xPct: 70, yPct: 85, scale: 1.0 },
       pulse: { xPct: 73, yPct: 60, scale: 1.0 },
-      aegis: { xPct: 88, yPct: 56, scale: 1.0 }
+      aegis: { xPct: 88, yPct: 56, scale: 1.0 },
+      nova: { xPct: 59, yPct: 68, scale: 1.0 },
+      mend: { xPct: 88, yPct: 36, scale: 1.0 }
     }
   }
 }
@@ -149,7 +151,9 @@ export function sanitizeTouchLayout(raw: unknown): TouchLayoutConfig {
       jump: fixZone('jump'),
       dash: fixZone('dash'),
       pulse: fixZone('pulse'),
-      aegis: fixZone('aegis')
+      aegis: fixZone('aegis'),
+      nova: fixZone('nova'),
+      mend: fixZone('mend')
     }
   }
 }

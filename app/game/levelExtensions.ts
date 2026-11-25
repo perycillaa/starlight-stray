@@ -163,8 +163,20 @@ export function extendBaseLevel(base: LevelDefinition): LevelDefinition {
     { x: sx + 1148, y: 120, kind: 'star' }
   )
 
+  const biomeExclusive =
+    base.biome === 'rooftops'
+      ? 'yarn'
+      : base.biome === 'sakura'
+        ? 'mochi'
+        : base.biome === 'cloudland'
+          ? 'candy'
+          : 'pearl'
+
   powerUps.push(
-    { x: sx + 444, y: 132, kind: base.biome === 'sakura' ? 'mochi' : base.biome === 'harbor' ? 'pearl' : 'feather' },
+    { x: sx + 74, y: 128, kind: biomeExclusive },
+    { x: sx + 272, y: 118, kind: 'bubble' },
+    { x: sx + 444, y: 132, kind: base.biome === 'rooftops' ? 'feather' : 'bell' },
+    { x: sx + 686, y: 114, kind: biomeExclusive },
     { x: sx + 914, y: 124, kind: 'milk' }
   )
 

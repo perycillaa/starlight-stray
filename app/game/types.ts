@@ -21,7 +21,7 @@ export type PostcardPoseId =
   | 'wave'
   | 'hero'
   | 'snack'
-  | 'peek'
+  | 'chase'
   | 'victory'
 
 export type PostcardEmoteId = 'none' | 'heart' | 'star' | 'music' | 'sleep' | 'alert' | 'sweat'
@@ -130,7 +130,7 @@ export type GraphicsStyle = 'classic' | 'modern'
 
 export type TouchControlsMode = 'invisible' | 'translucent' | 'visible' | 'off'
 
-export type TouchZoneId = 'joystick' | 'jump' | 'dash' | 'pulse' | 'aegis'
+export type TouchZoneId = 'joystick' | 'jump' | 'dash' | 'pulse' | 'aegis' | 'nova' | 'mend'
 
 export interface TouchZoneLayout {
   /** Center X position as percentage of stage width (0..100) */
@@ -279,6 +279,7 @@ export interface CharacterDef {
   description: string
   perkTitle: string
   perkDesc: string
+  perkDetail?: string
   unlockMode: CharacterUnlockMode
   /** Fish cost for regular characters (0 for free default / mission characters) */
   cost: number
@@ -752,7 +753,12 @@ export interface LowGravityZoneDef {
 
 export type BossKind = 'umbra-owl' | 'chronos-leviathan'
 
-export type ArenaBattleItemKind = 'starBerry' | 'cometCharge' | 'moonlightFeather'
+export type ArenaBattleItemKind =
+  | 'starBerry'
+  | 'starNectar'
+  | 'cometCharge'
+  | 'moonlightFeather'
+  | 'eclipseShard'
 
 export interface ArenaBattleItemDef {
   x: number
@@ -809,6 +815,10 @@ export type PowerUpKind =
   | 'mochi'
   | 'candy'
   | 'pearl'
+  | 'crystalElixir'
+  | 'chronoGear'
+  | 'starNectar'
+  | 'eclipseShard'
 
 export interface PowerUpDef {
   x: number
@@ -976,6 +986,7 @@ export interface PlayerState {
   dashTimer: number
   dashCooldownTimer: number
   airDashUsed: boolean
+  airDashCount: number
   afterimageSpawnTimer: number
   featherTimer: number
   magnetTimer: number
@@ -986,11 +997,17 @@ export interface PlayerState {
   mochiTimer: number
   candyTimer: number
   pearlTimer: number
+  crystalElixirTimer: number
+  chronoGearTimer: number
+  eclipseShardTimer: number
   cometChargeTimer: number
   moonlightFeatherTimer: number
   starlightPulseCooldown: number
   astralAegisTimer: number
   astralAegisCooldown: number
+  starfallNovaCooldown: number
+  lunarMendCooldown: number
+  lunarMendUsesLeft: number
   idleDuration: number
   hearts: number
   maxHearts: number
@@ -1011,6 +1028,8 @@ export interface InputState {
   dashJustPressed: boolean
   pulseJustPressed: boolean
   aegisJustPressed: boolean
+  novaJustPressed: boolean
+  mendJustPressed: boolean
 }
 
 export interface LevelRecord {
@@ -1109,6 +1128,12 @@ export interface HudSnapshot {
   candyMax: number
   pearlTimer: number
   pearlMax: number
+  crystalElixirTimer: number
+  crystalElixirMax: number
+  chronoGearTimer: number
+  chronoGearMax: number
+  eclipseShardTimer: number
+  eclipseShardMax: number
   cometChargeTimer: number
   cometChargeMax: number
   moonlightFeatherTimer: number
@@ -1127,6 +1152,11 @@ export interface HudSnapshot {
   aegisReady: boolean
   aegisCharge: number
   aegisActive: boolean
+  novaReady: boolean
+  novaCharge: number
+  mendReady: boolean
+  mendCharge: number
+  mendUsesLeft: number
   hurtPulseCount: number
   recentToast: ToastNotice | null
   autoSavePulse: number

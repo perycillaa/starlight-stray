@@ -117,7 +117,7 @@ const emit = defineEmits<{
 
 type ShopTab = 'scarf' | 'hat' | 'cape' | 'head_acc' | 'face'
 const activeShopTab = ref<ShopTab>('scarf')
-const activeGuideTab = ref<'items' | 'worlds'>('items')
+const activeGuideTab = ref<'items' | 'boss' | 'worlds'>('items')
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const confirmReset = ref(false)
 const cloudCodeDraft = ref('')
@@ -258,65 +258,128 @@ const homeBackdropBadgeLabel = computed(() => {
 
 const GUIDE_ITEMS: { kind: PowerUpKind; name: string; tag: string; desc: string }[] = [
   { kind: 'mooncake', name: 'Kue Bulan Emas', tag: 'Spesial Semua Map • 8 dtk', desc: 'Membesar 1.35x, kebal rintangan, & menghancurkan semua musuh (+50 poin).' },
-  { kind: 'milk', name: 'Botol Susu Hangat', tag: 'Item Dasar', desc: 'Memulihkan +1 Hati yang hilang (atau +100 poin jika hati sudah penuh).' },
+  { kind: 'milk', name: 'Botol Susu Hangat', tag: 'Penyembuh Dasar', desc: 'Memulihkan +1 Hati yang hilang (atau +100 poin jika hati sudah penuh).' },
+  { kind: 'starNectar', name: 'Nektar Bintang', tag: 'Penyembuh Boss Fight • +2 ♥', desc: 'Item penyembuh spesial arena Boss! Memulihkan +2 Hati & kebal 2.5 dtk (atau Perisai Gelembung +200 poin jika HP penuh).' },
   { kind: 'feather', name: 'Bulu Bintang', tag: 'Item Dasar • 8 dtk', desc: 'Tahan tombol Lompat di udara untuk melayang turun secara lembut.' },
   { kind: 'bell', name: 'Lonceng Magnet', tag: 'Item Dasar • 10 dtk', desc: 'Menarik otomatis Bintang dan Ikan Emas di sekitar karakter.' },
   { kind: 'bubble', name: 'Gelembung Bulan', tag: 'Item Dasar', desc: 'Perisai gelembung yang menahan 1 kali tabrakan musuh atau rintangan.' },
-  { kind: 'yarn', name: 'Bola Benang Bintang', tag: 'Eksklusif Atap Kota • 10 dtk', desc: 'Membuka Triple Jump (lompat 3x) dan menambah kelincahan gerak.' },
+  { kind: 'yarn', name: 'Bola Benang Bintang', tag: 'Eksklusif Atap Kota • 10 dtk', desc: 'Membuka Triple Jump (lompat 3x) dan menambah kelincahan gerak +18%.' },
   { kind: 'mochi', name: 'Mochi Sakura', tag: 'Eksklusif Hutan Sakura • 8 dtk', desc: 'Melayang lembut disertai kelopak sakura & skor Bintang menjadi 2x lipat.' },
   { kind: 'candy', name: 'Permen Pelangi', tag: 'Eksklusif Negeri Awan • 7 dtk', desc: 'Menghapus cooldown Dash & membuka Air-Dash tanpa batas berjejak pelangi.' },
-  { kind: 'pearl', name: 'Mutiara Bulan', tag: 'Eksklusif Dermaga • 10 dtk', desc: 'Aman berjalan di atas genangan air & menarik Ikan Emas dari jauh.' }
+  { kind: 'pearl', name: 'Mutiara Bulan', tag: 'Eksklusif Dermaga • 10 dtk', desc: 'Aman berjalan di atas genangan air & menarik Ikan Emas dari jauh.' },
+  { kind: 'crystalElixir', name: 'Kristal Spora', tag: 'Eksklusif Gua Kristal • 9 dtk', desc: 'Pantulan jamur bioluminesen +14% lebih tinggi, lari +10%, & menerangi kristal gua.' },
+  { kind: 'chronoGear', name: 'Roda Waktu Emas', tag: 'Eksklusif Observatorium • 8 dtk', desc: 'Gravitasi -22% lebih ringan, cooldown Dash -50% lebih cepat, & skor Bintang +50%.' },
+  { kind: 'eclipseShard', name: 'Pecahan Gerhana', tag: 'Eksklusif Boss Fight • 7 dtk', desc: 'Seluruh cooldown Skill Boss 40% lebih cepat & serangan Starlight Pulse / Nova mendapat +1 bonus damage!' }
+]
+
+const GUIDE_BOSS_SKILLS = [
+  {
+    icon: '✦',
+    name: 'Starlight Pulse',
+    keys: 'Keyboard: C / J • HP: Tombol ✦',
+    cooldown: 'Cooldown 1.2 dtk',
+    desc: 'Menembakkan proyektil cahaya bintang lurus ke depan (1 damage, atau 2 damage CRITICAL saat Core Boss terbuka). Jika mengenai Bola Emas Boss, bola akan memantul balik untuk 3 damage + Stun!'
+  },
+  {
+    icon: '◈',
+    name: 'Astral Aegis',
+    keys: 'Keyboard: V / K • HP: Tombol ◈',
+    cooldown: 'Cooldown 5.0 dtk • Durasi 1.2 dtk',
+    desc: 'Membuka perisai energi astral di sekeliling karakter yang menangkis bulu bayangan, sinar laser, maupun tabrakan Boss. Tangkisan sukses langsung mereset cooldown Starlight Pulse!'
+  },
+  {
+    icon: '☄️',
+    name: 'Starfall Nova',
+    keys: 'Keyboard: Q / U • HP: Tombol ☄',
+    cooldown: 'Cooldown 7.5 dtk',
+    desc: 'Melepaskan gelombang ledakan bintang melingkar yang menghancurkan proyektil biasa Boss di sekitar, memantulkan Bola Emas otomatis, lalu meluncurkan 3 bintang pengejar (homing) ke arah Boss!'
+  },
+  {
+    icon: '💚',
+    name: 'Lunar Mend',
+    keys: 'Keyboard: H / L • HP: Tombol ♥',
+    cooldown: 'Cooldown 16 dtk • Maks 2× / Boss',
+    desc: 'Skill penyembuhan darurat khusus pertarungan Boss! Memulihkan +1 Hati, memberi kebal 1 detik, & menyapu bersih proyektil di sekitar karakter (jika HP sudah penuh, memberi Perisai Gelembung gratis).'
+  }
+]
+
+const GUIDE_BOSS_ARENA_ITEMS = [
+  {
+    icon: '🧪',
+    name: 'Nektar Bintang (Penyembuh Utama)',
+    desc: 'Muncul di jalur menuju Boss & di dalam arena saat HP menipis! Memulihkan +2 Hati sekaligus & memberi kebal 2.5 detik.'
+  },
+  {
+    icon: '🍓',
+    name: 'Star Berry (Penyembuh Arena)',
+    desc: 'Buah bintang yang rutin muncul di pijakan arena Boss untuk memulihkan +1 Hati (+150 poin jika HP penuh).'
+  },
+  {
+    icon: '🌘',
+    name: 'Pecahan Gerhana (Buff Skill)',
+    desc: 'Mempercepat cooldown keempat Skill Boss hingga 40% & menambah +1 bonus damage selama 7 detik.'
+  },
+  {
+    icon: '☄️',
+    name: 'Comet Charge (Tembakan 3-Arah)',
+    desc: 'Mengubah Starlight Pulse menjadi tembakan 3-arah cepat hampir tanpa cooldown selama 6 detik!'
+  },
+  {
+    icon: '🌙',
+    name: 'Moonlight Feather (Triple Jump)',
+    desc: 'Membuka lompatan 3× di arena Boss selama 10 detik untuk menghindari sinar laser & badai angin.'
+  }
 ]
 
 const GUIDE_WORLDS = [
   {
     icon: '🏙️',
     name: 'Atap Kota Malam (Lvl 1–2)',
-    platform: 'Kabel Listrik Membal (memantul tinggi)',
+    platform: 'Kabel Listrik Membal & Cerobong Angin Naik (Updraft)',
     hazards: 'Gagak Patroli & Cerobong Uap Berkala (ada asap peringatan)',
-    secret: 'Dinding cerobong palsu tersembunyi'
+    secret: 'Dinding cerobong palsu • Item Eksklusif: Bola Benang Bintang'
   },
   {
     icon: '🌸',
     name: 'Hutan Sakura Malam (Lvl 3–4)',
     platform: 'Dahan Pohon Rapuh (bergetar 1 dtk lalu turun pelan)',
     hazards: 'Landak Duri patroli & Pusaran Angin Kelopak pendorong',
-    secret: 'Balik kanopi daun sakura'
+    secret: 'Balik kanopi daun sakura • Item Eksklusif: Mochi Sakura'
   },
   {
     icon: '☁️',
     name: 'Negeri Awan Pastel (Lvl 5–6)',
-    platform: 'Awan Bergerak maju-mundur & Awan Memantul',
+    platform: 'Awan Bergerak, Awan Memantul, & Awan Bintang Berfase',
     hazards: 'Awan Petir Kecil (kedip kuning 1 dtk) & Gagak Peluncur',
-    secret: 'Balik gumpalan awan pastel'
+    secret: 'Balik gumpalan awan pastel • Item Eksklusif: Permen Pelangi'
   },
   {
     icon: '⚓',
     name: 'Dermaga Lampion (Lvl 7–8)',
     platform: 'Lentera Berayun & Perahu Kayu Mengapung di atas ombak',
     hazards: 'Kepiting Dermaga Gesit & Api Lentera Melayang (sinus)',
-    secret: 'Balik layar perahu dermaga'
+    secret: 'Balik layar perahu dermaga • Item Eksklusif: Mutiara Bulan'
   },
   {
     icon: '🍄',
     name: 'Gua Jamur Kristal (Lvl 9–10)',
     platform: 'Jamur Bioluminesen Elastis & Kristal Gua berpendar saat didekati',
     hazards: 'Api Spora Gua, Gagak Gua & Landak Kristal',
-    secret: 'Ruang gua kristal tersembunyi (6/6 Shard -> Crystal Glow Cape)'
+    secret: 'Item Eksklusif: Kristal Spora • 6/6 Shard → Crystal Glow Cape'
   },
   {
     icon: '⚙️',
     name: 'Observatorium Roda Jam (Lvl 11–12)',
     platform: 'Roda Gigi Berputar & Zona Gravitasi Ringan Astral',
-    hazards: 'Gagak Astronomi & Api Bintang (6/6 Shard -> Astral Clockwork Hat)',
-    secret: 'Ruang roda kuningan rahasia'
+    hazards: 'Gagak Astronomi & Api Bintang',
+    secret: 'Item Eksklusif: Roda Waktu Emas • 6/6 Shard → Astral Clockwork Hat'
   },
   {
     icon: '🌘',
-    name: '★ SECRET FINALE (Lvl 13–14 • 3 Rank S)',
-    platform: 'Arena Boss Umbra Owl & Chronos Leviathan (3 Fase + Item Arena)',
-    hazards: 'Gunakan Starlight Pulse [C/J atau ✦] & Astral Aegis [V/K atau ◈]!',
-    secret: 'Hadiah +250/+500 🐟, Eclipse Halo & Nebula Sovereign Cape!'
+    name: '★ SECRET FINALE BOSS (Lvl 13–14 • 3 Rank S)',
+    platform: 'Arena Boss Umbra Owl & Chronos Leviathan (3 Fase + Item Penyembuh)',
+    hazards: '4 Skill Boss: Pulse [C/J], Aegis [V/K], Nova [Q/U], & Lunar Mend [H/L]!',
+    secret: 'Hadiah +25/+40 🐟 pertama kali, Eclipse Halo & Nebula Sovereign Cape!'
   }
 ]
 
@@ -383,7 +446,7 @@ const PHOTO_POSES: { id: PostcardPoseId; label: string }[] = [
   { id: 'wave', label: '💖 Melambai' },
   { id: 'hero', label: '⚔️ Berdiri Gagah' },
   { id: 'snack', label: '🍯 Makan Camilan' },
-  { id: 'peek', label: '👀 Mengintip Malu' },
+  { id: 'chase', label: '🌠 Mengejar Bintang' },
   { id: 'victory', label: '🏆 Pose Kemenangan' }
 ]
 
@@ -2102,7 +2165,7 @@ function handleFileChange(e: Event) {
     <div class="pixel-panel modal-card modal-card--wide">
       <div class="modal-header">
         <h2 class="modal-title">📜 BUKU PANDUAN STARLIGHT STRAY</h2>
-        <span class="highscore-chip">9 Item • 4 Dunia • 3 Misi</span>
+        <span class="highscore-chip">13 Item • 8 Map • 6 Misi • 4 Skill Boss</span>
       </div>
 
       <div class="shop-tabs guide-tabs" role="tablist" aria-label="Kategori Buku Panduan">
@@ -2114,7 +2177,17 @@ function handleFileChange(e: Event) {
           :aria-selected="activeGuideTab === 'items'"
           @click="activeGuideTab = 'items'"
         >
-          ✨ Ensiklopedia Item &amp; Power-Up
+          ✨ Item &amp; Power-Up (13)
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="shop-tab-btn"
+          :class="{ 'shop-tab-btn--active': activeGuideTab === 'boss' }"
+          :aria-selected="activeGuideTab === 'boss'"
+          @click="activeGuideTab = 'boss'"
+        >
+          ⚔️ Boss Fight &amp; 4 Skill
         </button>
         <button
           type="button"
@@ -2124,18 +2197,19 @@ function handleFileChange(e: Event) {
           :aria-selected="activeGuideTab === 'worlds'"
           @click="activeGuideTab = 'worlds'"
         >
-          🗺️ Karakter Spesial &amp; Mekanik Map
+          🐾 13 Pasif Hewan &amp; Dunia
         </button>
       </div>
 
-      <!-- TAB 1: CONTROLS + ENCYCLOPEDIA OF ALL 9 POWER-UPS -->
+      <!-- TAB 1: CONTROLS + ENCYCLOPEDIA OF ALL 13 POWER-UPS -->
       <div v-if="activeGuideTab === 'items'" class="guide-items-wrap">
         <div class="guide-controls-strip" aria-label="Kontrol Permainan">
           <span class="guide-ctrl-title">🎮 KONTROL:</span>
           <span><span class="key-chip">A/D</span> / <span class="key-chip">←/→</span> Gerak</span>
           <span><span class="key-chip">Spasi/W</span> Lompat &amp; Melayang</span>
           <span><span class="key-chip">Shift/X</span> Dash ⚡</span>
-          <span><span class="key-chip">P/Esc</span> Jeda &amp; Photo Mode</span>
+          <span><span class="key-chip">E</span> Emote ♥</span>
+          <span><span class="key-chip">P/Esc</span> Jeda</span>
           <span><span class="key-chip">R</span> Ulangi</span>
           <span><span class="key-chip">M</span> Suara</span>
         </div>
@@ -2144,7 +2218,9 @@ function handleFileChange(e: Event) {
             v-for="item in GUIDE_ITEMS"
             :key="item.kind"
             class="guide-item-card"
-            :class="{ 'guide-item-card--featured': item.kind === 'mooncake' }"
+            :class="{
+              'guide-item-card--featured': item.kind === 'mooncake' || item.kind === 'starNectar' || item.kind === 'eclipseShard'
+            }"
           >
             <div class="guide-icon-box">
               <img
@@ -2165,24 +2241,68 @@ function handleFileChange(e: Event) {
         </div>
       </div>
 
-      <!-- TAB 2: SIGNATURE ANIMAL PERKS + SPECIAL CHARACTERS + BIOME MECHANICS + NIGHT EVENTS -->
-      <div v-else class="guide-worlds-scroll">
+      <!-- TAB 2: BOSS FIGHT 4 SKILLS + ARENA HEALING & BATTLE ITEMS -->
+      <div v-else-if="activeGuideTab === 'boss'" class="guide-worlds-scroll">
+        <div class="section-heading section-heading--special">
+          <span>⚔️ 4 SKILL EKSKLUSIF PERTARUNGAN BOSS (LVL 13 &amp; 14)</span>
+          <span class="section-sub">Otomatis aktif di Eclipse Sanctum &amp; Astral Core Citadel</span>
+        </div>
+        <div class="guide-events-grid">
+          <div v-for="sk in GUIDE_BOSS_SKILLS" :key="sk.name" class="guide-boss-skill-card">
+            <div class="guide-item-head">
+              <span class="guide-item-name">{{ sk.icon }} {{ sk.name }}</span>
+              <span class="guide-item-tag">{{ sk.cooldown }}</span>
+            </div>
+            <div class="guide-boss-keys">{{ sk.keys }}</div>
+            <p class="guide-item-desc">{{ sk.desc }}</p>
+          </div>
+        </div>
+
         <div class="section-heading">
-          <span>🐾 KEMAMPUAN PASIF UNIK SPESIES HEWAN</span>
-          <span class="section-sub">Keunggulan seimbang setiap karakter</span>
+          <span>🧪 ITEM PENYEMBUH &amp; ITEM PERTARUNGAN ARENA BOSS</span>
+          <span class="section-sub">Rutin muncul di arena (penyembuh diprioritaskan saat HP ≤ 2!)</span>
+        </div>
+        <div class="guide-special-grid">
+          <div v-for="bi in GUIDE_BOSS_ARENA_ITEMS" :key="bi.name" class="guide-world-card">
+            <div class="guide-world-title">{{ bi.icon }} {{ bi.name }}</div>
+            <p class="guide-item-desc">{{ bi.desc }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: ALL 13 INDIVIDUAL CHARACTER PASSIVES + 6 SPECIAL MISSIONS + BIOME MECHANICS -->
+      <div v-else class="guide-worlds-scroll">
+        <div class="section-heading section-heading--special">
+          <span>⭐ KEMAMPUAN SPESIAL 6 KARAKTER MISI (BUKAN DIBELI IKAN)</span>
+          <span class="section-sub">Kemampuan multi-efek istimewa &amp; berbeda-beda!</span>
+        </div>
+        <div class="guide-special-grid">
+          <div v-for="ch in specialCharacters" :key="ch.id" class="guide-perk-card guide-perk-card--special">
+            <div class="guide-item-head">
+              <span class="guide-item-name">{{ ch.name }}</span>
+              <span class="guide-item-tag">{{ ch.category }}</span>
+            </div>
+            <div class="guide-perk-subtitle">{{ ch.perkTitle }}</div>
+            <p class="guide-item-desc">{{ ch.perkDetail || ch.perkDesc }}</p>
+            <div class="guide-mission-box">
+              <strong>Cara Buka:</strong> {{ ch.missionDesc }}
+              <span class="guide-mission-status">{{ getMissionInfo(ch.id).label }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <span>🐾 KEMAMPUAN PASIF UNIK 7 KARAKTER REGULER</span>
+          <span class="section-sub">Setiap karakter punya pasif sendiri meski satu spesies!</span>
         </div>
         <div class="guide-perks-grid">
-          <div class="guide-perk-card">
-            <div class="guide-item-name">🐱 Kucing (Semua Varian)</div>
-            <p class="guide-item-desc">Kontrol gerak di udara lebih lincah (+12%) &amp; transisi belok lebih cepat dan responsif.</p>
-          </div>
-          <div class="guide-perk-card">
-            <div class="guide-item-name">🐰 Kelinci Putih</div>
-            <p class="guide-item-desc">Tinggi lompatan dasar +10% lebih tinggi untuk menjangkau pijakan tinggi dengan nyaman.</p>
-          </div>
-          <div class="guide-perk-card">
-            <div class="guide-item-name">🐕 Shiba Inu &amp; Anjing Putih</div>
-            <p class="guide-item-desc">Jarak Dash +18% lebih jauh serta kebal terhadap dorongan pusaran angin kelopak.</p>
+          <div v-for="ch in regularCharacters" :key="ch.id" class="guide-perk-card">
+            <div class="guide-item-head">
+              <span class="guide-item-name">{{ ch.name }}</span>
+              <span class="guide-item-tag">{{ ch.cost === 0 ? 'Gratis' : `🐟 ${ch.cost}` }}</span>
+            </div>
+            <div class="guide-perk-subtitle">✨ {{ ch.perkTitle }}</div>
+            <p class="guide-item-desc">{{ ch.perkDetail || ch.perkDesc }}</p>
           </div>
         </div>
 
@@ -2201,20 +2321,8 @@ function handleFileChange(e: Event) {
           </div>
         </div>
 
-        <div class="section-heading section-heading--special">
-          <span>🏆 CARA MEMBUKA 3 KARAKTER SPESIAL</span>
-          <span class="section-sub">Otomatis terbuka saat syarat tercapai</span>
-        </div>
-        <div class="guide-special-grid">
-          <div v-for="ch in specialCharacters" :key="ch.id" class="guide-special-card">
-            <div class="guide-item-name">{{ ch.name }}</div>
-            <p class="guide-item-desc">{{ ch.missionDesc }}</p>
-            <div class="guide-mission-status">{{ getMissionInfo(ch.id).label }}</div>
-          </div>
-        </div>
-
         <div class="section-heading">
-          <span>🌍 PIJAKAN KHUSUS, MUSUH &amp; AREA RAHASIA PER DUNIA</span>
+          <span>🌍 PIJAKAN KHUSUS, MUSUH &amp; ITEM EKSKLUSIF PER DUNIA (8 MAP)</span>
           <span class="section-sub">⭐ Kombo Bintang &lt; 2.5 dtk = x2–x5!</span>
         </div>
         <div class="guide-world-grid">
@@ -2222,7 +2330,7 @@ function handleFileChange(e: Event) {
             <div class="guide-world-title">{{ w.icon }} {{ w.name }}</div>
             <div class="guide-world-line"><strong>Pijakan:</strong> {{ w.platform }}</div>
             <div class="guide-world-line"><strong>Rintangan:</strong> {{ w.hazards }}</div>
-            <div class="guide-world-line"><strong>Rahasia:</strong> {{ w.secret }}</div>
+            <div class="guide-world-line"><strong>Rahasia &amp; Item:</strong> {{ w.secret }}</div>
           </div>
         </div>
       </div>
@@ -6241,6 +6349,51 @@ function handleFileChange(e: Event) {
   background: rgba(36, 52, 82, 0.85);
   border: 2px solid #84d6ff;
   box-shadow: 0 3px 0 #160926;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.guide-perk-card--special {
+  background: linear-gradient(180deg, rgba(64, 30, 96, 0.94) 0%, rgba(36, 18, 64, 0.94) 100%);
+  border-color: #ffd873;
+}
+
+.guide-perk-subtitle {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #ffe680;
+  letter-spacing: 0.03em;
+}
+
+.guide-mission-box {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 216, 115, 0.35);
+  font-size: 8px;
+  line-height: 1.45;
+  color: #e6d6ff;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guide-boss-skill-card {
+  padding: 8px 10px;
+  text-align: left;
+  background: linear-gradient(180deg, rgba(58, 22, 76, 0.92) 0%, rgba(30, 12, 52, 0.94) 100%);
+  border: 2px solid #ff8cb8;
+  box-shadow: 0 3px 0 #160926;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guide-boss-keys {
+  font-size: 8px;
+  font-weight: 700;
+  color: #9ef0ff;
+  letter-spacing: 0.03em;
 }
 
 .guide-events-grid {

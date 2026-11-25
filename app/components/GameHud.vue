@@ -30,6 +30,9 @@ const hasActiveBuffs = computed(
     props.hud.mochiTimer > 0 ||
     props.hud.candyTimer > 0 ||
     props.hud.pearlTimer > 0 ||
+    props.hud.crystalElixirTimer > 0 ||
+    props.hud.chronoGearTimer > 0 ||
+    props.hud.eclipseShardTimer > 0 ||
     props.hud.cometChargeTimer > 0 ||
     props.hud.moonlightFeatherTimer > 0 ||
     props.hud.aegisActive ||
@@ -38,6 +41,15 @@ const hasActiveBuffs = computed(
     props.hud.meteorShowerActive ||
     props.hud.nightEvent === 'pinkMoon'
 )
+
+const showBossSkillGuide = ref(false)
+
+const BOSS_HUD_SKILL_TIPS = [
+  { key: 'C / J', icon: '✦', name: 'Starlight Pulse', desc: 'Tembak cahaya bintang (1 dmg, 2 dmg CRIT saat Core) & pantulkan Bola Emas Boss (3 dmg + Stun).' },
+  { key: 'V / K', icon: '◈', name: 'Astral Aegis', desc: 'Perisai 1.2 dtk penangkis peluru & laser. Tangkisan sukses langsung mereset cooldown Pulse!' },
+  { key: 'Q / U', icon: '☄', name: 'Starfall Nova', desc: 'Ledakan gelombang penghancur peluru sekitar + meluncurkan 3 bintang pengejar otomatis ke Boss!' },
+  { key: 'H / L', icon: '♥', name: 'Lunar Mend', desc: 'Penyembuh darurat +1 Hati (2× per Boss) + bersihkan peluru sekitar (atau Perisai jika HP penuh).' }
+]
 
 const bossHpPct = computed(() =>
   Math.max(0, Math.min(100, Math.round((props.hud.bossHp / Math.max(1, props.hud.bossMaxHp)) * 100)))
@@ -206,6 +218,39 @@ onBeforeUnmount(() => {
           <span class="buff-sec">{{ Math.ceil(hud.pearlTimer) }}s</span>
         </div>
 
+        <div v-if="hud.crystalElixirTimer > 0" class="buff-pill buff-pill--crystal" title="Kristal Spora: Pantulan Jamur +14%, Lari +10% & Terangi Gua">
+          <span>💎</span>
+          <div class="buff-bar-track">
+            <div
+              class="buff-bar-fill buff-bar-fill--crystal"
+              :style="{ width: `${Math.round((hud.crystalElixirTimer / Math.max(0.1, hud.crystalElixirMax)) * 100)}%` }"
+            />
+          </div>
+          <span class="buff-sec">{{ Math.ceil(hud.crystalElixirTimer) }}s</span>
+        </div>
+
+        <div v-if="hud.chronoGearTimer > 0" class="buff-pill buff-pill--chrono" title="Roda Waktu Emas: Gravitasi -22%, Dash -50% CD & Skor Bintang +50%">
+          <span>⚙️</span>
+          <div class="buff-bar-track">
+            <div
+              class="buff-bar-fill buff-bar-fill--chrono"
+              :style="{ width: `${Math.round((hud.chronoGearTimer / Math.max(0.1, hud.chronoGearMax)) * 100)}%` }"
+            />
+          </div>
+          <span class="buff-sec">{{ Math.ceil(hud.chronoGearTimer) }}s</span>
+        </div>
+
+        <div v-if="hud.eclipseShardTimer > 0" class="buff-pill buff-pill--eclipse" title="Pecahan Gerhana: Cooldown Skill Boss -40% & +1 Bonus Damage">
+          <span>🌘</span>
+          <div class="buff-bar-track">
+            <div
+              class="buff-bar-fill buff-bar-fill--eclipse"
+              :style="{ width: `${Math.round((hud.eclipseShardTimer / Math.max(0.1, hud.eclipseShardMax)) * 100)}%` }"
+            />
+          </div>
+          <span class="buff-sec">{{ Math.ceil(hud.eclipseShardTimer) }}s</span>
+        </div>
+
         <div v-if="hud.featherTimer > 0" class="buff-pill buff-pill--feather" title="Bulu Bintang: Melayang Lembut">
           <span>🪶</span>
           <div class="buff-bar-track">
@@ -320,23 +365,58 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Centered Responsive Boss Nameplate & HP Bar (Levels 13 & 14) -->
-    <div v-if="hud.isBossStage && hud.bossActive && !hud.bossDefeated" class="boss-hud-banner" aria-label="Status Boss">
+    <!-- Centered Responsive Boss Nameplate, HP Bar & 4 Combat Skills with Explanations (Levels 13 & 14) -->
+    <div v-if="hud.isBossStage && !hud.bossDefeated" class="boss-hud-banner" aria-label="Status Boss dan Skill Pertarungan">
       <div class="boss-hud-top">
-        <span class="boss-hud-name">{{ hud.bossName }}</span>
-        <span class="boss-hud-phase">FASE {{ hud.bossPhase }}</span>
+        <span class="boss-hud-name">{{ hud.bossActive ? hud.bossName : '⚔️ ARENA BOSS SIAP' }}</span>
+        <span v-if="hud.bossActive" class="boss-hud-phase">FASE {{ hud.bossPhase }}</span>
         <span v-if="hud.bossCoreExposed" class="boss-hud-crit">✦ CORE!</span>
+        <button
+          type="button"
+          class="boss-info-btn"
+          :title="showBossSkillGuide ? 'Tutup Penjelasan Skill' : 'Lihat Penjelasan 4 Skill Boss'"
+          @click="showBossSkillGuide = !showBossSkillGuide"
+        >
+          {{ showBossSkillGuide ? '✕ TUTUP' : '? SKILL' }}
+        </button>
       </div>
-      <div class="boss-hp-track">
+      <div v-if="hud.bossActive" class="boss-hp-track">
         <div class="boss-hp-fill" :class="`boss-hp-fill--p${hud.bossPhase}`" :style="{ width: `${bossHpPct}%` }" />
       </div>
       <div v-if="!mobilePauseVisible" class="boss-skill-pills">
-        <span class="boss-skill-chip" :class="{ 'boss-skill-chip--ready': hud.pulseReady }">
-          ✦ [C/J] {{ hud.cometChargeTimer > 0 ? 'COMET' : hud.pulseReady ? 'SIAP' : `${Math.round(hud.pulseCharge * 100)}%` }}
+        <span
+          class="boss-skill-chip"
+          :class="{ 'boss-skill-chip--ready': hud.pulseReady }"
+          title="Starlight Pulse [C/J]: Tembak cahaya bintang & pantulkan Bola Emas Boss (+3 dmg Stun)"
+        >
+          ✦ [C/J] {{ hud.cometChargeTimer > 0 ? 'COMET' : hud.pulseReady ? 'PULSE' : `${Math.round(hud.pulseCharge * 100)}%` }}
         </span>
-        <span class="boss-skill-chip" :class="{ 'boss-skill-chip--ready': hud.aegisReady }">
-          ◈ [V/K] {{ hud.aegisActive ? 'AKTIF' : hud.aegisReady ? 'SIAP' : `${Math.round(hud.aegisCharge * 100)}%` }}
+        <span
+          class="boss-skill-chip"
+          :class="{ 'boss-skill-chip--ready': hud.aegisReady }"
+          title="Astral Aegis [V/K]: Perisai 1.2 dtk penangkis peluru & laser + reset Pulse"
+        >
+          ◈ [V/K] {{ hud.aegisActive ? 'AKTIF' : hud.aegisReady ? 'AEGIS' : `${Math.round(hud.aegisCharge * 100)}%` }}
         </span>
+        <span
+          class="boss-skill-chip boss-skill-chip--nova"
+          :class="{ 'boss-skill-chip--ready': hud.novaReady }"
+          title="Starfall Nova [Q/U]: Hancurkan peluru sekitar + tembak 3 bintang pengejar ke Boss"
+        >
+          ☄ [Q/U] {{ hud.novaReady ? 'NOVA' : `${Math.round(hud.novaCharge * 100)}%` }}
+        </span>
+        <span
+          class="boss-skill-chip boss-skill-chip--mend"
+          :class="{ 'boss-skill-chip--ready': hud.mendReady }"
+          title="Lunar Mend [H/L]: Sembuhkan +1 Hati (2x pakai) & bersihkan peluru sekitar"
+        >
+          ♥ [H/L] {{ hud.mendUsesLeft <= 0 ? 'HABIS' : hud.mendReady ? `MEND (${hud.mendUsesLeft})` : `${Math.round(hud.mendCharge * 100)}%` }}
+        </span>
+      </div>
+      <div v-if="showBossSkillGuide" class="boss-skill-guide-pop">
+        <div v-for="sk in BOSS_HUD_SKILL_TIPS" :key="sk.name" class="boss-skill-guide-row">
+          <strong>{{ sk.icon }} {{ sk.name }} [{{ sk.key }}]:</strong> {{ sk.desc }}
+        </div>
       </div>
     </div>
 
@@ -940,18 +1020,80 @@ onBeforeUnmount(() => {
   background: rgba(58, 30, 98, 0.88);
 }
 
+.buff-pill--crystal {
+  border-color: #6cf2ec;
+  color: #d4ffff;
+}
+.buff-bar-fill--crystal {
+  background: linear-gradient(90deg, #4be8dc, #b88cff);
+}
+
+.buff-pill--chrono {
+  border-color: #ffd859;
+  color: #fff6c9;
+}
+.buff-bar-fill--chrono {
+  background: linear-gradient(90deg, #ffd452, #7ee8ff);
+}
+
+.buff-pill--eclipse {
+  border-color: #ff5c8a;
+  color: #ffd4e3;
+}
+.buff-bar-fill--eclipse {
+  background: linear-gradient(90deg, #ff4778, #ffd859);
+}
+
 .boss-hud-banner {
-  flex: 1 1 180px;
-  max-width: 310px;
-  min-width: 132px;
+  flex: 1 1 220px;
+  max-width: 420px;
+  min-width: 148px;
   display: flex;
   flex-direction: column;
   gap: 3px;
   padding: 4px 8px;
-  background: rgba(28, 10, 42, 0.86);
+  background: rgba(28, 10, 42, 0.88);
   border: 2px solid #ff7ca8;
   box-shadow: 0 2px 0 rgba(12, 4, 24, 0.85);
-  pointer-events: none;
+  pointer-events: auto;
+}
+
+.boss-info-btn {
+  padding: 1px 5px;
+  border: 1px solid #ffd873;
+  background: rgba(62, 28, 92, 0.9);
+  color: #ffe894;
+  font-family: inherit;
+  font-size: 7.5px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.boss-info-btn:hover {
+  background: #ffd873;
+  color: #210c33;
+}
+
+.boss-skill-guide-pop {
+  margin-top: 3px;
+  padding: 5px 6px;
+  background: rgba(16, 6, 30, 0.96);
+  border: 1px solid rgba(255, 216, 115, 0.72);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+
+.boss-skill-guide-row {
+  font-size: 7.5px;
+  line-height: 1.45;
+  color: #f7e6ff;
+}
+
+.boss-skill-guide-row strong {
+  color: #ffe475;
 }
 
 .boss-hud-top {
@@ -1007,13 +1149,14 @@ onBeforeUnmount(() => {
 
 .boss-skill-pills {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 6px;
-  font-size: 7.5px;
+  gap: 4px;
+  font-size: 7px;
 }
 
 .boss-skill-chip {
-  padding: 1px 5px;
+  padding: 1px 4px;
   border: 1px solid rgba(160, 134, 198, 0.5);
   color: #bfa9db;
   background: rgba(18, 8, 32, 0.72);
@@ -1022,6 +1165,16 @@ onBeforeUnmount(() => {
 .boss-skill-chip--ready {
   border-color: #9ef0ff;
   color: #e6fbff;
+}
+
+.boss-skill-chip--nova.boss-skill-chip--ready {
+  border-color: #ffb866;
+  color: #ffe4b5;
+}
+
+.boss-skill-chip--mend.boss-skill-chip--ready {
+  border-color: #7ef0b8;
+  color: #ccffe6;
 }
 
 @media (max-width: 720px) {
