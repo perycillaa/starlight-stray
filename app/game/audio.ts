@@ -254,6 +254,27 @@ export class RetroAudioEngine {
     return this.ctx
   }
 
+  /**
+   * Unlocks Web Audio API on iOS Safari & Android Chrome upon the first user touch/pointer gesture.
+   * Safe to call multiple times; plays a silent 1-sample buffer to satisfy strict mobile autoplay gates.
+   */
+  public unlockAudio(): void {
+    const ctx = this.ensureContext()
+    if (!ctx) return
+    try {
+      if (ctx.state === 'suspended') {
+        void ctx.resume().catch(() => {})
+      }
+      const silentBuffer = ctx.createBuffer(1, 1, ctx.sampleRate)
+      const src = ctx.createBufferSource()
+      src.buffer = silentBuffer
+      src.connect(ctx.destination)
+      src.start(0)
+    } catch {
+      // Ignore mobile browser audio policy errors gracefully
+    }
+  }
+
   private createNoiseBuffers(ctx: AudioContext): void {
     const length = ctx.sampleRate * 4 // 4 seconds seamless noise buffer
     const pink = ctx.createBuffer(1, length, ctx.sampleRate)

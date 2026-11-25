@@ -7,6 +7,7 @@ import type { HudSnapshot } from '~/game/types'
 const props = defineProps<{
   hud: HudSnapshot
   showTouchPad: boolean
+  mobilePauseVisible?: boolean
 }>()
 
 defineEmits<{
@@ -59,7 +60,10 @@ onBeforeUnmount(() => {
 <template>
   <header
     class="hud-bar"
-    :class="hud.graphicsStyle === 'modern' ? 'hud-bar--modern' : 'hud-bar--classic'"
+    :class="[
+      hud.graphicsStyle === 'modern' ? 'hud-bar--modern' : 'hud-bar--classic',
+      { 'hud-bar--mobile-pause': mobilePauseVisible }
+    ]"
     aria-label="Informasi Permainan"
   >
     <!-- Left Column: Hearts, Dash, Level Ribbon + Active Power-Up Status Pills below Hearts -->
@@ -341,6 +345,7 @@ onBeforeUnmount(() => {
         </button>
 
         <button
+          v-if="!mobilePauseVisible"
           type="button"
           class="floating-icon-btn"
           title="Jeda (P / Esc)"
@@ -379,9 +384,17 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
-  padding: max(9px, env(safe-area-inset-top)) 12px 6px;
+  padding:
+    max(9px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    6px
+    max(12px, env(safe-area-inset-left));
   pointer-events: none;
   z-index: 20;
+}
+
+.hud-bar--mobile-pause {
+  padding-right: calc(max(12px, env(safe-area-inset-right)) + 52px);
 }
 
 .hud-left-col {

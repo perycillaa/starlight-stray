@@ -2424,10 +2424,16 @@ function handleFileChange(e: Event) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
+  padding:
+    max(10px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
   background: radial-gradient(circle at center, rgba(20, 10, 38, 0.34), rgba(10, 5, 22, 0.74));
   z-index: 30;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .overlay-backdrop--title {
@@ -2445,8 +2451,10 @@ function handleFileChange(e: Event) {
 
 .modal-card {
   width: min(440px, 100%);
-  max-height: 100%;
+  max-height: min(85dvh, calc(100% - 8px));
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding: 14px 16px;
   text-align: center;
   display: flex;
@@ -4151,13 +4159,17 @@ function handleFileChange(e: Event) {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 14px 26px;
+  padding:
+    max(14px, env(safe-area-inset-top))
+    max(22px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom))
+    max(22px, env(safe-area-inset-left));
 }
 
 .home-floating-bar {
   position: absolute;
-  top: 12px;
-  right: 14px;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
   pointer-events: auto;
   display: flex;
   flex-wrap: wrap;
@@ -4658,13 +4670,195 @@ function handleFileChange(e: Event) {
   font-weight: 700;
 }
 
-@media (max-width: 680px) {
+/* ============================================================================
+   MOBILE LANDSCAPE OPTIMIZATION (Primary Mobile Play Mode, e.g. 667x375 / 844x390)
+   ============================================================================ */
+@media (orientation: landscape) and (max-height: 540px) {
   .home-asymmetric-shell {
-    align-items: flex-end;
-    padding: 8px;
+    padding:
+      max(6px, env(safe-area-inset-top))
+      max(12px, env(safe-area-inset-right))
+      max(6px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+  }
+  .home-floating-bar {
+    top: max(6px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    padding: 3px 6px;
+    gap: 4px;
+  }
+  .home-floating-bar .highscore-chip,
+  .home-floating-bar .fish-chip {
+    padding: 2px 6px;
+    font-size: 8px;
+  }
+  .home-tool-pill {
+    padding: 2px 5px;
+    font-size: 7.2px;
+  }
+  .home-icon-pill {
+    padding: 2px 5px;
+    font-size: 9px;
   }
   .home-left-column {
-    width: min(100%, 350px);
+    width: clamp(238px, 43%, 340px);
+  }
+  .crest-moon-svg {
+    width: 24px;
+    height: 15px;
+  }
+  .crest-tagline {
+    font-size: 6.2px;
+  }
+  .home-crest-title {
+    font-size: clamp(14px, 2.3vw, 19px);
+  }
+  .home-chains-row {
+    margin: -2px 0 -5px;
+  }
+  .home-chain-svg {
+    width: 7px;
+    height: 12px;
+  }
+  .home-ornamental-panel {
+    padding: 8px 10px 7px;
+    gap: 5px;
+  }
+  .home-perched-cat {
+    width: 28px;
+    height: 21px;
+    top: -19px;
+  }
+  .home-char-header {
+    gap: 7px;
+    padding: 4px 6px;
+  }
+  .home-avatar-frame {
+    width: 34px;
+    height: 34px;
+  }
+  .home-avatar-img {
+    width: 30px;
+    height: 30px;
+  }
+  .home-char-name {
+    font-size: 8.5px;
+  }
+  .home-char-biome {
+    font-size: 7px;
+  }
+  .home-stat-pill {
+    font-size: 6.6px;
+    padding: 1px 4px;
+  }
+  .home-cta-btn {
+    padding: 7px 10px;
+    font-size: 10px;
+  }
+  .home-nav-grid {
+    gap: 4px;
+  }
+  .home-nav-btn {
+    padding: 5px 6px;
+    font-size: 7.2px;
+    gap: 4px;
+  }
+  .nav-px-icon {
+    width: 12px;
+    height: 12px;
+  }
+  .home-quest-scroll {
+    margin: 2px -8px -4px;
+    padding: 4px 8px;
+    gap: 3px;
+  }
+  .home-daily-title {
+    font-size: 7px;
+  }
+  .quest-seg-bar {
+    height: 6px;
+  }
+  .home-camp-hint {
+    font-size: 7px;
+    padding: 2px 6px;
+    bottom: max(6px, env(safe-area-inset-bottom));
+    right: max(10px, env(safe-area-inset-right));
+  }
+  .modal-card {
+    padding: 10px 12px;
+    gap: 6px;
+    max-height: min(85dvh, calc(100% - 6px));
+  }
+}
+
+/* ============================================================================
+   MOBILE PORTRAIT ADAPTATION (Stacked Camp Preview Top + Menu Panel Bottom)
+   ============================================================================ */
+@media (max-width: 768px) and (orientation: portrait) {
+  .home-asymmetric-shell {
+    align-items: flex-end;
+    justify-content: center;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      max(10px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
+  }
+  .home-floating-bar {
+    top: max(6px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    justify-content: center;
+    padding: 4px 6px;
+    gap: 4px;
+  }
+  .home-floating-bar .highscore-chip,
+  .home-floating-bar .fish-chip {
+    padding: 2px 6px;
+    font-size: 8.5px;
+  }
+  .home-left-column {
+    width: min(100%, 380px);
+    max-height: 55dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    pointer-events: auto;
+  }
+  .home-crest-title {
+    font-size: clamp(16px, 5vw, 22px);
+  }
+  .home-chains-row {
+    display: none;
+  }
+  .home-ornamental-panel {
+    padding: 10px 12px;
+    gap: 7px;
+  }
+  .home-quest-scroll {
+    margin: 2px -4px -2px;
+    padding: 6px 10px;
+  }
+  .home-perched-cat {
+    width: 30px;
+    height: 22px;
+    top: -20px;
+  }
+  .home-camp-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) and (min-height: 541px) {
+  .home-asymmetric-shell {
+    padding:
+      max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+  .home-left-column {
+    width: min(100%, 360px);
   }
   .home-ornamental-panel {
     padding: 10px 12px;

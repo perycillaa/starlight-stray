@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { MoonpawGameEngine } from '~/game/engine'
 import { LEVELS } from '~/game/levels'
 import type {
@@ -13,7 +13,7 @@ import type {
   ScarfColorId,
   TouchControlsMode
 } from '~/game/types'
-import type { TouchControlKey } from '~/components/TouchControls.vue'
+import type { TouchControlKey } from '~/components/MobileTouchControls.vue'
 
 const {
   saveState: progress,
@@ -41,7 +41,35 @@ const {
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const importFeedback = ref('')
 const isStyleFading = ref(false)
+const rotateBannerDismissed = ref(false)
+const isTouchOrCompact = ref(false)
 let styleFadeTimeout: number | null = null
+
+const isMobileControlsVisible = computed(() => {
+  const mode = progress.value.touchControlsMode
+  if (mode === 'off') return false
+  if (mode === 'on') return true
+  return isTouchOrCompact.value
+})
+
+function updateTouchViewportDetection() {
+  if (typeof window === 'undefined') return
+  const hasTouch =
+    'ontouchstart' in window ||
+    (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) ||
+    window.matchMedia('(pointer: coarse)').matches
+  isTouchOrCompact.value = hasTouch || window.innerWidth < 900
+}
+
+let audioUnlocked = false
+function handleFirstGestureAudioUnlock() {
+  if (audioUnlocked) return
+  audioUnlocked = true
+  engine?.unlockAudio()
+  window.removeEventListener('pointerdown', handleFirstGestureAudioUnlock, true)
+  window.removeEventListener('touchstart', handleFirstGestureAudioUnlock, true)
+  window.removeEventListener('keydown', handleFirstGestureAudioUnlock, true)
+}
 
 const hud = ref<HudSnapshot>({
   screen: 'title',
@@ -139,6 +167,15 @@ onMounted(() => {
   const canvas = canvasRef.value
   if (!canvas) return
 
+  updateTouchViewportDetection()
+  window.addEventListener('resize', updateTouchViewportDetection, { passive: true })
+  window.addEventListener('orientationchange', updateTouchViewportDetection, { passive: true })
+
+  // One-time global first-touch / first-gesture Web Audio API unlock for iOS Safari & Android Chrome
+  window.addEventListener('pointerdown', handleFirstGestureAudioUnlock, { capture: true, passive: true })
+  window.addEventListener('touchstart', handleFirstGestureAudioUnlock, { capture: true, passive: true })
+  window.addEventListener('keydown', handleFirstGestureAudioUnlock, { capture: true, passive: true })
+
   // SSR-safe client hydration from localStorage before starting game loop
   const loadedProgress = loadGame()
   engine = new MoonpawGameEngine(
@@ -163,6 +200,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (styleFadeTimeout !== null) window.clearTimeout(styleFadeTimeout)
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateTouchViewportDetection)
+    window.removeEventListener('orientationchange', updateTouchViewportDetection)
+    window.removeEventListener('pointerdown', handleFirstGestureAudioUnlock, true)
+    window.removeEventListener('touchstart', handleFirstGestureAudioUnlock, true)
+    window.removeEventListener('keydown', handleFirstGestureAudioUnlock, true)
+  }
   engine?.destroy()
   engine = null
 })
@@ -440,11 +484,30 @@ function handleToggleMute() {
           v-if="hud.screen === 'playing' || hud.screen === 'paused'"
           :hud="hud"
           :show-touch-pad="progress.touchControlsMode === 'on'"
+          :mobile-pause-visible="isMobileControlsVisible && hud.screen === 'playing'"
           @toggle-mute="handleToggleMute"
           @toggle-pause="handleTogglePause"
           @restart="handleRestart"
           @toggle-touch-pad="handleToggleTouchPad"
         />
+
+        <!-- Subtle, Dismissible Portrait Landscape Suggestion Pill (never blocks gameplay!) -->
+        <div
+          v-if="!rotateBannerDismissed && (hud.screen === 'title' || hud.screen === 'playing')"
+          class="portrait-rotate-pill"
+          role="status"
+          aria-live="polite"
+        >
+          <span>Putar HP ke Landscape untuk pengalaman terbaik 🔄</span>
+          <button
+            type="button"
+            class="portrait-rotate-close"
+            aria-label="Tutup saran orientasi"
+            @click="rotateBannerDismissed = true"
+          >
+            ✕
+          </button>
+        </div>
 
         <!-- Menus, Level Select, Karakter, Toko Aksesoris, Scrapbook, Settings, Clear, Epilogue & Game Over -->
         <GameOverlays
@@ -498,13 +561,14 @@ function handleToggleMute() {
           @toggle-mute="handleToggleMute"
         />
 
-        <!-- Multi-touch Virtual Controls (auto on mobile/touch or toggleable in Settings / HUD) -->
-        <TouchControls
+        <!-- Multi-touch Virtual Controls (automatically hidden during Pause, Photo Mode, Stamp Book & all modals) -->
+        <MobileTouchControls
           v-if="hud.screen === 'playing'"
           :mode="progress.touchControlsMode"
           :dash-ready="hud.dashReady"
           :dash-charge="hud.dashCharge"
           @input="handleTouchInput"
+          @pause="handleTogglePause"
         />
 
         <!-- Pause-Menu In-Level Photo Mode & Pixel Postcard Exporter -->
@@ -714,27 +778,59 @@ function handleToggleMute() {
   color: #ff9ec4;
 }
 
-@media (max-width: 767px) {
+/* Subtle, dismissible portrait suggestion pill (hidden on landscape & desktop) */
+.portrait-rotate-pill {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: calc(max(8px, env(safe-area-inset-top)) + 44px);
+  transform: translateX(-50%);
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  padding: 5px 10px;
+  background: rgba(24, 11, 44, 0.88);
+  border: 2px solid #ffd873;
+  box-shadow: 0 0 0 2px #140824, 0 4px 12px rgba(0, 0, 0, 0.55);
+  color: #fff6d6;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  z-index: 28;
+  pointer-events: auto;
+}
+
+.portrait-rotate-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffd6e6;
+  background: rgba(74, 34, 96, 0.85);
+  border: 1px solid #ff9ec4;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px), (orientation: landscape) and (max-height: 540px) {
   .game-cabinet {
     max-width: 100vw;
+    width: 100vw;
     height: 100dvh;
   }
 
   .stage-frame {
     max-height: 100dvh;
-    width: min(100vw, calc(100dvh * 16 / 9));
-    height: auto;
-    aspect-ratio: 16 / 9;
-    border: none;
-    box-shadow: none;
-  }
-}
-
-@media (max-width: 767px) and (orientation: portrait) {
-  .stage-frame {
     width: 100vw;
     height: 100dvh;
     aspect-ratio: auto;
+    border: none;
+    box-shadow: none;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -742,8 +838,34 @@ function handleToggleMute() {
 
   .game-canvas {
     width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .desktop-hint-bar {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .portrait-rotate-pill {
+    display: inline-flex;
+  }
+
+  .stage-frame {
+    width: 100vw;
+    height: 100dvh;
+    aspect-ratio: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: max(46px, calc(env(safe-area-inset-top) + 38px));
+  }
+
+  .game-canvas {
+    width: 100vw;
     height: auto;
-    max-height: 100dvh;
+    max-height: 46dvh;
     aspect-ratio: 16 / 9;
   }
 }

@@ -80,6 +80,7 @@ let debounceTimeout: number | null = null
 let cloudSyncTimeout: number | null = null
 let isInternalSync = false
 let watcherInitialized = false
+let lifecycleHooksInitialized = false
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
@@ -680,12 +681,36 @@ export function useGameSave() {
     )
   }
 
-  onBeforeUnmount(() => {
-    if (import.meta.client && debounceTimeout !== null) {
+  function flushLocalSave(): boolean {
+    if (!import.meta.client || !isHydrated.value) return false
+    if (debounceTimeout !== null) {
       window.clearTimeout(debounceTimeout)
       debounceTimeout = null
-      saveGameData(saveState.value)
     }
+    const ok = saveGameData(saveState.value)
+    if (ok) {
+      lastSavedAt.value = Date.now()
+    }
+    return ok
+  }
+
+  // Mobile-resilient browser lifecycle flush (iOS Safari / Android Chrome often skip beforeunload)
+  if (import.meta.client && !lifecycleHooksInitialized) {
+    lifecycleHooksInitialized = true
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushLocalSave()
+      }
+    }
+    const handlePageHide = () => {
+      flushLocalSave()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pagehide', handlePageHide)
+  }
+
+  onBeforeUnmount(() => {
+    flushLocalSave()
   })
 
   return {
@@ -705,6 +730,7 @@ export function useGameSave() {
     recentCrudLogs,
     loadGame,
     saveGame,
+    flushLocalSave,
     syncToCloud,
     loadFromCloud,
     createCloudProfile,

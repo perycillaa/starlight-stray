@@ -937,6 +937,7 @@ export class MoonpawGameEngine {
 
   public unlockAudio(): void {
     this.audio.unlock()
+    this.audio.unlockAudio()
   }
 
   public toggleMute(): void {

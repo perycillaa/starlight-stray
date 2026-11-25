@@ -143,14 +143,21 @@ function getStampSvgPath(id: AchievementId): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px;
+  padding:
+    max(10px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
   background: rgba(11, 6, 24, 0.72);
   z-index: 32;
 }
 
 .stampbook-modal {
   width: min(94%, 640px);
-  max-height: 92%;
+  max-height: min(85dvh, calc(100% - 8px));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -519,11 +519,16 @@ function tryParseSavedPayload(raw: string | null): SaveProgress | null {
   }
 }
 
+let memoryFallbackSave: SaveProgress | null = null
+
 export function loadGameData(): SaveProgress {
-  if (!isBrowserStorageAvailable()) return createDefaultSave()
+  if (!isBrowserStorageAvailable()) {
+    return memoryFallbackSave ? sanitizeProgress(memoryFallbackSave) : createDefaultSave()
+  }
   try {
     const primary = tryParseSavedPayload(window.localStorage.getItem(STORAGE_KEY))
     if (primary) {
+      memoryFallbackSave = primary
       return primary
     }
 
@@ -531,30 +536,35 @@ export function loadGameData(): SaveProgress {
     for (const key of LEGACY_KEYS) {
       const recovered = tryParseSavedPayload(window.localStorage.getItem(key))
       if (recovered) {
+        memoryFallbackSave = recovered
         saveGameData(recovered)
         return recovered
       }
     }
 
-    return createDefaultSave()
+    return memoryFallbackSave ? sanitizeProgress(memoryFallbackSave) : createDefaultSave()
   } catch {
-    return createDefaultSave()
+    // Graceful fallback to in-memory save for Safari Private Browsing / storage restrictions
+    return memoryFallbackSave ? sanitizeProgress(memoryFallbackSave) : createDefaultSave()
   }
 }
 
 export function saveGameData(progress: SaveProgress): boolean {
+  const sanitized = sanitizeProgress(progress)
+  memoryFallbackSave = sanitized
   if (!isBrowserStorageAvailable()) return false
   try {
-    const payload = toCanonicalSavePayload(progress)
+    const payload = toCanonicalSavePayload(sanitized)
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
     return true
   } catch {
-    // Ignore quota/private-mode errors cleanly
+    // Safari Private Browsing / quota limit: state remains preserved in memoryFallbackSave
     return false
   }
 }
 
 export function clearStoredGameData(): void {
+  memoryFallbackSave = null
   if (!isBrowserStorageAvailable()) return
   try {
     window.localStorage.removeItem(STORAGE_KEY)
