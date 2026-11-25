@@ -82,6 +82,7 @@ const emit = defineEmits<{
   (e: 'selectLevel', id: number): void
   (e: 'startTimeTrial', id: number): void
   (e: 'claimDailyQuest', slotIndex?: number): void
+  (e: 'claimAchievement', id: AchievementId): void
   (e: 'continueCheckpoint'): void
   (e: 'selectCharacter', id: CharacterId): void
   (e: 'unlockCharacter', id: CharacterId): void
@@ -219,6 +220,11 @@ function getLevelShardTuple(lvlId: number): [boolean, boolean, boolean] {
 }
 
 const totalShardsCollected = computed(() => countTotalCollectedShards(props.progress))
+
+const unclaimedStampCount = computed(() => {
+  const claimed = new Set(props.progress.claimedAchievements ?? [])
+  return props.progress.unlockedAchievements.filter((id) => !claimed.has(id)).length
+})
 
 const dailyMissionCards = computed(() =>
   props.progress.dailyMissions.missions.map((slot, index) => {
@@ -993,7 +999,7 @@ function handleFileChange(e: Event) {
               {{ BIOMES[hud.homeBiome].icon }} {{ BIOMES[hud.homeBiome].englishName }}
             </div>
             <div class="home-pill-row" aria-label="Ringkasan Koleksi">
-              <span class="home-stat-pill home-stat-pill--shard">★ {{ totalShardsCollected }}/24 SHARDS</span>
+              <span class="home-stat-pill home-stat-pill--shard">★ {{ totalShardsCollected }}/36 SHARDS</span>
               <span class="home-stat-pill home-stat-pill--stamp">🏆 {{ progress.unlockedAchievements.length }}/{{ ACHIEVEMENTS.length }} STAMPS</span>
             </div>
           </div>
@@ -1074,7 +1080,14 @@ function handleFileChange(e: Event) {
             </svg>
             <span>PENCAPAIAN</span>
             <span
-              v-if="hud.hasUnseenStamps"
+              v-if="unclaimedStampCount > 0"
+              class="stamp-claim-pill"
+              title="Ada hadiah pencapaian siap diklaim!"
+            >
+              🎁 {{ unclaimedStampCount }}
+            </span>
+            <span
+              v-else-if="hud.hasUnseenStamps"
               class="stamp-notif-dot"
               :class="{ 'stamp-notif-dot--calm': progress.reduceMotion }"
               title="Stempel baru terbuka!"
@@ -2048,6 +2061,7 @@ function handleFileChange(e: Event) {
     v-else-if="hud.screen === 'achievements'"
     :progress="progress"
     @close="$emit('openTitle')"
+    @claim="(id) => $emit('claimAchievement', id)"
   />
 
   <!-- ====================================================================== -->
@@ -3067,18 +3081,44 @@ function handleFileChange(e: Event) {
 <style scoped>
 .ach-toast {
   position: absolute;
-  top: 52px;
+  top: max(12px, env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 45;
+  z-index: 65;
+  max-width: min(92%, 460px);
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 14px;
-  background: linear-gradient(180deg, rgba(66, 33, 84, 0.96) 0%, rgba(36, 17, 50, 0.98) 100%);
+  padding: 8px 14px;
+  background: linear-gradient(180deg, rgba(72, 34, 96, 0.98) 0%, rgba(34, 15, 52, 0.98) 100%);
   border: 2px solid #ffe169;
-  box-shadow: 0 0 0 2px #1a0b28, 0 6px 18px rgba(0, 0, 0, 0.55);
+  box-shadow:
+    0 0 0 2px #1a0b28,
+    0 0 18px rgba(255, 224, 102, 0.42),
+    0 6px 18px rgba(0, 0, 0, 0.6);
   pointer-events: none;
+  animation: achToastDrop 0.22s ease-out;
+}
+
+@keyframes achToastDrop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.stamp-claim-pill {
+  padding: 1px 5px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #241033;
+  background: #ffe375;
+  border: 1px solid #fff8d6;
+  margin-left: 4px;
 }
 
 .ach-toast__icon {

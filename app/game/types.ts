@@ -70,13 +70,20 @@ export interface ShardState extends ShardDef {
 export type DailyQuestId =
   | 'stars-sakura'
   | 'stars-rooftops'
+  | 'stars-cloudland'
+  | 'stars-harbor'
+  | 'stars-cavern'
+  | 'stars-observatory'
   | 'clear-2-levels'
   | 'no-hit-clear'
   | 'dash-10'
+  | 'dash-20'
   | 'collect-fish-4'
   | 'stars-any-20'
+  | 'stars-any-35'
   | 'powerup-3'
   | 'collect-shard-1'
+  | 'emote-3'
 
 export interface DailyQuestDef {
   id: DailyQuestId
@@ -1204,6 +1211,7 @@ export interface SaveProgress {
   ownedHeadAccs: HeadAccId[]
   ownedFaceAccs: FaceAccId[]
   unlockedAchievements: AchievementId[]
+  claimedAchievements: AchievementId[]
   bestLevelScores: Record<number, number>
   levelRecords: Record<number, LevelRecord>
   collectedShards: Record<number, ShardTuple>

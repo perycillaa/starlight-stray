@@ -191,6 +191,7 @@ export function createDefaultSave(): SaveProgress {
     ownedHeadAccs: ['none'],
     ownedFaceAccs: ['none'],
     unlockedAchievements: [],
+    claimedAchievements: [],
     bestLevelScores: {},
     levelRecords: {},
     collectedShards: {},
@@ -375,6 +376,17 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
   const unlockedAchievements = Array.isArray(parsed.unlockedAchievements)
     ? Array.from(new Set(parsed.unlockedAchievements.filter((id): id is AchievementId => VALID_ACH_IDS.has(id))))
     : []
+
+  // Backward-compatible migration: legacy saves without claimedAchievements already received auto-payouts
+  const claimedAchievements = Array.isArray(parsed.claimedAchievements)
+    ? Array.from(
+        new Set(
+          parsed.claimedAchievements.filter(
+            (id): id is AchievementId => VALID_ACH_IDS.has(id) && unlockedAchievements.includes(id)
+          )
+        )
+      )
+    : [...unlockedAchievements]
 
   const visitedBiomes = Array.isArray(parsed.visitedBiomes)
     ? Array.from(new Set(parsed.visitedBiomes.filter((id): id is BiomeId => VALID_BIOMES.has(id))))
@@ -677,6 +689,7 @@ export function sanitizeProgress(rawObj: unknown): SaveProgress {
     ownedHeadAccs,
     ownedFaceAccs,
     unlockedAchievements,
+    claimedAchievements,
     bestLevelScores,
     levelRecords,
     collectedShards,

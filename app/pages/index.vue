@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { MoonpawGameEngine } from '~/game/engine'
 import { LEVELS } from '~/game/levels'
 import type {
+  AchievementId,
   AudioSettings,
   CapeId,
   CharacterId,
@@ -310,6 +311,10 @@ function handleContinueCheckpoint() {
 
 function handleClaimDailyQuest(slotIndex = 0) {
   engine?.claimDailyQuestReward(slotIndex)
+}
+
+function handleClaimAchievement(id: AchievementId) {
+  engine?.claimAchievementReward(id)
 }
 
 function handleStartTimeTrial(id: number) {
@@ -644,6 +649,7 @@ function handleToggleMute() {
           @select-level="handleSelectLevel"
           @start-time-trial="handleStartTimeTrial"
           @claim-daily-quest="handleClaimDailyQuest"
+          @claim-achievement="handleClaimAchievement"
           @continue-checkpoint="handleContinueCheckpoint"
           @select-character="handleSelectCharacter"
           @unlock-character="handleUnlockCharacter"

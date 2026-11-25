@@ -27,6 +27,34 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     rewardFish: 2
   },
   {
+    id: 'stars-cloudland',
+    title: 'Kumpulkan 15 Bintang di Negeri Awan',
+    icon: '☁️',
+    target: 15,
+    rewardFish: 2
+  },
+  {
+    id: 'stars-harbor',
+    title: 'Kumpulkan 15 Bintang di Dermaga Lampion',
+    icon: '⚓',
+    target: 15,
+    rewardFish: 2
+  },
+  {
+    id: 'stars-cavern',
+    title: 'Kumpulkan 15 Bintang di Gua Kristal',
+    icon: '🍄',
+    target: 15,
+    rewardFish: 3
+  },
+  {
+    id: 'stars-observatory',
+    title: 'Kumpulkan 15 Bintang di Observatorium Jam',
+    icon: '⚙️',
+    target: 15,
+    rewardFish: 3
+  },
+  {
     id: 'clear-2-levels',
     title: 'Selesaikan 2 Level mana saja',
     icon: '🏁',
@@ -48,6 +76,13 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     rewardFish: 2
   },
   {
+    id: 'dash-20',
+    title: 'Gunakan Dash sebanyak 20 kali',
+    icon: '💨',
+    target: 20,
+    rewardFish: 3
+  },
+  {
     id: 'collect-fish-4',
     title: 'Kumpulkan 4 Ikan Emas di level mana saja',
     icon: '🐟',
@@ -62,6 +97,13 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     rewardFish: 2
   },
   {
+    id: 'stars-any-35',
+    title: 'Kumpulkan 35 Bintang di dunia mana saja',
+    icon: '🌠',
+    target: 35,
+    rewardFish: 3
+  },
+  {
     id: 'powerup-3',
     title: 'Ambil 3 item Power-Up selama petualangan',
     icon: '🥮',
@@ -74,6 +116,13 @@ export const DAILY_QUESTS: DailyQuestDef[] = [
     icon: '💎',
     target: 1,
     rewardFish: 3
+  },
+  {
+    id: 'emote-3',
+    title: 'Gunakan Emote karakter 3 kali saat bermain',
+    icon: '♥',
+    target: 3,
+    rewardFish: 2
   }
 ]
 
@@ -84,28 +133,61 @@ export function getLocalDateKey(date = new Date()): string {
   return `${y}-${m}-${d}`
 }
 
-function hashDateString(seed: string): number {
-  let hash = 2166136261
-  for (let i = 0; i < seed.length; i++) {
-    hash ^= seed.charCodeAt(i)
-    hash = Math.imul(hash, 16777619) >>> 0
+function parseDateKeyToDayNumber(dateKey: string): number {
+  const parts = dateKey.split('-').map((v) => Number(v))
+  if (parts.length === 3 && parts.every((n) => Number.isFinite(n))) {
+    return Math.floor(Date.UTC(parts[0]!, parts[1]! - 1, parts[2]!) / 86400000)
   }
-  return hash
+  return Math.floor(Date.now() / 86400000)
 }
 
-/** Deterministically selects 3 distinct daily missions for the given local YYYY-MM-DD date. */
+function nextPrng(state: number): number {
+  // Mulberry32 step for crisp deterministic daily shuffling
+  let t = (state + 0x6d2b79f5) | 0
+  t = Math.imul(t ^ (t >>> 15), t | 1)
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+  return ((t ^ (t >>> 14)) >>> 0)
+}
+
+/**
+ * Deterministically selects 3 distinct daily missions for the given local YYYY-MM-DD date.
+ * Uses a 5-day disjoint block shuffle over all 16 quests so consecutive days NEVER repeat
+ * the same quests or order — every daily reset feels genuinely fresh!
+ */
 export function pickThreeDailyQuestsForDate(
   dateKey: string
 ): [DailyQuestDef, DailyQuestDef, DailyQuestDef] {
-  const pool = [...DAILY_QUESTS]
-  const picked: DailyQuestDef[] = []
-  let h = hashDateString(dateKey)
-  for (let i = 0; i < 3; i++) {
-    h = Math.imul(h ^ (i * 2654435761), 16777619) >>> 0
-    const idx = h % pool.length
-    picked.push(pool.splice(idx, 1)[0]!)
+  const dayNum = parseDateKeyToDayNumber(dateKey)
+  const daysPerCycle = Math.floor(DAILY_QUESTS.length / 3) // 5 completely disjoint days per cycle (15/16 quests)
+  const cycleIndex = Math.floor(dayNum / daysPerCycle)
+  const dayInCycle = ((dayNum % daysPerCycle) + daysPerCycle) % daysPerCycle
+
+  const shuffled = [...DAILY_QUESTS]
+  let seed = Math.imul(cycleIndex ^ 0x9e3779b9, 2654435761) >>> 0
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    seed = nextPrng(seed + i * 1013904223)
+    const j = seed % (i + 1)
+    const tmp = shuffled[i]!
+    shuffled[i] = shuffled[j]!
+    shuffled[j] = tmp
   }
-  return [picked[0]!, picked[1]!, picked[2]!]
+
+  // Pick 3 disjoint missions for today's slot in the 5-day cycle, then shuffle today's 3-slot display order
+  const start = dayInCycle * 3
+  const slice: DailyQuestDef[] = [shuffled[start]!, shuffled[start + 1]!, shuffled[start + 2]!]
+  seed = nextPrng(seed + dayNum * 1664525)
+  if (seed % 2 === 1) {
+    const t = slice[0]!
+    slice[0] = slice[1]!
+    slice[1] = t
+  }
+  seed = nextPrng(seed + 7919)
+  if (seed % 3 === 1) {
+    const t = slice[1]!
+    slice[1] = slice[2]!
+    slice[2] = t
+  }
+  return [slice[0]!, slice[1]!, slice[2]!]
 }
 
 export function pickDailyQuestForDate(dateKey: string): DailyQuestDef {

@@ -4225,22 +4225,52 @@ function bakeStyledTile(
   ctx.fillStyle = bodyDark
   ctx.fillRect(0, 0, 16, 16)
   if (isTop) {
-    ctx.fillStyle = topHi
-    ctx.fillRect(0, 0, 16, 2)
-    ctx.fillStyle = topMid
-    ctx.fillRect(0, 2, 16, 3)
     ctx.fillStyle = bodyMain
     ctx.fillRect(0, 5, 16, 11)
-    ctx.fillStyle = accent
-    ctx.fillRect(2, 1, 3, 1)
-    ctx.fillRect(10, 2, 4, 1)
     if (modern) {
+      // Stardew-inspired bevelled carved stonework + scalloped overhanging crystal/moss lip
       ctx.fillStyle = bodyDark
-      ctx.fillRect(0, 5, 16, 1)
-      ctx.fillRect(5, 6, 1, 10)
-      ctx.fillRect(12, 6, 1, 10)
+      ctx.fillRect(0, 5, 16, 2)
+      ctx.fillRect(7, 6, 1, 10)
+      ctx.fillRect(0, 11, 16, 1)
+      ctx.fillRect(3, 12, 1, 4)
+      ctx.fillRect(12, 12, 1, 4)
+      ctx.fillStyle = topMid
+      ctx.globalAlpha = 0.25
+      ctx.fillRect(1, 7, 5, 1)
+      ctx.fillRect(9, 7, 6, 1)
+      ctx.fillRect(5, 13, 6, 1)
+      ctx.globalAlpha = 1
       ctx.fillStyle = accent
-      ctx.fillRect(7, 9, 2, 2)
+      ctx.fillRect(2, 8, 2, 2)
+      ctx.fillRect(10, 9, 2, 1)
+      ctx.fillRect(6, 13, 2, 2)
+      ctx.fillStyle = topHi
+      ctx.fillRect(2, 8, 1, 1)
+      ctx.fillRect(6, 13, 1, 1)
+      // Scalloped overhanging top crust
+      ctx.fillStyle = topMid
+      ctx.fillRect(0, 1, 16, 4)
+      ctx.fillRect(1, 5, 3, 2)
+      ctx.fillRect(6, 5, 4, 2)
+      ctx.fillRect(12, 5, 3, 2)
+      ctx.fillStyle = topHi
+      ctx.fillRect(0, 0, 16, 2)
+      ctx.fillRect(2, 2, 3, 1)
+      ctx.fillRect(8, 2, 4, 1)
+      ctx.fillRect(13, 2, 2, 1)
+      ctx.fillStyle = accent
+      ctx.fillRect(1, 0, 2, 1)
+      ctx.fillRect(7, 0, 3, 1)
+      ctx.fillRect(13, 0, 2, 1)
+    } else {
+      ctx.fillStyle = topHi
+      ctx.fillRect(0, 0, 16, 2)
+      ctx.fillStyle = topMid
+      ctx.fillRect(0, 2, 16, 3)
+      ctx.fillStyle = accent
+      ctx.fillRect(2, 1, 3, 1)
+      ctx.fillRect(10, 2, 4, 1)
     }
   } else {
     ctx.fillStyle = bodyMain
@@ -4250,9 +4280,18 @@ function bakeStyledTile(
     ctx.fillRect(7, 0, 1, 7)
     ctx.fillRect(13, 8, 1, 8)
     if (modern) {
+      ctx.fillStyle = topMid
+      ctx.globalAlpha = 0.22
+      ctx.fillRect(2, 1, 4, 1)
+      ctx.fillRect(9, 1, 5, 1)
+      ctx.fillRect(2, 9, 10, 1)
+      ctx.globalAlpha = 1
       ctx.fillStyle = accent
-      ctx.fillRect(3, 3, 2, 1)
-      ctx.fillRect(10, 11, 2, 1)
+      ctx.fillRect(3, 3, 2, 2)
+      ctx.fillRect(10, 11, 2, 2)
+      ctx.fillStyle = topHi
+      ctx.fillRect(3, 3, 1, 1)
+      ctx.fillRect(10, 11, 1, 1)
     }
   }
   return canvas
@@ -4327,11 +4366,11 @@ const HARBOR_POST_PALETTE: Record<string, string> = {
 
 function bakeModernBrickTop(): HTMLCanvasElement {
   const [canvas, ctx] = createCanvas(16, 16)
-  // Deep cozy eaves shadow
-  ctx.fillStyle = '#261024'
+  // Warm deep espresso eaves shadow
+  ctx.fillStyle = '#241022'
   ctx.fillRect(0, 0, 16, 16)
 
-  // Warm curved terracotta-crimson overlapping clay roof shingles (instant unmistakable 16-bit contrast!)
+  // Stardew-style warm overlapping terracotta clay roof shingles with hue-shifted depth
   const drawShingleRow = (y: number, offset: number, main: string, hi: string, sh: string) => {
     for (let x = -4 + offset; x < 16; x += 8) {
       ctx.fillStyle = sh
@@ -4340,35 +4379,42 @@ function bakeModernBrickTop(): HTMLCanvasElement {
       ctx.fillRect(x, y + 1, 7, 3)
       ctx.fillStyle = hi
       ctx.fillRect(x + 1, y, 5, 1)
-      ctx.fillStyle = '#ffe3b3'
+      ctx.fillStyle = '#ffe8bd'
       ctx.fillRect(x + 2, y, 2, 1)
-      ctx.fillStyle = '#2e1124'
+      // Subtle weathered terracotta speck
+      ctx.fillStyle = sh
+      ctx.fillRect(x + 5, y + 2, 1, 1)
+      ctx.fillStyle = '#290f22'
       ctx.fillRect(x + 7, y, 1, 5)
     }
   }
-  drawShingleRow(5, 0, '#c44d47', '#eb7e65', '#782534')
-  drawShingleRow(10, 4, '#a63c40', '#cf6557', '#611d2d')
+  drawShingleRow(5, 0, '#c75248', '#f08669', '#752434')
+  drawShingleRow(10, 4, '#a63e40', '#d16958', '#5e1c2c')
 
-  // Lush 16-bit layered moonlight emerald moss & overhanging grass drapes!
-  ctx.fillStyle = '#154745'
+  // Lush Stardew-style scalloped emerald moss & overhanging grass blades + tiny flower buds!
+  ctx.fillStyle = '#144242'
   ctx.fillRect(0, 0, 16, 5)
-  ctx.fillStyle = '#2c967c'
+  ctx.fillRect(1, 5, 3, 3)
+  ctx.fillRect(6, 5, 4, 4)
+  ctx.fillRect(12, 5, 3, 3)
+  ctx.fillStyle = '#2d997b'
   ctx.fillRect(0, 0, 16, 4)
-  ctx.fillStyle = '#62d9a5'
-  ctx.fillRect(0, 0, 16, 2)
-  ctx.fillStyle = '#d4ffe3'
-  ctx.fillRect(1, 0, 4, 1)
-  ctx.fillRect(7, 0, 3, 1)
-  ctx.fillRect(12, 0, 3, 1)
-  // Rich overhanging moss drapes & tiny dew highlights
-  ctx.fillStyle = '#2c967c'
   ctx.fillRect(1, 4, 3, 3)
   ctx.fillRect(6, 4, 4, 4)
   ctx.fillRect(12, 4, 3, 3)
-  ctx.fillStyle = '#62d9a5'
-  ctx.fillRect(2, 4, 1, 2)
-  ctx.fillRect(7, 4, 2, 2)
-  ctx.fillRect(13, 4, 1, 1)
+  ctx.fillStyle = '#6be0a6'
+  ctx.fillRect(0, 0, 16, 2)
+  ctx.fillRect(2, 2, 2, 3)
+  ctx.fillRect(7, 2, 2, 3)
+  ctx.fillRect(13, 2, 1, 3)
+  ctx.fillStyle = '#d9ffe6'
+  ctx.fillRect(1, 0, 3, 1)
+  ctx.fillRect(7, 0, 3, 1)
+  ctx.fillRect(12, 0, 3, 1)
+  // Tiny cozy yellow-cream blossom speck on moss
+  ctx.fillStyle = '#ffe875'
+  ctx.fillRect(5, 1, 1, 1)
+  ctx.fillRect(11, 2, 1, 1)
   return canvas
 }
 
@@ -4376,7 +4422,7 @@ function bakeModernBrickBody(): HTMLCanvasElement {
   const [canvas, ctx] = createCanvas(16, 16)
   ctx.fillStyle = '#241024'
   ctx.fillRect(0, 0, 16, 16)
-  // Warm terracotta-plum shaded masonry brickwork with rich bevels & highlights
+  // Warm Stardew-inspired textured terracotta-plum masonry with subtle mortar speckles
   const drawBrick = (x: number, y: number, w: number, h: number, main: string, hi: string, sh: string) => {
     ctx.fillStyle = main
     ctx.fillRect(x, y, w, h)
@@ -4387,14 +4433,19 @@ function bakeModernBrickBody(): HTMLCanvasElement {
     ctx.fillRect(x, y + h - 1, w, 1)
     ctx.fillRect(x + w - 1, y + 1, 1, h - 1)
   }
-  drawBrick(0, 0, 7, 7, '#7d4157', '#a86475', '#4c2138')
-  drawBrick(8, 0, 8, 7, '#6b354c', '#945469', '#3d192e')
-  drawBrick(0, 8, 4, 7, '#663148', '#8c4f64', '#3b182c')
-  drawBrick(5, 8, 7, 7, '#87485d', '#b56e7f', '#52243c')
-  drawBrick(13, 8, 3, 7, '#70384f', '#99576c', '#421c31')
-  ctx.fillStyle = '#cfa09b'
+  drawBrick(0, 0, 7, 7, '#804458', '#ad6979', '#4c2138')
+  drawBrick(8, 0, 8, 7, '#6d374d', '#96576c', '#3d192e')
+  drawBrick(0, 8, 4, 7, '#693349', '#8f5266', '#3b182c')
+  drawBrick(5, 8, 7, 7, '#8a4b5f', '#b87282', '#52243c')
+  drawBrick(13, 8, 3, 7, '#733b51', '#9c5a6e', '#421c31')
+  // Subtle brick surface grain & warm dew glints
+  ctx.fillStyle = '#d9ada5'
   ctx.fillRect(1, 1, 2, 1)
   ctx.fillRect(6, 9, 2, 1)
+  ctx.fillStyle = '#57283f'
+  ctx.fillRect(4, 3, 1, 1)
+  ctx.fillRect(11, 4, 2, 1)
+  ctx.fillRect(9, 12, 1, 1)
   return canvas
 }
 
@@ -4465,50 +4516,87 @@ function bakeModernWoodBody(): HTMLCanvasElement {
 
 function bakeModernSakuraTop(): HTMLCanvasElement {
   const [canvas, ctx] = createCanvas(16, 16)
-  ctx.fillStyle = '#241226'
-  ctx.fillRect(0, 0, 16, 16)
-  // Textured cherry bark with rich grain & knots
-  ctx.fillStyle = '#663d4d'
-  ctx.fillRect(0, 4, 16, 12)
-  ctx.fillStyle = '#875567'
-  ctx.fillRect(0, 5, 16, 2)
-  ctx.fillStyle = '#4a2838'
-  ctx.fillRect(2, 8, 6, 2)
-  ctx.fillRect(10, 11, 5, 2)
+  // Stardew-style lush forest soil with warm pebbles, root knots & scalloped grassy overhang!
   ctx.fillStyle = '#331a29'
-  ctx.fillRect(4, 9, 2, 1)
-  ctx.fillRect(12, 12, 2, 1)
+  ctx.fillRect(0, 0, 16, 16)
+  ctx.fillStyle = '#663c48'
+  ctx.fillRect(0, 5, 16, 11)
+  // Warm sunlit soil clods & rounded pebbles
+  ctx.fillStyle = '#85535e'
+  ctx.fillRect(1, 7, 4, 3)
+  ctx.fillRect(8, 8, 5, 3)
+  ctx.fillRect(4, 12, 5, 3)
+  ctx.fillStyle = '#a36e73'
+  ctx.fillRect(2, 7, 2, 1)
+  ctx.fillRect(9, 8, 2, 1)
+  ctx.fillRect(5, 12, 2, 1)
+  // Earthy pebble shadows & crevices
+  ctx.fillStyle = '#472534'
+  ctx.fillRect(0, 6, 16, 1)
+  ctx.fillRect(1, 10, 4, 1)
+  ctx.fillRect(8, 11, 5, 1)
+  ctx.fillRect(12, 13, 3, 2)
+  ctx.fillStyle = '#2b1322'
+  ctx.fillRect(6, 9, 1, 2)
+  ctx.fillRect(14, 10, 1, 1)
 
-  // Plush emerald moss + scattered pink sakura blossoms on top
-  ctx.fillStyle = '#1f5c59'
+  // Deep shadow under lush overhanging grass blades
+  ctx.fillStyle = '#184a48'
   ctx.fillRect(0, 0, 16, 5)
-  ctx.fillStyle = '#4ab596'
-  ctx.fillRect(0, 0, 16, 3)
-  ctx.fillStyle = '#9cf0cd'
+  ctx.fillRect(0, 5, 3, 2)
+  ctx.fillRect(5, 5, 4, 3)
+  ctx.fillRect(11, 5, 4, 2)
+  // Mid emerald-jade lush meadow grass
+  ctx.fillStyle = '#369e80'
+  ctx.fillRect(0, 0, 16, 4)
+  ctx.fillRect(1, 4, 2, 2)
+  ctx.fillRect(6, 4, 3, 3)
+  ctx.fillRect(12, 4, 3, 2)
+  // Crisp moonlit mint-lime grass blade tips
+  ctx.fillStyle = '#75e3ad'
+  ctx.fillRect(0, 0, 16, 2)
+  ctx.fillRect(2, 2, 1, 2)
+  ctx.fillRect(7, 2, 2, 2)
+  ctx.fillRect(13, 2, 1, 2)
+  ctx.fillStyle = '#d4ffe3'
   ctx.fillRect(4, 0, 3, 1)
-  ctx.fillStyle = '#ff9ec4'
+  ctx.fillRect(14, 0, 2, 1)
+  // Fallen pink sakura petals & tiny wildflower buds nestled in grass
+  ctx.fillStyle = '#ff8cb8'
   ctx.fillRect(1, 0, 3, 2)
-  ctx.fillRect(9, 0, 4, 2)
+  ctx.fillRect(9, 1, 3, 2)
   ctx.fillStyle = '#fff0f7'
   ctx.fillRect(2, 0, 1, 1)
-  ctx.fillRect(11, 0, 2, 1)
+  ctx.fillRect(10, 1, 1, 1)
+  ctx.fillStyle = '#ffe875'
+  ctx.fillRect(7, 0, 1, 1)
   return canvas
 }
 
 function bakeModernSakuraBody(): HTMLCanvasElement {
   const [canvas, ctx] = createCanvas(16, 16)
-  ctx.fillStyle = '#211024'
+  // Stardew-style warm earthen soil with organic layered pebbles & root fibers
+  ctx.fillStyle = '#4f2c3a'
   ctx.fillRect(0, 0, 16, 16)
-  ctx.fillStyle = '#573342'
-  ctx.fillRect(0, 0, 16, 16)
-  ctx.fillStyle = '#734659'
-  ctx.fillRect(1, 1, 5, 5)
-  ctx.fillRect(9, 8, 6, 5)
-  ctx.fillStyle = '#3b1f2e'
-  ctx.fillRect(0, 7, 16, 1)
-  ctx.fillRect(7, 0, 1, 16)
-  ctx.fillRect(3, 3, 2, 1)
-  ctx.fillRect(11, 10, 2, 1)
+  ctx.fillStyle = '#633a47'
+  ctx.fillRect(1, 1, 5, 4)
+  ctx.fillRect(9, 2, 6, 4)
+  ctx.fillRect(2, 8, 6, 5)
+  ctx.fillRect(10, 10, 5, 4)
+  ctx.fillStyle = '#7d4f5c'
+  ctx.fillRect(2, 1, 3, 2)
+  ctx.fillRect(10, 2, 3, 2)
+  ctx.fillRect(3, 8, 3, 2)
+  ctx.fillRect(11, 10, 2, 2)
+  ctx.fillStyle = '#381c2b'
+  ctx.fillRect(1, 5, 5, 1)
+  ctx.fillRect(9, 6, 6, 1)
+  ctx.fillRect(2, 13, 6, 1)
+  ctx.fillRect(10, 14, 5, 1)
+  ctx.fillStyle = '#291220'
+  ctx.fillRect(7, 3, 1, 2)
+  ctx.fillRect(14, 8, 1, 2)
+  ctx.fillRect(1, 11, 1, 1)
   return canvas
 }
 

@@ -10,24 +10,35 @@ const props = defineProps<{
 
 defineEmits<{
   (e: 'close'): void
+  (e: 'claim', id: AchievementId): void
 }>()
 
-const activeFilter = ref<'all' | 'unlocked' | 'locked'>('all')
+const activeFilter = ref<'all' | 'claimable' | 'unlocked' | 'locked'>('all')
 
-const stampEntries = computed(() =>
-  ACHIEVEMENTS.map((def) => {
+const stampEntries = computed(() => {
+  const claimedSet = new Set(props.progress.claimedAchievements ?? [])
+  const list = ACHIEVEMENTS.map((def) => {
     const unlocked = props.progress.unlockedAchievements.includes(def.id)
+    const claimed = unlocked && claimedSet.has(def.id)
+    const canClaim = unlocked && !claimed
     const prog = getStampProgress(def.id, props.progress)
     return {
       ...def,
       unlocked,
+      claimed,
+      canClaim,
       prog,
       pct: Math.min(100, Math.round((prog.current / Math.max(1, prog.target)) * 100))
     }
   })
-)
+  // Always surface ready-to-claim rewards at the very top so players never miss them!
+  return list.sort((a, b) => Number(b.canClaim) - Number(a.canClaim))
+})
+
+const unclaimedCount = computed(() => stampEntries.value.filter((s) => s.canClaim).length)
 
 const filteredStamps = computed(() => {
+  if (activeFilter.value === 'claimable') return stampEntries.value.filter((s) => s.canClaim)
   if (activeFilter.value === 'unlocked') return stampEntries.value.filter((s) => s.unlocked)
   if (activeFilter.value === 'locked') return stampEntries.value.filter((s) => !s.unlocked)
   return stampEntries.value
@@ -73,7 +84,7 @@ function getStampSvgPath(id: AchievementId): string {
       <div class="stampbook-header">
         <div class="stampbook-title-group">
           <h2 class="stampbook-title">📔 STAMP BOOK</h2>
-          <span class="stampbook-sub">Buku Stempel Petualangan • Hadiah Ikan Emas Otomatis</span>
+          <span class="stampbook-sub">Buku Stempel Petualangan • Klik Tombol Klaim Untuk Mengambil Hadiah Ikan Emas!</span>
         </div>
         <div class="stampbook-counters">
           <span class="stamp-chip">🏆 {{ unlockedCount }}/{{ stampEntries.length }}</span>
@@ -90,6 +101,15 @@ function getStampSvgPath(id: AchievementId): string {
           @click="activeFilter = 'all'"
         >
           Semua ({{ stampEntries.length }})
+        </button>
+        <button
+          v-if="unclaimedCount > 0"
+          type="button"
+          class="stamp-filter-btn stamp-filter-btn--claimable"
+          :class="{ 'stamp-filter-btn--active': activeFilter === 'claimable' }"
+          @click="activeFilter = 'claimable'"
+        >
+          🎁 Siap Klaim ({{ unclaimedCount }})
         </button>
         <button
           type="button"
@@ -119,7 +139,10 @@ function getStampSvgPath(id: AchievementId): string {
           v-for="st in filteredStamps"
           :key="st.id"
           class="stamp-card"
-          :class="{ 'stamp-card--unlocked': st.unlocked }"
+          :class="{
+            'stamp-card--unlocked': st.unlocked,
+            'stamp-card--claimable': st.canClaim
+          }"
         >
           <div
             class="stamp-seal"
@@ -134,20 +157,33 @@ function getStampSvgPath(id: AchievementId): string {
           <div class="stamp-body">
             <div class="stamp-head">
               <span class="stamp-name">{{ st.icon }} {{ st.name }}</span>
-              <span class="stamp-reward" :class="{ 'stamp-reward--claimed': st.unlocked }">
-                {{ st.unlocked ? `✓ +${st.rewardFish}🐟` : `+${st.rewardFish}🐟` }}
+              <span
+                v-if="!st.canClaim"
+                class="stamp-reward"
+                :class="{ 'stamp-reward--claimed': st.claimed }"
+              >
+                {{ st.claimed ? `✓ +${st.rewardFish}🐟` : `+${st.rewardFish}🐟` }}
                 <template v-if="st.rewardCosmeticLabel"> + {{ st.rewardCosmeticLabel }}</template>
               </span>
             </div>
             <p class="stamp-desc">{{ st.description }}</p>
-            <div v-if="!st.unlocked" class="stamp-prog-row">
+            <button
+              v-if="st.canClaim"
+              type="button"
+              class="stamp-claim-btn"
+              @click="$emit('claim', st.id)"
+            >
+              🎁 KLAIM +{{ st.rewardFish }} 🐟
+              <template v-if="st.rewardCosmeticLabel"> + {{ st.rewardCosmeticLabel }}</template>
+            </button>
+            <div v-else-if="!st.unlocked" class="stamp-prog-row">
               <div class="stamp-prog-track">
                 <div class="stamp-prog-fill" :style="{ width: `${st.pct}%` }" />
               </div>
               <span class="stamp-prog-label">{{ st.prog.label }}</span>
             </div>
             <div v-else class="stamp-ink-mark" :style="{ color: st.stampColor }">
-              ★ STEMPEL TERCAPAI • {{ st.subtitle }}
+              ★ HADIAH DIKLAIM • {{ st.subtitle }}
             </div>
           </div>
         </div>
@@ -291,10 +327,46 @@ function getStampSvgPath(id: AchievementId): string {
   cursor: pointer;
 }
 
+.stamp-filter-btn--claimable {
+  border-color: #ff9ec4;
+  color: #ffd6e8;
+}
+
 .stamp-filter-btn--active {
   color: #210e30;
   background: #ffd873;
   border-color: #fff2b0;
+}
+
+.stamp-card--claimable {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(84, 38, 112, 0.96) 0%, rgba(52, 22, 76, 0.96) 100%);
+  border: 2px solid #ffe466;
+  box-shadow: 0 0 12px rgba(255, 224, 102, 0.35), 0 3px 0 #140821;
+}
+
+.stamp-claim-btn {
+  margin-top: 4px;
+  align-self: flex-start;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #241033;
+  background: linear-gradient(180deg, #fff099 0%, #ffcb47 100%);
+  border: 2px solid #fffbe0;
+  box-shadow: 0 2px 0 #160926;
+  cursor: pointer;
+}
+
+.stamp-claim-btn:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.stamp-claim-btn:active {
+  transform: translateY(1px);
 }
 
 .stamp-grid {

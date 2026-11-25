@@ -1,4 +1,4 @@
-import { BIOMES } from './achievements'
+import { ACHIEVEMENTS, BIOMES } from './achievements'
 import { RetroAudioEngine } from './audio'
 import { BossEncounterController } from './bosses'
 import {
@@ -345,6 +345,8 @@ export class MoonpawGameEngine {
   private prevAegisHeld = false
   private prevNovaHeld = false
   private prevMendHeld = false
+  private lastInputWasTouch = false
+  private touchJumpGraceTimer = 0
   private input: InputState = {
     left: false,
     right: false,
@@ -1302,6 +1304,7 @@ export class MoonpawGameEngine {
     const pool: PostcardEmoteId[] = ['heart', 'music', 'star']
     const picked = pool[Math.floor(Math.random() * pool.length)]!
     this.triggerPlayerEmote(picked, 1.8)
+    this.incrementDailyQuest('emote-3', 1)
     this.audio.playCampCharacterVoice(this.progress.selectedCharacter)
     if (!this.progress.reduceMotion) {
       this.spawnCollectBurst(p.x + p.w / 2, p.y - 4, '#ffe475', 6)
@@ -1345,13 +1348,48 @@ export class MoonpawGameEngine {
     this.audio.unlock()
     this.audio.playUiClick()
     this.audio.setBgmMode('normal')
-    if (this.progress.hasUnseenStamps) {
+    const hasUnclaimed = this.progress.unlockedAchievements.some(
+      (id) => !this.progress.claimedAchievements.includes(id)
+    )
+    if (this.progress.hasUnseenStamps && !hasUnclaimed) {
       this.progress.hasUnseenStamps = false
       this.persistSave(false)
     }
     this.screen = 'achievements'
     this.clearAllInputs()
     this.emitHud()
+  }
+
+  public claimAchievementReward(id: AchievementId): boolean {
+    if (!this.progress.unlockedAchievements.includes(id)) return false
+    if (this.progress.claimedAchievements.includes(id)) return false
+    const def = ACHIEVEMENTS.find((a) => a.id === id)
+    if (!def) return false
+
+    this.audio.unlock()
+    this.progress.claimedAchievements.push(id)
+    if (def.rewardFish > 0) {
+      this.progress.fishBank += def.rewardFish
+      this.progress.totalFishEarned += def.rewardFish
+    }
+    if (def.id === 'lightning-stray' && !this.progress.ownedScarves.includes('lightning')) {
+      this.progress.ownedScarves.push('lightning')
+    }
+    this.progress.hasUnseenStamps = this.progress.unlockedAchievements.some(
+      (uid) => !this.progress.claimedAchievements.includes(uid)
+    )
+    const rewardSuffix = def.rewardCosmeticLabel
+      ? `+${def.rewardFish} 🐟 & ${def.rewardCosmeticLabel}`
+      : `+${def.rewardFish} 🐟`
+    this.showToast({
+      icon: '🎉',
+      label: `HADIAH PENCAPAIAN DIKLAIM! (${rewardSuffix})`,
+      title: def.name
+    })
+    this.persistSave(true)
+    this.checkAchievements()
+    this.emitHud()
+    return true
   }
 
   public openSettings(): void {
@@ -1656,6 +1694,7 @@ export class MoonpawGameEngine {
     pressed: boolean
   ): void {
     this.audio.unlock()
+    if (pressed) this.lastInputWasTouch = true
     if (control === 'left') this.touchLeft = pressed
     if (control === 'right') this.touchRight = pressed
     if (control === 'jump') this.touchJump = pressed
@@ -1712,24 +1751,16 @@ export class MoonpawGameEngine {
       if (this.progress.unlockedAchievements.includes(def.id)) continue
       this.progress.unlockedAchievements.push(def.id)
       this.progress.hasUnseenStamps = true
-      if (def.rewardFish > 0) {
-        this.progress.fishBank += def.rewardFish
-        this.progress.totalFishEarned += def.rewardFish
-      }
-      if (def.id === 'lightning-stray' && !this.progress.ownedScarves.includes('lightning')) {
-        this.progress.ownedScarves.push('lightning')
-      }
       const rewardSuffix = def.rewardCosmeticLabel
         ? `+${def.rewardFish} 🐟 & ${def.rewardCosmeticLabel}`
         : `+${def.rewardFish} 🐟`
       this.showToast({
         icon: def.icon,
-        label: `STEMPEL BARU! (${rewardSuffix})`,
-        title: def.name
+        label: `🏆 PENCAPAIAN TERBUKA! KLAIM ${rewardSuffix}`,
+        title: `${def.name} • Buka Stamp Book!`
       })
     }
     this.persistSave(true)
-    // Re-check in case bonus fish completed a special character mission or fish stamp!
     this.checkSpecialCharacterMissions(true)
     this.emitHud()
   }
@@ -2316,6 +2347,7 @@ export class MoonpawGameEngine {
     }
 
     this.audio.unlock()
+    this.lastInputWasTouch = false
     const code = e.code
 
     if (
@@ -3309,6 +3341,7 @@ export class MoonpawGameEngine {
     if (p.lunarMendCooldown > 0) p.lunarMendCooldown = Math.max(0, p.lunarMendCooldown - dt)
     if (this.knockbackTimer > 0) this.knockbackTimer = Math.max(0, this.knockbackTimer - dt)
     if (this.landingTimer > 0) this.landingTimer = Math.max(0, this.landingTimer - dt)
+    if (this.touchJumpGraceTimer > 0) this.touchJumpGraceTimer = Math.max(0, this.touchJumpGraceTimer - dt)
     this.wasOnGround = p.onGround
 
     // 13 Individual Unique Character Passives (7 Regular + 6 Upgraded Special Mission Traits!)
@@ -3445,6 +3478,7 @@ export class MoonpawGameEngine {
       this.progress.totalDashes += 1
       this.persistSave(false)
       this.incrementDailyQuest('dash-10', 1)
+      this.incrementDailyQuest('dash-20', 1)
       this.audio.playDash()
       this.spawnDashBurst(p.x + p.w / 2, p.y + p.h / 2, p.facing, p.candyTimer > 0)
       this.checkAchievements()
@@ -3504,6 +3538,7 @@ export class MoonpawGameEngine {
           p.jumpBufferTimer = 0
           p.jumpsUsed = 1
           p.idleDuration = 0
+          if (this.lastInputWasTouch) this.touchJumpGraceTimer = 0.16
           this.audio.playJump()
           this.triggerBiomeCosmeticJumpAccent()
           this.spawnJumpDust(p.x + p.w / 2, p.y + p.h)
@@ -3515,13 +3550,14 @@ export class MoonpawGameEngine {
           p.jumpBufferTimer = 0
           p.jumpsUsed = p.jumpsUsed === 0 ? 2 : p.jumpsUsed + 1
           p.idleDuration = 0
+          if (this.lastInputWasTouch) this.touchJumpGraceTimer = 0.16
           this.audio.playDoubleJump()
           this.triggerBiomeCosmeticJumpAccent()
           this.spawnDoubleJumpStars(p.x + p.w / 2, p.y + p.h)
         }
       }
 
-      if (!this.input.jumpHeld && p.vy < -65) {
+      if (!this.input.jumpHeld && this.touchJumpGraceTimer <= 0 && p.vy < -65) {
         p.vy *= Math.pow(JUMP_CUT_MULT, dt * 16)
       }
 
@@ -3584,6 +3620,8 @@ export class MoonpawGameEngine {
     }
 
     for (const plat of this.level.platforms) {
+      // Thin elevated shelves (h <= 18) act as smooth one-way jump-through platforms (no side snag or head-bonk!)
+      if (plat.h <= 18) continue
       if (this.aabbOverlap(p.x, p.y, p.w, p.h, plat.x, plat.y, plat.w, plat.h)) {
         if (p.vx > 0) {
           p.x = plat.x - p.w
@@ -3659,12 +3697,13 @@ export class MoonpawGameEngine {
           p.vy = 0
           p.onGround = true
           p.airDashUsed = false
+          p.airDashCount = 0
           this.standingSurface = plat.style
           if (this.activeCheckpointIdx < 0 && p.x > plat.x + 8 && p.x + p.w < plat.x + plat.w - 8) {
             p.safeX = p.x
             p.safeY = plat.y - p.h - 2
           }
-        } else if (p.vy < 0 && p.y >= plat.y + plat.h - 10) {
+        } else if (plat.h > 18 && p.vy < 0 && p.y >= plat.y + plat.h - 10) {
           p.y = plat.y + plat.h
           p.vy = 0
         }
@@ -4400,10 +4439,19 @@ export class MoonpawGameEngine {
           this.totalRunScore += pts
           this.audio.playBigStar()
           this.incrementDailyQuest('stars-any-20', 2)
+          this.incrementDailyQuest('stars-any-35', 2)
           if (this.level.biome === 'sakura') {
             this.incrementDailyQuest('stars-sakura', 2)
           } else if (this.level.biome === 'rooftops') {
             this.incrementDailyQuest('stars-rooftops', 2)
+          } else if (this.level.biome === 'cloudland') {
+            this.incrementDailyQuest('stars-cloudland', 2)
+          } else if (this.level.biome === 'harbor') {
+            this.incrementDailyQuest('stars-harbor', 2)
+          } else if (this.level.biome === 'cavern') {
+            this.incrementDailyQuest('stars-cavern', 2)
+          } else if (this.level.biome === 'observatory') {
+            this.incrementDailyQuest('stars-observatory', 2)
           }
           this.spawnCollectBurst(item.curX + iw / 2, bobY + ih / 2, '#ffe46b', 16)
           this.floatingTexts.push({
@@ -4435,10 +4483,19 @@ export class MoonpawGameEngine {
 
           this.audio.playStar(this.starComboCount)
           this.incrementDailyQuest('stars-any-20', 1)
+          this.incrementDailyQuest('stars-any-35', 1)
           if (this.level.biome === 'sakura') {
             this.incrementDailyQuest('stars-sakura', 1)
           } else if (this.level.biome === 'rooftops') {
             this.incrementDailyQuest('stars-rooftops', 1)
+          } else if (this.level.biome === 'cloudland') {
+            this.incrementDailyQuest('stars-cloudland', 1)
+          } else if (this.level.biome === 'harbor') {
+            this.incrementDailyQuest('stars-harbor', 1)
+          } else if (this.level.biome === 'cavern') {
+            this.incrementDailyQuest('stars-cavern', 1)
+          } else if (this.level.biome === 'observatory') {
+            this.incrementDailyQuest('stars-observatory', 1)
           }
           this.spawnCollectBurst(item.curX + iw / 2, bobY + ih / 2, isStarDouble ? '#ffb5d8' : '#fff5a8', 7)
           this.floatingTexts.push({
@@ -5597,6 +5654,124 @@ export class MoonpawGameEngine {
    * - Lounging unlocked friends relaxing in cozy biome spots & clickable with SFX.
    * - Crisp `imageSmoothingEnabled = false` and full `settings.reduceMotion` support.
    */
+  /**
+   * Stardew-inspired organic pixel foliage / cherry blossom puff cluster (zero flat boxes!).
+   */
+  private drawPixelFoliageCluster(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    cy: number,
+    rx: number,
+    ry: number,
+    outline: string,
+    shade: string,
+    mid: string,
+    light: string,
+    hi: string
+  ): void {
+    const x0 = Math.round(cx)
+    const y0 = Math.round(cy)
+    // Soft stepped pixel oval outline (2px grid for crisp Stardew-style organic canopy)
+    const fillPixelOval = (ox: number, oy: number, rX: number, rY: number, col: string) => {
+      ctx.fillStyle = col
+      for (let py = -rY; py <= rY; py += 2) {
+        const normY = py / Math.max(1, rY)
+        const span = Math.floor(Math.sqrt(Math.max(0, 1 - normY * normY)) * rX)
+        if (span > 0) {
+          ctx.fillRect(ox - span, oy + py, span * 2, 2)
+        }
+      }
+    }
+    fillPixelOval(x0, y0 + 1, rx + 2, ry + 2, outline)
+    fillPixelOval(x0, y0 + 1, rx, ry, shade)
+    fillPixelOval(x0 - 1, y0 - 1, Math.max(2, rx - 2), Math.max(2, ry - 2), mid)
+    fillPixelOval(x0 - 2, y0 - Math.max(2, Math.floor(ry * 0.35)), Math.max(2, Math.floor(rx * 0.72)), Math.max(2, Math.floor(ry * 0.56)), light)
+    // Sunlit / moonlit dappled leaf & petal clusters
+    ctx.fillStyle = hi
+    ctx.fillRect(x0 - Math.floor(rx * 0.45), y0 - Math.floor(ry * 0.55), 4, 2)
+    ctx.fillRect(x0 + Math.floor(rx * 0.1), y0 - Math.floor(ry * 0.45), 3, 2)
+    ctx.fillRect(x0 - Math.floor(rx * 0.2), y0 - Math.floor(ry * 0.2), 2, 2)
+    ctx.fillStyle = shade
+    ctx.fillRect(x0 - Math.floor(rx * 0.35), y0 + Math.floor(ry * 0.25), 3, 2)
+    ctx.fillRect(x0 + Math.floor(rx * 0.2), y0 + Math.floor(ry * 0.2), 4, 2)
+  }
+
+  /**
+   * Draws a fluffy rounded Stardew-style pixel cloud with rim highlight & soft shaded belly.
+   */
+  private drawPixelCloudPuff(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    shadow: string,
+    mid: string,
+    hi: string
+  ): void {
+    const px = Math.round(x)
+    const py = Math.round(y)
+    ctx.fillStyle = shadow
+    ctx.fillRect(px + 2, py + 2, w - 4, h)
+    ctx.fillRect(px, py + 4, w, Math.max(2, h - 3))
+    ctx.fillStyle = mid
+    ctx.fillRect(px + 2, py + 1, w - 4, Math.max(2, h - 2))
+    ctx.fillRect(px + 8, py - 3, Math.max(8, w - 18), 5)
+    ctx.fillRect(px + Math.floor(w * 0.42), py - 5, Math.max(6, Math.floor(w * 0.28)), 4)
+    ctx.fillStyle = hi
+    ctx.fillRect(px + 10, py - 3, Math.max(6, w - 24), 2)
+    ctx.fillRect(px + Math.floor(w * 0.44), py - 5, Math.max(4, Math.floor(w * 0.22)), 2)
+  }
+
+  /**
+   * Tiles the Home Camp Hub floor with rich 16x16 Stardew-style tiles + mossy flowers & grass tufts!
+   */
+  private drawTiledCampGround(
+    ctx: CanvasRenderingContext2D,
+    startX: number,
+    endX: number,
+    y0: number,
+    topTile: HTMLCanvasElement,
+    bodyTile: HTMLCanvasElement,
+    decorateNature = false
+  ): void {
+    for (let tx = startX; tx < endX; tx += 16) {
+      ctx.drawImage(topTile, tx, y0)
+      for (let ty = y0 + 16; ty < VIEW_H; ty += 16) {
+        ctx.drawImage(bodyTile, tx, ty)
+      }
+    }
+    if (decorateNature) {
+      // Cozy Stardew-style pixel grass tufts, tiny wildflowers & stepping stones along the camp path
+      const stones = [198, 232, 266, 304, 338]
+      for (const sx of stones) {
+        ctx.fillStyle = '#332445'
+        ctx.fillRect(sx, y0 + 1, 10, 3)
+        ctx.fillStyle = '#9b8fb0'
+        ctx.fillRect(sx + 1, y0, 8, 2)
+        ctx.fillStyle = '#d8d0e8'
+        ctx.fillRect(sx + 2, y0, 4, 1)
+      }
+      const flowers: [number, string, string][] = [
+        [188, '#ff9ec4', '#fff0f7'],
+        [218, '#ffe475', '#fffbe0'],
+        [254, '#9ef0d0', '#ffffff'],
+        [296, '#ff9ec4', '#fff0f7'],
+        [330, '#ffe475', '#fffbe0'],
+        [364, '#ff9ec4', '#fff0f7']
+      ]
+      for (const [fx, fc, fh] of flowers) {
+        ctx.fillStyle = '#2d997b'
+        ctx.fillRect(fx, y0 - 3, 1, 3)
+        ctx.fillRect(fx - 1, y0 - 1, 3, 1)
+        ctx.fillStyle = fc
+        ctx.fillRect(fx - 1, y0 - 5, 3, 2)
+        ctx.fillStyle = fh
+        ctx.fillRect(fx, y0 - 5, 1, 1)
+      }
+    }
+  }
+
   private renderHomeCampScene(ctx: CanvasRenderingContext2D): void {
     const biome = this.getActiveHomeBiome()
     const isModern = this.isModern
@@ -5789,28 +5964,33 @@ export class MoonpawGameEngine {
         ctx.fillRect(bs.x + 5, bs.y - 3 + bob, 1, 1)
       }
 
-      // Foreground Enlarged Brick Rooftop Camp Perch (y = 164)
-      ctx.fillStyle = '#241338'
-      ctx.fillRect(180, 164, 204, 52)
-      ctx.fillStyle = '#5e2f52'
-      ctx.fillRect(180, 164, 204, 7)
-      ctx.fillStyle = '#8c466e'
-      ctx.fillRect(180, 164, 204, 2)
-      ctx.fillStyle = '#381c4a'
-      for (let by = 175; by < 216; by += 8) {
-        const off = (by / 8) % 2 === 0 ? 0 : 8
-        for (let bx = 184 + off; bx < 382; bx += 16) {
-          ctx.fillRect(bx, by, 12, 4)
-        }
-      }
+      // Foreground Enlarged Stardew-Style Tiled Brick Rooftop Camp Perch (y = 164)
+      const campTiles = isModern ? this.sprites.modernTiles : this.sprites.tiles
+      this.drawTiledCampGround(ctx, 180, 384, 164, campTiles.brickTop, campTiles.brickBody, false)
+      // Cozy rooftop potted plants & parapet moss accents
+      ctx.drawImage(this.sprites.props.pottedPlant, 194, 154)
+      ctx.drawImage(this.sprites.props.flowerGold, 224, 157)
 
-      // Right-side Cozy Brick Chimney (lounge spot for unlocked friend!)
-      ctx.fillStyle = '#2e1642'
+      // Right-side Cozy Brick Chimney with textured masonry & bevels (lounge spot for unlocked friend!)
+      ctx.fillStyle = '#1b0c29'
+      ctx.fillRect(333, 127, 32, 37)
+      ctx.fillStyle = '#633048'
       ctx.fillRect(334, 128, 30, 36)
-      ctx.fillStyle = '#733a5e'
+      ctx.fillStyle = '#87485d'
+      ctx.fillRect(336, 134, 8, 5)
+      ctx.fillRect(348, 134, 9, 5)
+      ctx.fillRect(340, 142, 10, 5)
+      ctx.fillRect(353, 142, 9, 5)
+      ctx.fillRect(336, 150, 9, 5)
+      ctx.fillRect(349, 150, 10, 5)
+      ctx.fillStyle = '#1b0c29'
+      ctx.fillRect(329, 125, 40, 8)
+      ctx.fillStyle = '#99485c'
       ctx.fillRect(330, 126, 38, 6)
-      ctx.fillStyle = '#99537b'
+      ctx.fillStyle = '#cc7078'
       ctx.fillRect(330, 126, 38, 2)
+      ctx.fillStyle = '#ffe3b3'
+      ctx.fillRect(332, 126, 12, 1)
       for (let i = 0; i < 3; i++) {
         const sy = 118 - ((Math.floor(t * 8) + i * 10) % 26)
         const sx = 346 + Math.round(Math.sin(t * 1.4 + i) * 3)
@@ -5841,38 +6021,70 @@ export class MoonpawGameEngine {
         ctx.fillRect(fx, fy, 2, 2)
       }
     } else if (biome === 'sakura') {
-      // Sky Parallax: thin drifting mist clouds passing pale full moon
+      // Sky Parallax: soft Stardew-style moonlit cloud puffs drifting behind moon
       for (let i = 0; i < 3; i++) {
         const mx = 140 + (((i * 92 + Math.floor(t * (3 + i))) % 270) + 270) % 270 - 20
-        ctx.fillStyle = 'rgba(222, 198, 245, 0.16)'
-        ctx.fillRect(mx, 34 + i * 14, 72, 6)
+        this.drawPixelCloudPuff(
+          ctx,
+          mx,
+          34 + i * 15,
+          62,
+          7,
+          'rgba(58, 34, 96, 0.32)',
+          'rgba(116, 76, 158, 0.28)',
+          'rgba(235, 206, 250, 0.22)'
+        )
       }
 
-      // Midground: Layered distant sakura tree silhouettes + traditional pixel Torii Shrine Gate!
-      ctx.fillStyle = '#251547'
-      ctx.fillRect(0, 150, this.viewW, 66)
-      // Distant dark sakura silhouettes
-      ctx.fillStyle = '#331d59'
-      ctx.fillRect(172, 116, 46, 26)
-      ctx.fillRect(190, 134, 8, 22)
-      ctx.fillRect(258, 122, 54, 24)
-      ctx.fillRect(280, 138, 8, 20)
+      // Midground: Layered distant misty hills + organic rounded sakura tree grove!
+      ctx.fillStyle = '#201340'
+      ctx.fillRect(0, 148, this.viewW, 68)
+      ctx.fillStyle = '#2b1852'
+      ctx.fillRect(148, 138, 96, 20)
+      ctx.fillRect(164, 132, 64, 8)
+      ctx.fillRect(244, 142, 136, 18)
+      ctx.fillRect(268, 136, 86, 8)
+      // Organic distant sakura silhouettes (rounded clusters instead of boxes)
+      ctx.fillStyle = '#3b2163'
+      ctx.fillRect(189, 134, 6, 20)
+      ctx.fillRect(279, 136, 6, 20)
+      this.drawPixelFoliageCluster(ctx, 192, 124, 22, 12, '#22113d', '#331c57', '#4a2973', '#693c8f', '#8a52a8')
+      this.drawPixelFoliageCluster(ctx, 282, 128, 24, 12, '#22113d', '#331c57', '#4a2973', '#693c8f', '#8a52a8')
 
-      // Traditional Crimson Torii Shrine Gate (midground center-right x = 224)
+      // Traditional Crimson Torii Shrine Gate with crisp dark-plum outline & upturned eaves (x = 226)
       const tx = 226
       const ty = 114
-      ctx.fillStyle = '#b82c48'
-      ctx.fillRect(tx + 6, ty + 8, 4, 38)
-      ctx.fillRect(tx + 32, ty + 8, 4, 38)
+      ctx.fillStyle = '#1b0b29'
+      ctx.fillRect(tx + 5, ty + 8, 6, 56)
+      ctx.fillRect(tx + 31, ty + 8, 6, 56)
+      ctx.fillRect(tx + 1, ty + 13, 40, 6)
+      ctx.fillRect(tx - 3, ty + 3, 48, 7)
+      ctx.fillStyle = '#99223e'
+      ctx.fillRect(tx + 6, ty + 8, 4, 56)
+      ctx.fillRect(tx + 32, ty + 8, 4, 56)
       ctx.fillRect(tx + 2, ty + 14, 38, 4)
-      ctx.fillStyle = '#e03e5c'
+      ctx.fillStyle = '#cf3454'
+      ctx.fillRect(tx + 6, ty + 8, 2, 56)
+      ctx.fillRect(tx + 32, ty + 8, 2, 56)
       ctx.fillRect(tx - 2, ty + 4, 46, 5)
+      ctx.fillStyle = '#ff6b7d'
+      ctx.fillRect(tx - 1, ty + 4, 44, 1)
+      ctx.fillRect(tx + 3, ty + 14, 36, 1)
+      // Upturned dark lacquer roof cap (kasagi) + center gold plaque
       ctx.fillStyle = '#1f0f2e'
       ctx.fillRect(tx - 4, ty + 2, 50, 3)
+      ctx.fillRect(tx - 6, ty + 1, 6, 2)
+      ctx.fillRect(tx + 42, ty + 1, 6, 2)
+      ctx.fillStyle = '#482d63'
+      ctx.fillRect(tx - 3, ty + 2, 48, 1)
+      ctx.fillStyle = '#ffd873'
+      ctx.fillRect(tx + 19, ty + 9, 4, 5)
       // Swaying shimenawa sacred rope + paper zigzags
       const ropeSway = Math.round(Math.sin(t * 1.6) * 1)
-      ctx.fillStyle = '#ffe4a3'
-      ctx.fillRect(tx + 12 + ropeSway, ty + 18, 18, 2)
+      ctx.fillStyle = '#d9b06a'
+      ctx.fillRect(tx + 11 + ropeSway, ty + 18, 20, 2)
+      ctx.fillStyle = '#ffe8a8'
+      ctx.fillRect(tx + 13 + ropeSway, ty + 18, 16, 1)
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(tx + 15 + ropeSway, ty + 20, 2, 3)
       ctx.fillRect(tx + 25 + ropeSway, ty + 20, 2, 3)
@@ -5885,55 +6097,96 @@ export class MoonpawGameEngine {
         ctx.fillRect(fx, fy, 2, 2)
       }
 
-      // Foreground Camp: Framing Sakura Tree Trunk & Overhanging Blossom Branches on right
-      ctx.fillStyle = '#361b36'
-      ctx.fillRect(340, 74, 24, 94)
-      ctx.fillRect(314, 98, 30, 10)
-      ctx.fillRect(284, 88, 36, 9)
-      ctx.fillStyle = '#4f2848'
-      ctx.fillRect(344, 78, 6, 86)
+      // Foreground Camp: Stardew-Style Handcrafted Sakura Tree Trunk, Gnarled Bark & Organic Blossom Clusters!
+      // Dark espresso outline + gnarled root flare
+      ctx.fillStyle = '#240f24'
+      ctx.fillRect(338, 74, 28, 92)
+      ctx.fillRect(332, 152, 38, 14)
+      ctx.fillRect(310, 96, 32, 13)
+      ctx.fillRect(280, 86, 38, 12)
+      // Warm mahogany bark body
+      ctx.fillStyle = '#52273c'
+      ctx.fillRect(340, 76, 24, 88)
+      ctx.fillRect(334, 154, 34, 11)
+      ctx.fillRect(312, 98, 28, 9)
+      ctx.fillRect(282, 88, 34, 8)
+      // Sunlit warm bark highlight + wood grain grooves + mossy root flecks
+      ctx.fillStyle = '#7a3e54'
+      ctx.fillRect(341, 78, 7, 84)
+      ctx.fillRect(314, 98, 24, 3)
+      ctx.fillRect(284, 88, 30, 3)
+      ctx.fillStyle = '#9c586b'
+      ctx.fillRect(342, 82, 3, 28)
+      ctx.fillRect(342, 118, 3, 24)
+      ctx.fillStyle = '#33162b'
+      ctx.fillRect(350, 88, 2, 14)
+      ctx.fillRect(356, 108, 2, 18)
+      ctx.fillRect(348, 134, 3, 12)
+      ctx.fillStyle = '#3ea888'
+      ctx.fillRect(336, 160, 6, 3)
+      ctx.fillRect(354, 161, 8, 3)
+
+      // 7 Overlapping Scalloped Organic Sakura Blossom Clusters (Zero Blocky Rectangles!)
       const swayB = Math.round(Math.sin(t * 1.2) * 1)
-      const blossoms = [
-        { x: 244 + swayB, y: 54, w: 72, h: 28, c: '#c9578e' },
-        { x: 284 + swayB, y: 38, w: 98, h: 40, c: '#eb78b0' },
-        { x: 262 + swayB, y: 66, w: 112, h: 26, c: '#ff9ec9' },
-        { x: 304 + swayB, y: 48, w: 78, h: 22, c: '#ffd4e8' }
-      ]
-      for (const bl of blossoms) {
-        ctx.fillStyle = bl.c
-        ctx.fillRect(bl.x, bl.y, bl.w, bl.h)
-      }
+      this.drawPixelFoliageCluster(ctx, 266 + swayB, 72, 26, 16, '#42163b', '#9c366d', '#d9649b', '#ff9ec9', '#ffe0ef')
+      this.drawPixelFoliageCluster(ctx, 304 + swayB, 52, 32, 20, '#42163b', '#a83d76', '#e36fa6', '#ffa6cf', '#ffe8f4')
+      this.drawPixelFoliageCluster(ctx, 352 + swayB, 50, 34, 22, '#42163b', '#9c366d', '#de6aa1', '#ffa6cf', '#ffe8f4')
+      this.drawPixelFoliageCluster(ctx, 294 + swayB, 76, 28, 15, '#42163b', '#a83d76', '#eb7ab0', '#ffb5d8', '#fff0f7')
+      this.drawPixelFoliageCluster(ctx, 338 + swayB, 74, 30, 17, '#42163b', '#9c366d', '#e876ac', '#ffb3d6', '#fff0f7')
+      this.drawPixelFoliageCluster(ctx, 374 + swayB, 72, 24, 16, '#42163b', '#8f3064', '#d9649b', '#ff9ec9', '#ffe0ef')
+      this.drawPixelFoliageCluster(ctx, 326 + swayB, 42, 24, 14, '#42163b', '#b54580', '#f285ba', '#ffc2de', '#fff5fa')
 
-      // Foreground Mossy Shrine Deck (y = 164)
-      ctx.fillStyle = '#2b193d'
-      ctx.fillRect(180, 164, 204, 52)
-      ctx.fillStyle = '#5c334f'
-      ctx.fillRect(180, 164, 204, 7)
-      ctx.fillStyle = '#804569'
-      ctx.fillRect(180, 164, 204, 2)
+      // Foreground Stardew-Style Lush Mossy Shrine Ground (y = 164)
+      const campTiles = isModern ? this.sprites.modernTiles : this.sprites.tiles
+      this.drawTiledCampGround(ctx, 180, 384, 164, campTiles.sakuraTop, campTiles.sakuraBody, true)
 
-      // Small Wooden Camp Bench on left of perch (x = 204, y = 156)
-      ctx.fillStyle = '#3d1e2b'
+      // Cozy Detailed Cedar Camp Bench on left of perch (x = 204, y = 156)
+      ctx.fillStyle = '#240f21'
+      ctx.fillRect(207, 159, 5, 7)
+      ctx.fillRect(235, 159, 5, 7)
+      ctx.fillRect(203, 155, 41, 6)
+      ctx.fillStyle = '#5c2c31'
       ctx.fillRect(208, 160, 3, 6)
       ctx.fillRect(236, 160, 3, 6)
-      ctx.fillStyle = '#874c45'
+      ctx.fillStyle = '#995749'
       ctx.fillRect(204, 156, 39, 4)
-      ctx.fillStyle = '#b5705c'
+      ctx.fillStyle = '#cc8468'
       ctx.fillRect(204, 156, 39, 2)
+      ctx.fillStyle = '#f5c79e'
+      ctx.fillRect(206, 156, 14, 1)
+      ctx.fillRect(226, 156, 12, 1)
+      ctx.fillStyle = '#ffe382'
+      ctx.fillRect(209, 157, 1, 1)
+      ctx.fillRect(237, 157, 1, 1)
 
-      // Warmly lit Stone Lantern (Ishi-doro) at x = 316, y = 136
+      // Warmly lit Carved Stone Lantern (Ishi-doro) with moss & crisp outline at x = 316, y = 136
       const lx = 316
       const ly = 136
+      ctx.fillStyle = '#1f1230'
+      ctx.fillRect(lx + 1, ly + 25, 12, 4)
+      ctx.fillRect(lx + 3, ly + 15, 8, 12)
+      ctx.fillRect(lx, ly + 8, 14, 8)
+      ctx.fillRect(lx - 3, ly + 4, 20, 6)
+      ctx.fillRect(lx + 2, ly + 1, 10, 4)
       ctx.fillStyle = '#6c5c82'
-      ctx.fillRect(lx + 4, ly + 15, 6, 13)
+      ctx.fillRect(lx + 2, ly + 26, 10, 2)
+      ctx.fillRect(lx + 4, ly + 15, 6, 11)
       ctx.fillRect(lx + 1, ly + 9, 12, 6)
-      ctx.fillStyle = '#9685b0'
+      ctx.fillStyle = '#998ab5'
       ctx.fillRect(lx - 2, ly + 5, 18, 4)
       ctx.fillRect(lx + 3, ly + 2, 8, 3)
-      ctx.fillStyle = '#ffe894'
-      ctx.fillRect(lx + 4, ly + 10, 6, 4)
+      ctx.fillStyle = '#c8bce0'
+      ctx.fillRect(lx - 1, ly + 5, 14, 1)
+      ctx.fillRect(lx + 4, ly + 2, 4, 1)
+      ctx.fillStyle = '#47b08e'
+      ctx.fillRect(lx - 1, ly + 7, 3, 2)
+      ctx.fillRect(lx + 11, ly + 6, 3, 2)
+      ctx.fillStyle = '#ffbf47'
+      ctx.fillRect(lx + 3, ly + 10, 8, 4)
+      ctx.fillStyle = '#fff5b8'
+      ctx.fillRect(lx + 5, ly + 10, 4, 3)
       if (isModern) {
-        this.drawCircularGlow(ctx, lx + 7, ly + 12, 24, 'rgba(255, 224, 148, 0.30)', 'rgba(255, 166, 206, 0.10)', 'rgba(0,0,0,0)')
+        this.drawCircularGlow(ctx, lx + 7, ly + 12, 26, 'rgba(255, 224, 148, 0.34)', 'rgba(255, 166, 206, 0.12)', 'rgba(0,0,0,0)')
       }
 
       // Gently swaying sine-wave drifting pink sakura petals
@@ -6002,15 +6255,15 @@ export class MoonpawGameEngine {
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(332, 132 + bob2, 30, 6)
 
-      // Foreground Enlarged Fluffy Cloud Island Perch (y = 164)
-      ctx.fillStyle = '#c4baf2'
-      ctx.fillRect(216, 164, 148, 28)
-      ctx.fillRect(230, 158, 120, 10)
-      ctx.fillStyle = '#eef4ff'
-      ctx.fillRect(222, 162, 136, 14)
-      ctx.fillRect(236, 158, 108, 8)
+      // Foreground Enlarged Fluffy Stardew-Style Pixel Cloud Island Perch (y = 164)
+      this.drawPixelFoliageCluster(ctx, 250, 174, 38, 16, '#8778c7', '#bdb2ed', '#e3e8ff', '#f5f8ff', '#ffffff')
+      this.drawPixelFoliageCluster(ctx, 294, 172, 46, 18, '#8778c7', '#c4baf2', '#e8eeff', '#f7faff', '#ffffff')
+      this.drawPixelFoliageCluster(ctx, 336, 174, 34, 16, '#8778c7', '#bdb2ed', '#e3e8ff', '#f5f8ff', '#ffffff')
+      // Crisp sunlit cloud crest for stable character footing
       ctx.fillStyle = '#ffffff'
-      ctx.fillRect(242, 159, 96, 4)
+      ctx.fillRect(236, 162, 108, 4)
+      ctx.fillStyle = '#ffeaf5'
+      ctx.fillRect(242, 166, 96, 3)
 
       // Tiny Golden Starlight Stepladder resting against the cloud island (x = 248, y = 166)
       ctx.fillStyle = '#c48a2b'
@@ -6083,20 +6336,16 @@ export class MoonpawGameEngine {
         ctx.fillRect(rx, ry, 18 - (i % 4) * 3, 2)
       }
 
-      // Foreground Warm Wooden Pier Deck + Mooring Bollards (y = 164)
-      ctx.fillStyle = '#2e1824'
-      ctx.fillRect(204, 171, 10, 45)
-      ctx.fillRect(276, 171, 10, 45)
-      ctx.fillRect(348, 171, 10, 45)
-      ctx.fillStyle = '#5e353d'
-      ctx.fillRect(184, 164, 200, 9)
-      ctx.fillStyle = '#8f5556'
-      ctx.fillRect(184, 164, 200, 3)
+      // Foreground Warm Stardew-Style Tiled Wooden Pier Deck + Mooring Bollards (y = 164)
+      const campTiles = isModern ? this.sprites.modernTiles : this.sprites.tiles
+      this.drawTiledCampGround(ctx, 184, 384, 164, campTiles.harborTop, campTiles.harborBody, false)
       // Mooring Bollards (x = 204 & x = 350)
       for (const bx of [204, 348]) {
-        ctx.fillStyle = '#382230'
+        ctx.fillStyle = '#1b0f1f'
+        ctx.fillRect(bx - 2, 151, 14, 14)
+        ctx.fillStyle = '#472c3d'
         ctx.fillRect(bx, 154, 10, 10)
-        ctx.fillStyle = '#634354'
+        ctx.fillStyle = '#755366'
         ctx.fillRect(bx - 1, 152, 12, 3)
         ctx.fillStyle = '#d9b482'
         ctx.fillRect(bx + 1, 158, 8, 2)
@@ -6137,22 +6386,25 @@ export class MoonpawGameEngine {
         }
       }
     } else if (biome === 'cavern') {
-      // Crystal Mushroom Cavern Camp Hub!
-      ctx.fillStyle = '#0c1c36'
-      ctx.fillRect(184, 164, 200, 52)
-      ctx.fillStyle = '#3ba3a8'
-      ctx.fillRect(184, 164, 200, 4)
-      ctx.fillStyle = '#76f5e8'
-      ctx.fillRect(184, 164, 200, 2)
-      // Glowing camp mushrooms & crystals
-      ctx.fillStyle = '#254463'
+      // Crystal Mushroom Cavern Camp Hub — Stardew-style tiled bioluminescent stone & spotted mushrooms!
+      const campTiles = isModern ? this.sprites.modernTiles : this.sprites.tiles
+      this.drawTiledCampGround(ctx, 184, 384, 164, campTiles.cavernTop, campTiles.cavernBody, false)
+      // Glowing camp mushrooms with crisp outlines, shaded stems & luminous cap spots
+      ctx.fillStyle = '#13203b'
+      ctx.fillRect(211, 146, 7, 19)
+      ctx.fillStyle = '#3a6285'
       ctx.fillRect(212, 146, 5, 18)
-      ctx.fillStyle = '#5ef2e6'
-      ctx.fillRect(202, 139, 24, 8)
-      ctx.fillStyle = '#33285e'
+      ctx.fillStyle = '#6ea4c4'
+      ctx.fillRect(212, 146, 2, 18)
+      this.drawPixelFoliageCluster(ctx, 214, 142, 13, 6, '#13203b', '#23828a', '#4be8dc', '#9efcf4', '#ffffff')
+
+      ctx.fillStyle = '#1b1438'
+      ctx.fillRect(343, 148, 7, 17)
+      ctx.fillStyle = '#4c3b7a'
       ctx.fillRect(344, 148, 5, 16)
-      ctx.fillStyle = '#c48cff'
-      ctx.fillRect(336, 142, 20, 7)
+      ctx.fillStyle = '#7f69b8'
+      ctx.fillRect(344, 148, 2, 16)
+      this.drawPixelFoliageCluster(ctx, 346, 144, 11, 5, '#1b1438', '#6b42b5', '#b88cff', '#dfc4ff', '#ffffff')
       for (let i = 0; i < 7; i++) {
         const sx = 196 + ((i * 27 + Math.round(Math.sin(t + i) * 6)) % 176)
         const sy = 152 - ((Math.floor(t * 7) + i * 18) % 86)
@@ -6160,7 +6412,7 @@ export class MoonpawGameEngine {
         ctx.fillRect(sx, sy, 2, 2)
       }
     } else if (biome === 'observatory' || biome === 'eclipse' || biome === 'citadel') {
-      // Clockwork Observatory Camp Hub!
+      // Clockwork Observatory Camp Hub — tiled golden brass-stone deck & rotating astral clockwork!
       const rot = t * 0.45
       ctx.strokeStyle = 'rgba(224, 174, 72, 0.34)'
       ctx.lineWidth = 3
@@ -6172,12 +6424,8 @@ export class MoonpawGameEngine {
         ctx.fillStyle = '#ffe68c'
         ctx.fillRect(Math.round(286 + Math.cos(a) * 30) - 2, Math.round(98 + Math.sin(a) * 30) - 2, 4, 4)
       }
-      ctx.fillStyle = '#262754'
-      ctx.fillRect(184, 164, 200, 52)
-      ctx.fillStyle = '#d9a441'
-      ctx.fillRect(184, 164, 200, 4)
-      ctx.fillStyle = '#fff0a6'
-      ctx.fillRect(184, 164, 200, 1)
+      const campTiles = isModern ? this.sprites.modernTiles : this.sprites.tiles
+      this.drawTiledCampGround(ctx, 184, 384, 164, campTiles.observatoryTop, campTiles.observatoryBody, false)
     }
 
     // =========================================================================
